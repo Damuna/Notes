@@ -29,7 +29,8 @@
 
 ## Web
 
-
+1. Type Juggling: 
+   - php: loose comparison `==` or `!=` in the authentication method
 
 
 
@@ -166,11 +167,11 @@
 
 ### Public Exploits: 
 
-- `searchsploit`
+- `searchsploit` + Sploitus
 
 - google
 
-- [Exploit DB](https://www.exploit-db.com), [Rapid7 DB](https://www.rapid7.com/db/), or [Vulnerability Lab](https://www.vulnerability-lab.com)
+  - `[service_string] [action_to_perform] exploit poc cve github`
 
 - Metasploit:
 
@@ -303,16 +304,16 @@
 
 ## Windows
 
-- Users 
+- Users `whoami`
 
 - User Group:
 
   -  `id` and what can that group do
   -  [interesting_groups](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
 
-- User Privileges:
+- User Privileges: `whoami \priv`
 
-  
+  Search them on [win_privesc](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
 
 - Readable / Owned web files (for web application)
 
@@ -352,6 +353,7 @@
 - [ReverseShellGenerator](https://www.revshells.com/)
   
   - **php ** PentestMonkey
+  - **Windows:** PowerShell #3 in Base64
   
 - **TTY Upgrade**:
 
@@ -397,6 +399,8 @@
 - Access with curl
 
   ```curl http://SERVER_IP:PORT/shell.php?cmd=id```
+  
+- `/usr/share/webshells/`
 
 
 

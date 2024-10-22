@@ -29,6 +29,23 @@
 
 ## Web
 
+### Type Juggling
+
+PHP type juggling vulnerability occurs when a loose comparison operator  (== or!=) is used in the place of a strict comparison operator (===  or!==) in a situation where the attacker has access to one of the  variables being compared. 
+
+This vulnerability may cause the application to provide an unexpected  true or false response and may result in serious authorization and/or  authentication problems. 
+
+![image-20241021201733300](/home/damuna/.config/Typora/typora-user-images/image-20241021201733300.png)
+
+E.g. the following php code handling an authentication is vulnerable:
+
+```php
+if (strcmp($username , $_POST['username']) == 0) {
+	if (strcmp($password, $_POST['password']) == 0) {
+```
+
+To exploit it, one can change the POST data of the web request using BurpSuit in an empty array, since If we convert those variables into empty arrays ( `$username[] & $password[] `), the comparison will return NULL , and NULL == 0 will return true, causing the login to be successful.
+
 ## Hash
 
 Note that sometimes the credentials could be encrypted, in this case use `hashid` from the terminal to find out which kind of encryption is, and then use [crackstation](https://crackstation.net/) to try to crack it. 
@@ -279,17 +296,71 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
    -  `403`  forbidden to access the resource.
    -  `301`  being redirected (not a failure case)
 
+**Important files:**
 
+- `.swp` *swap files:* 
+
+  Swap files store the changes that are made to the buffer. If Vim or your computer crashes, the swap files allow you to recover those changes. Swap files also provide a way to avoid multiple instances of an editor from editing the same file.
+
+  - `vim -r [swap file]` to read it
+  - `strings [swap file]`  to only display the human-readable text if the file is unrecoverable
+
+- **robots.txt** 
+
+  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
 
 ### DNS Subdomains
 
-- Add DNS Server to the `/etc/resolv.conf` file.
+1. Manual search:
 
-- ```bash
-  gobuster dns -d {URL} -w /usr/share/secLists/Discovery/DNS/{WORDLIST}
-  ```
+   - **SSL certificate**
 
+   - **DNS records**
 
+     To display all the available DNS records:
+
+     ```bash
+     dig any [DOMAIN]
+     ```
+
+     The records output will be divided in categories:
+
+     - `A` records: We recognize the IP addresses that point to a specific (sub)domain. 
+     - `MX` records: show which mail  server is responsible for managing the emails for the company. 
+     - `NS` records: show which name servers are used to resolve the FQDN to IP addresses. Most hosting  providers use their own name servers, making it easier to identify the hosting provider.
+     - `TXT` records: often contains verification keys for different third-party providers and other security aspects of DNS, such as [SPF](https://datatracker.ietf.org/doc/html/rfc7208), [DMARC](https://datatracker.ietf.org/doc/html/rfc7489), and [DKIM](https://datatracker.ietf.org/doc/html/rfc6376), which are responsible for verifying and confirming the origin of the  emails sent.
+
+   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database.
+
+     Certificate Transparency (CT) is an Internet security standard for monitoring and auditing the issuance of digital certificates. When an Internet user interacts with a website, a trusted third party  is needed for assurance that the website is legitimate and that the  website's encryption key is valid.
+
+     To look them up from the terminal and filter by unique subdomains:
+
+     ```bash
+      curl -s https://crt.sh/\?q\=[DOMAIN]\&output\=json | jq . | grep name | cut -d":" -f2 | grep -v "CN=" | cut -d'"' -f2 | awk '{gsub(/\\n/,"\n");}1;' | sort -u | tee subdomainlist.txt
+     ```
+
+     Then one can grep the ones with an IP address:
+
+     ```bash
+     for i in $(cat subdomainlist);do host $i | grep "has address" | grep [DOMAIN]| cut -d" " -f4 >> ip-addresses.txt;done
+     ```
+
+     And use [Shodan](https://www.shodan.io/) to find devices and systems permanently connected to the Internet like `Internet of Things` (`IoT`). It searches the Internet for open TCP/IP ports and filters the systems according to specific terms and criteria.
+
+     ```bash
+     for i in $(cat ip-addresses.txt);do shodan host $i;done
+     ```
+
+     Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
+
+2. Fuzzing:
+
+   ```bash
+   gobuster dns -d {URL} -w /usr/share/secLists/Discovery/DNS/{WORDLIST}
+   ```
+
+3. Add DNS Server to the `/etc/resolv.conf` file.
 
 ### Other Informations
 
@@ -316,8 +387,6 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
     ```
 
 - **SSL/TLS Certificates:**bviewing the certificate could reveal details, such as the email  address and company name. These could potentially be used to conduct a  *phishing attack*.
-
-- **robots.txt** It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
 
 - **source code** `CRTL + U`
 
