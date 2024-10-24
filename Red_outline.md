@@ -253,7 +253,7 @@
 
   - `sudo -l` sudo privileges
   - `find / -perm -u=s -type f 2>/dev/null`: checks for *SUID binaries* 
-  - search on [gtfobins](https://gtfobins.github.ioh) bin files with relative privileges
+  - search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
 
 - Readable / Owned web files (for web application)
 
@@ -304,16 +304,14 @@
 
 ## Windows
 
-- Users `whoami`
+- `systeminfo`
 
-- User Group:
+- `net user`
 
-  -  `id` and what can that group do
-  -  [interesting_groups](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
+- Users `whoami /all`
 
-- User Privileges: `whoami \priv`
-
-  Search them on [win_privesc](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
+  - CHeck for non mandatory groups
+  - Search them on [win_privesc](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
 
 - Readable / Owned web files (for web application)
 
@@ -357,13 +355,13 @@
   
 - **TTY Upgrade**:
 
-  - script method
+  - script method (if you don't have python)
 
     ```bash
     script -qc /bin/bash /dev/null
     ```
 
-  - python/stty method
+  - python/stty method (better)
 
   ```bash
   # In reverse shell
