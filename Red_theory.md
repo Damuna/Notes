@@ -473,15 +473,42 @@ Public Exploits:**
 
 ##  Network
 
-### 21 FTP 
+### DNS T53
 
-**Type:** Authentication, Read/Write
+**Type:**
 
-In an FTP connection, two channels are opened. First, the client and server establish a control channel through `TCP port 21`. The client sends commands to the server, and the server returns status  codes. Then both communication participants can establish the data  channel via `TCP port 20`. This channel is used exclusively  for data transmission, and the protocol watches for errors during this  process. If a connection is broken off during transmission, the  transport can be resumed after re-established contact.
+**Generalities:**
 
-A distinction is made between `active` and `passive` FTP. In the active variant, the client establishes the connection as  described via TCP port 21 and thus informs the server via which  client-side port the server can transmit its responses. However, if a  firewall protects the client, the server cannot reply because all  external connections are blocked. For this purpose, the `passive mode` has been developed. Here, the server announces a port through which the client can establish the data channel. Since the client initiates the  connection in this method, the firewall does not block the transfer.
+- Purpose:
 
-[List of FTP return codes](https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes)
+  `Domain Name System` (`DNS`) is a system for resolving computer names into IP addresses. Globally distributed DNS servers translate domain names into IP  addresses and thus control which server a user can reach via a  particular domain. 
+
+- Types of DNS Servers:
+
+  - DNS root server
+  - Authoritative name server
+  - Non-authoritative name server
+  - Caching server
+  - Forwarding server
+  - Resolver
+
+### FTP T21
+
+**Type:** 
+
+Authentication, Read/Write
+
+**Generalities:**
+
+- Protocol:
+
+  In an FTP connection, two channels are opened. First, the client and server establish a control channel through `TCP port 21`. The client sends commands to the server, and the server returns status  codes. Then both communication participants can establish the data  channel via `TCP port 20`. This channel is used exclusively  for data transmission, and the protocol watches for errors during this  process. If a connection is broken off during transmission, the  transport can be resumed after re-established contact.
+
+- Active vs Passive mode:
+
+  A distinction is made between `active` and `passive` FTP. In the active variant, the client establishes the connection as  described via TCP port 21 and thus informs the server via which  client-side port the server can transmit its responses. However, if a  firewall protects the client, the server cannot reply because all  external connections are blocked. For this purpose, the `passive mode` has been developed. Here, the server announces a port through which the client can establish the data channel. Since the client initiates the  connection in this method, the firewall does not block the transfer.
+
+- [List of FTP return codes](https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes)
 
 **Authentication:**
 
@@ -530,6 +557,167 @@ A distinction is made between `active` and `passive` FTP. In the active variant,
 - `/etc/ftpusers` is used to deny certain users access to the FTP service.
 
 
+
+### NFS TU111, TU2049
+
+**Type:** 
+
+Reade/Write, Authentication only for v4
+
+**Generalities:**
+
+- Purpose:
+
+  Access file systems over a network as if they were local and is used between Linux and Unix systems.
+
+- Version 4 vs the previous:
+
+  In version 3 of NFS, only the client computer (i.e., the machine trying to connect to the NFS server) needs to be authenticated. Once the client is authenticated, any user on that client machine has access based on the client’s access permissions, without further authentication. In version 4, NFS, individual users are authenticated rather than just the client machine. Also, only one UDP or TCP port `2049` is used to run the service, which simplifies the use of the protocol across firewalls.
+
+- Protocol:
+
+  NFS is based on the [Open Network Computing Remote Procedure Call](https://en.wikipedia.org/wiki/Sun_RPC) (`ONC-RPC`/`SUN-RPC`) protocol exposed on `TCP` and `UDP` ports `111`, which uses [External Data Representation](https://en.wikipedia.org/wiki/External_Data_Representation) (`XDR`) for the system-independent exchange of data. The NFS protocol has no mechanism for authentication or authorization. Instead, authentication is completely shifted to the RPC protocol's options. The most common authentication is via UNIX `UID`/`GID` and `group memberships`.
+
+**Configuration**
+
+- `/etc/exports`
+  - The [NFS Exports Table](http://manpages.ubuntu.com/manpages/trusty/man5/exports.5.html) shows the possible options of the file
+  - First, the folder is specified and made available to others, and then  the rights they will have on this NFS share are connected to a host or a subnet.
+  - Possible options:
+    - `rw`  Read and write permissions. 
+      - Dangerous
+    - `ro`  Read only permissions.
+    - `sync`  Synchronous data transfer. (A bit slower)
+    - `async`  Asynchronous data transfer. (A bit faster)
+    - `secure`  Ports above 1024 will not be used.
+    - `insecure`  Ports above 1024 will be used. 
+      - Dangerous: users can use ports above 1024. The first 1024 ports can only be used by root. This prevents the fact that no users can use sockets above port 1024 for the NFS service and interact with it.
+    - `no_subtree_check`  This option disables the checking of subdirectory trees.
+    - `root_squash`  Assigns all permissions to files of root UID/GID 0 to the UID/GID of anonymous, which prevents `root` from accessing files on an NFS mount. 
+      - Dangerous: if set, we cannot edit the `backup.sh` file even as root.
+    - `nohide`  If another file system was mounted below an exported directory, this directory is exported by its own exports entry. 
+      - Dangerous
+
+**Navigation**
+
+- Show available Shares that can be mouted
+
+  ```bash
+  showmount -e [IP]
+  ```
+
+- Mount a Share
+
+  ```bash
+  $ mkdir target-NFS
+  $ sudo mount -t nfs [IP]:/ ./target-NFS/ -o nolock
+  $ cd target-NFS
+  $ tree .
+  ```
+
+- List Content with UIDs & GUIDs
+
+  ```bash
+  ls -n mnt/nfs/
+  ```
+
+- Unmount
+
+  ```bash
+  $ cd ..
+  $ sudo umount ./target-NFS
+  ```
+
+  
+
+**Exploit:**
+
+- If we have access to the system via SSH and want to read files from another folder that a specific user can read, we would need to upload a shell to the NFS share that has the `SUID` of that user and then run the shell via the SSH user.
+
+
+
+
+
+### SMB T137-9/T445
+
+**Type:** 
+
+Read/Write, Authentication
+
+**Generalities:**
+
+- Purpose:
+
+  - regulates access to files and entire directories and other network resources such as printers, routers, or interfaces released for the network. 
+
+  - Information exchange between different system processes 
+
+
+  - The client can communicate with other  participants in the same network to access files or services shared with it on the network
+
+  - provide arbitrary parts of its local file system as shares.
+
+
+- Workgroups:
+
+  In a network, each host participates in the same `workgroup`. A workgroup is a group name that identifies an arbitrary collection of computers and their resources on an SMB network.
+
+**Footprinting**
+
+- nmap
+
+- rpccclient
+
+  ```bash
+  rcpclient -U "user" [IP]
+  ```
+
+  - `srvinfo`  Server information.
+  - `enumdomains`  Enumerate all domains that are deployed in the network.
+  - `querydominfo`  Provides domain, server, and user information of deployed domains.
+  - `netshareenumall`  Enumerates all available shares.
+  - `netsharegetinfo <share>`  Provides information about a specific share.
+  - `enumdomusers`  Enumerates all domain users.
+  - `queryuser <RID>`  Provides information about a specific user.
+
+  
+
+  The query `queryuser <RID>` is mostly allowed based on the RID. So we can use the rpcclient to brute force the RIDs to get information. Because we may not know who has been assigned which RID, we know that  we will get information about it as soon as we query an assigned RID:
+
+  ```bash
+  for i in $(seq 500 1100);do rpcclient -N -U "" 10.129.14.128 -c "queryuser 0x$(printf '%x\n' $i)" | grep "User Name\|user_rid\|group_rid" && echo "";done
+  ```
+
+  - `seq 500 1100` generates a sequence of numbers from 500 to 1100
+  - `-c "queryuser 0x$(printf '%x\n' $i)"`: Executes the `queryuser` command to query information about a user by their RID (Relative Identifier)
+
+-  [SMBMap](https://github.com/ShawnDEvans/smbmap)
+
+- [CrackMapExec](https://github.com/byt3bl33d3r/CrackMapExec)
+
+**Navigation:**
+
+- `smbclient -N -L //[IP ADDRESS]{/FOLDER}`
+  
+  - `-N` anonymous access
+  - `-L` display the list of shares (only to display without access!!)
+  
+    The ones accessible without authentication don't have the dollar sign `$`
+- `cd`, `ls`, and to download a file `get`.
+- `!<cmd>` to execute local system commands without interrupting the connection
+- `smbstatus` shows the version and who, from which host, and which share the client is connected
+- `psexec` to open a shell
+
+**Exploit**
+
+- Anonymous Login
+- EternalBlue: anything that uses SMBv1 is at risk
+
+**Configuration**
+
+- `/etc/samba/smb.conf` to change settings
+- Dangerous settings:
+  - `browseable - yes`: Allow listing available shares in the current share
 
 ### RDP 3389
 
@@ -580,17 +768,6 @@ Once inside redis environment `info` return information about the  server
 ### msSQL 1433
 
 -  `mssqlclient.py [[domain/]username[:password]@]<targetName or address> -windows-auth`
-
-
-
-### SMB 445
-
-**Type:** read/write
-
-- `smbclient\\\\{ip}\\{share}`
-- `smbclient -N -L \\\\[IP ADDRESS]`
-- `cd`, `ls`, and to download a file `mget`.
-- `psexec` to open a shell
 
 ### RSyinc
 
