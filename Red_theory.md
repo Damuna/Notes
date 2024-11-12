@@ -280,129 +280,8 @@ Possible protocols:
 
 ## Service Hacking
 
-### DNS T53
 
-#### Generalities:
-
-- Purpose:
-
-  - DNS servers translate domain names into IP addresses and thus control which server a user can reach via a  particular domain. 
-  - It stores and outputs additional information about the services associated with a domain.
-
-- Encryption:
-
-  DNS is mainly unencrypted. Devices on the local WLAN and Internet  providers can therefore hack in and spy on DNS queries. Since this poses a privacy risk, there are now some solutions for DNS encryption. By  default, IT security professionals apply `DNS over TLS` (`DoT`) or `DNS over HTTPS` (`DoH`) here. In addition, the network protocol `DNSCrypt` also encrypts the traffic between the computer and the name server.
-
-- Types of DNS Servers:
-
-  - *DNS root server*
-
-    responsible for the top-level domains (`TLD`). As the last instance, they are only requested if the name server does not respond. 
-
-  - *Authoritative name server*
-
-    hold authority for a particular zone. They only answer queries from their area of responsibility,
-
-  - *Non-authoritative name server*
-
-     they collect information on specific DNS zones
-
-  - *Caching server*
-
-    cache information from other name servers for a specified period. The  authoritative name server determines the duration of this storage.
-
-  - *Forwarding server*
-
-    forward DNS queries to another DNS server.
-
-  - *Resolver*
-
-    perform name resolution locally
-
-- DNS records:
-
-  - `A`  Returns an IPv4 address of the requested domain 
-  - `AAAA`  Returns an IPv6 address of the requested domain.
-  - `MX`  Returns the responsible mail servers 
-  - `NS`  Returns the DNS servers (nameservers) of the domain.
-  - `TXT`  Contains various information
-  - `CNAME`  Serves as an alias for another domain name.
-  - `PTR`  Converts IP addresses into valid domain names.
-  - `SOA`  Provides information about the corresponding DNS zone and email address of the administrative contact.
-
-
-**Configuration**
-
-- *Local DNS configurations files*
-  - [Bind9](https://www.isc.org/bind/) is often used on Linux
-  - Different zones are defined here
-  - The local conf files are usually:
-    - `named.conf.local`
-    - `named.conf.options`
-    - `named.conf.log`
-  - Dangerous settings:
-    - `allow-query`  Defines which hosts are allowed to send requests to the DNS server.
-    - `allow-recursion`  Defines which hosts are allowed to send recursive requests to the DNS server.
-    - `allow-trnasfer`  Defines which hosts are allowed to receive zone transfers from the DNS server.
-    - `zone-statistics`  Collects statistical data of zones.
-  
-- *zone files* `/etc/bind/db.domain.com`
-
-  Text file that describes a DNS zone with the BIND file format. 
-
-   There must be precisely one `SOA` record (usually at the beginning) and at least one `NS` record. 
-
-- *reverse name resolution files* `/etc/bind/db.10.129.14`
-
-  The computer name (FQDN) is assigned to the last octet of an IP address, which corresponds to the respective host, using a `PTR` record., which are responsible for the reverse translation of IP addresses into names.
-
-#### Footprinting
-
-- Name Servers:
-
-  ```bash
-  dig ns [NAME_SERVER] @[DNS SERVER] {+short}
-  ```
-
-- Version:
-
-  ```bash
-  dig CH TXT version.bind [DNS SERVER]
-  ```
-
-- View all available records
-
-  ```bash
-  dig ANY [NAME_SERVER] @[DNS SERVER]
-  ```
-
-- Zone Transfer
-
-  Transfer of zones to another server in DNS, This procedure is abbreviated `Asynchronous Full Transfer Zone` (`AXFR`)
-
-   DNS server that serves as a direct source for synchronizing a zone file is called a master. A DNS server that obtains zone data from a master  is called a slave. The slave fetches the `SOA` record of the relevant zone from  the master at certain intervals, the so-called refresh time, usually one hour, and compares the serial numbers. If the serial number of the SOA  record of the master is greater than that of the slave, the data sets no longer match.
-
-  ```
-  dig axfr [NAME_SERVER] @[DNS SERVER]
-  ```
-
-  If the administrator used a subnet for the `allow-transfer` option or set it to `any`, everyone would query the entire zone file at the DNS server. In addition, other zones can be queried, which may even show internal IP addresses and hostnames.
-
-  ```
-  dig axfr [ZONE].[NAME_SERVER] @[DNS SERVER]
-  ```
-
-  The individual `A` records with the hostnames can also be found out with the help of a brute-force attack:
-
-  - If the Zone transfer fails, it means that you don't have access to those subdomain, thus you can do *SubDomain Brute Forcing* [DNSenum](https://github.com/fwaeytens/dnsenum)
-
-
-  ```bash
-  dnsenum --dnsserver [DNS_SERVER] --enum -p 0 -s 0 -o subdomains.txt -f /opt/useful/seclists/Discovery/DNS/subdomains-top1million-110000.txt [DOMAIN]
-  ```
-
-
-### FTP T21
+### 21 - FTP
 
 #### Generalities:
 
@@ -464,7 +343,277 @@ Authentication, Read/Write
 - Possible settings: [man page](http://vsftpd.beasts.org/vsftpd_conf.html).
 - `/etc/ftpusers` is used to deny certain users access to the FTP service.
 
-### IMAP T143, T993
+### 22 - SSH
+
+#### Generalities
+
+- **Type:** authentication
+
+- Authentication protocol:
+
+  1. Server Authentication:
+
+     The server sends an encrypted certificate to the client 
+
+  2. Client authentication:
+
+     The client enters a password, which was saved as an encrypted hash by the server
+
+- Authentication methods:
+
+  - Password authentication
+
+  - Public-key authentication
+
+    The private key is stored on the user's own computer and secured with a passphrase. Public keys are also stored on the server., and can be decrypted with the private key.
+
+  - Host-based authentication
+
+  - Keyboard authentication
+
+  - Challenge-response authentication
+
+  - GSSAPI authentication
+
+#### Configuration
+
+
+
+#### Exploit
+
+-  `SSH-1` is vulnerable to `MITM` attacks
+
+### 25, 465, 587 - SMTP
+
+#### Generalities:
+
+**Type: ** Email
+
+- Purpose:
+
+  - Sends emails in an IP network, often combined with the IMAP or POP3 protocols, which can fetch emails and send emails.
+  - Prevents spam using authentication mechanisms that allow only authorized users to send e-mails.
+
+- Used with SSL/TLS encryption.
+
+- Protocol:
+
+  ![image-20241104144603042](/home/damuna/.config/Typora/typora-user-images/image-20241104144603042.png)
+
+  1.  Authentication
+  2.  After sending his e-mail, the SMTP client, disassembles it into a header and a body and uploads both to the SMTP server.
+  3.  Sometimes there is a *Mail Submission Agent* (`MSA`), or *Relay Server*, which checks the validity, i.e., the origin of the e-mail. 
+  4.  The *Mail Transfer Agent* (`MTA`), the software basis for sending and receiving e-mails, checks the e-mail for size and spam and then stores it. 
+  5.  Email is reassembled.
+  6.  The *Mail Delivery Agent* (`MDA`) transfers it to the recipient's mailbox.
+
+- Downsides:
+
+  - No usable delivery confirmation: only an English-language error message, including the header of the undelivered message, is returned.
+
+  - Users are not authenticated when a connection is established, and the sender of an email is therefore unreliable. 
+
+    As a result, open SMTP relays are often misused to send spam en masse. The originators use arbitrary fake sender addresses for this purpose to not be traced (mail spoofing). 
+
+  - For this purpose, an extension for SMTP has been developed called `Extended SMTP` (`ESMTP`). When people talk about SMTP in general, they usually mean ESMTP.
+
+#### Configuration
+
+- `/etc/postfix/main.cf | grep -v "#" | sed -r "/^\s*$/d"`
+
+- Dangereous settings:
+
+  - Open Relay Configuration
+
+    `mynetworks = 0.0.0.0/0`
+
+    With this setting, this SMTP server can send fake emails and thus  initialize communication between multiple parties. Another attack  possibility would be to spoof the email and read it.
+
+#### Interaction
+
+- `telnet` list of response code [here](https://serversmtp.com/smtp-error/)
+
+  - `AUTH PLAIN`  authenticate the client.
+  - `HELO`  logs in with its computer name and thus starts the session.
+  - `MAIL FROM`  names the email sender.
+  - `RCPT TO`  names the email recipient.
+  - `DATA`  initiates the transmission of the email.
+  - `RSET`  aborts the initiated transmission but keeps the connection between client and server.
+  - `VRFY`  checks if a mailbox is available for message transfer, can enumerate existing users on the system
+  - `EXPN`  checks if a mailbox is available for messaging with this command.
+  - `NOOP`  equests a response from the server to prevent disconnection due to time-out.
+  - `QUIT`  terminates the session.
+
+- ```bash
+  telnet <ip> <port>
+  # Basic interactions
+  HELO <domain>
+  EHLO <domain>
+  VRFY root
+  VRFY testuser
+  # Sometimes we may have to work through a web proxy. 
+  CONNECT <ip>:<port> HTTP/1.0
+  # Send an email
+  MAIL FROM: <[USER]@[DOMAIN]>
+  RCPT TO: <[USER]@[DOMAIN]> NOTIFY=success,failure
+  DATA
+  ```
+
+#### Footprinting
+
+```bash
+smtp-user-enum -M <method VRFY, EXPN, RCPT > -u <WORDLISRT> -t <ip> -D dom
+```
+
+To try with domain usually only for RCPT.
+
+### 53 - DNS
+
+#### Generalities:
+
+- Purpose:
+
+  - DNS servers translate domain names into IP addresses and thus control which server a user can reach via a  particular domain. 
+  - It stores and outputs additional information about the services associated with a domain.
+
+- Encryption:
+
+  DNS is mainly unencrypted. Devices on the local WLAN and Internet  providers can therefore hack in and spy on DNS queries. Since this poses a privacy risk, there are now some solutions for DNS encryption. By  default, IT security professionals apply `DNS over TLS` (`DoT`) or `DNS over HTTPS` (`DoH`) here. In addition, the network protocol `DNSCrypt` also encrypts the traffic between the computer and the name server.
+
+- Types of DNS Servers:
+
+  - *DNS root server*
+
+    responsible for the top-level domains (`TLD`). As the last instance, they are only requested if the name server does not respond. 
+
+  - *Authoritative name server*
+
+    hold authority for a particular zone. They only answer queries from their area of responsibility,
+
+  - *Non-authoritative name server*
+
+    they collect information on specific DNS zones
+
+  - *Caching server*
+
+    cache information from other name servers for a specified period. The  authoritative name server determines the duration of this storage.
+
+  - *Forwarding server*
+
+    forward DNS queries to another DNS server.
+
+  - *Resolver*
+
+    perform name resolution locally
+
+- DNS records:
+
+  - `A`  Returns an IPv4 address of the requested domain 
+  - `AAAA`  Returns an IPv6 address of the requested domain.
+  - `MX`  Returns the responsible mail servers 
+  - `NS`  Returns the DNS servers (nameservers) of the domain.
+  - `TXT`  Contains various information
+  - `CNAME`  Serves as an alias for another domain name.
+  - `PTR`  Converts IP addresses into valid domain names.
+  - `SOA`  Provides information about the corresponding DNS zone and email address of the administrative contact.
+
+
+**Configuration**
+
+- *Local DNS configurations files*
+
+  - [Bind9](https://www.isc.org/bind/) is often used on Linux
+  - Different zones are defined here
+  - The local conf files are usually:
+    - `named.conf.local`
+    - `named.conf.options`
+    - `named.conf.log`
+  - Dangerous settings:
+    - `allow-query`  Defines which hosts are allowed to send requests to the DNS server.
+    - `allow-recursion`  Defines which hosts are allowed to send recursive requests to the DNS server.
+    - `allow-trnasfer`  Defines which hosts are allowed to receive zone transfers from the DNS server.
+    - `zone-statistics`  Collects statistical data of zones.
+
+- *zone files* `/etc/bind/db.domain.com`
+
+  Text file that describes a DNS zone with the BIND file format. 
+
+   There must be precisely one `SOA` record (usually at the beginning) and at least one `NS` record. 
+
+- *reverse name resolution files* `/etc/bind/db.10.129.14`
+
+  The computer name (FQDN) is assigned to the last octet of an IP address, which corresponds to the respective host, using a `PTR` record., which are responsible for the reverse translation of IP addresses into names.
+
+#### Footprinting
+
+- Name Servers:
+
+  ```bash
+  dig ns [NAME_SERVER] @[DNS SERVER] {+short}
+  ```
+
+- Version:
+
+  ```bash
+  dig CH TXT version.bind [DNS SERVER]
+  ```
+
+- View all available records
+
+  ```bash
+  dig ANY [NAME_SERVER] @[DNS SERVER]
+  ```
+
+- Zone Transfer
+
+  Transfer of zones to another server in DNS, This procedure is abbreviated `Asynchronous Full Transfer Zone` (`AXFR`)
+
+   DNS server that serves as a direct source for synchronizing a zone file is called a master. A DNS server that obtains zone data from a master  is called a slave. The slave fetches the `SOA` record of the relevant zone from  the master at certain intervals, the so-called refresh time, usually one hour, and compares the serial numbers. If the serial number of the SOA  record of the master is greater than that of the slave, the data sets no longer match.
+
+  ```
+  dig axfr [NAME_SERVER] @[DNS SERVER]
+  ```
+
+  If the administrator used a subnet for the `allow-transfer` option or set it to `any`, everyone would query the entire zone file at the DNS server. In addition, other zones can be queried, which may even show internal IP addresses and hostnames.
+
+  ```
+  dig axfr [ZONE].[NAME_SERVER] @[DNS SERVER]
+  ```
+
+  The individual `A` records with the hostnames can also be found out with the help of a brute-force attack:
+
+  - If the Zone transfer fails, it means that you don't have access to those subdomain, thus you can do *SubDomain Brute Forcing* [DNSenum](https://github.com/fwaeytens/dnsenum)
+
+
+  ```bash
+dnsenum --dnsserver [DNS_SERVER] --enum -p 0 -s 0 -o subdomains.txt -f /opt/useful/seclists/Discovery/DNS/subdomains-top1million-110000.txt [DOMAIN]
+  ```
+
+
+
+### 69u - TFTP
+
+**Type: ** Read/write
+
+Like FTP, but without needing authentication.
+
+```
+tftp
+>
+```
+
+| **Commands** | **Description**                                              |
+| ------------ | ------------------------------------------------------------ |
+| `connect`    | Sets the remote host, and optionally the port, for file transfers. |
+| `get`        | Transfers a file or set of files from the remote host to the local host. |
+| `put`        | Transfers a file or set of files from the local host onto the remote host. |
+| `quit`       | Exits tftp.                                                  |
+| `status`     | Shows the current status of tftp, including the current transfer  mode (ascii or binary), connection status, time-out value, and so on. |
+| `verbose`    | Turns verbose mode, which displays additional information during file transfer, on or off. |
+
+
+
+### 110, 995 - POP3
 
 #### Generalities:
 
@@ -472,9 +621,8 @@ Authentication, Read/Write
 
 - Purpose:
   - Access emails from a mail server
-  - Allows online management on the server (supports folders)
+  - Allows online listing retrieving and deleting emails
   - Authentication to the desire mailbox
-  - No-encryption: transmits commands, emails, or usernames and passwords in plain text.
   - SSL/TLS to require an encrypted session (on the higher port if present)
 
 #### Configuration
@@ -498,32 +646,32 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 - If we discover the credentials:
 
   ```bash
-  curl -k 'imaps://[IP]' --user user:password -v
+  curl -k 'pop3s://[IP]' --user user:password -v
   ```
 
   -  `verbose` (`-v`) we can see the version of TLS used for  encryption, further details of the SSL certificate, and even the banner, which could contain the version of the mail server.
 
-- To connect via openssl (also `netcat` is possible):
+- To connect via openssl:
 
   ```bash
-  openssl s_client -connect [IP]:imaps
+  openssl s_client -connect [IP]:pop3s
   ```
 
-| **Command**                     | **Description**                                              |
-| ------------------------------- | ------------------------------------------------------------ |
-| `1 LOGIN username password`     | User's login.                                                |
-| `1 LIST "" *`                   | Lists all directories.                                       |
-| `1 CREATE "INBOX"`              | Creates a mailbox with a specified name.                     |
-| `1 DELETE "INBOX"`              | Deletes a mailbox.                                           |
-| `1 RENAME "ToRead" "Important"` | Renames a mailbox.                                           |
-| `1 LSUB "" *`                   | Returns a subset of names from the set of names that the User has declared as being `active` or `subscribed`. |
-| `1 SELECT INBOX`                | Selects a mailbox so that messages in the mailbox can be accessed. |
-| `1 UNSELECT INBOX`              | Exits the selected mailbox.                                  |
-| `1 FETCH <ID> all`              | Retrieves data associated with a message in the mailbox.     |
-| `1 CLOSE`                       | Removes all messages with the `Deleted` flag set.            |
-| `1 LOGOUT`                      | Closes the connection with the IMAP server.                  |
+| **Command**     | **Description**                                             |
+| --------------- | ----------------------------------------------------------- |
+| `USER username` | Identifies the user.                                        |
+| `PASS password` | Authentication of the user using its password.              |
+| `STAT`          | Requests the number of saved emails from the server.        |
+| `LIST`          | Requests from the server the number and size of all emails. |
+| `RETR id`       | Requests the server to deliver the requested email by ID.   |
+| `DELE id`       | Requests the server to delete the requested email by ID.    |
+| `CAPA`          | Requests the server to display the server capabilities.     |
+| `RSET`          | Requests the server to reset the transmitted information.   |
+| `QUIT`          | Closes the connection with the POP3 server.                 |
 
-### NFS TU111, TU2049
+​                          
+
+### 111tu, 2049tu - NFS
 
 #### Generalities:
 
@@ -597,65 +745,7 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 
 - If we have access to the system via SSH and want to read files from another folder that a specific user can read, we would need to upload a shell to the NFS share that has the `SUID` of that user and then run the shell via the SSH user.
 
-### POP3 T110, T995
-
-#### Generalities:
-
-**Type:** mail
-
-- Purpose:
-  - Access emails from a mail server
-  - Allows online listing retrieving and deleting emails
-  - Authentication to the desire mailbox
-  - SSL/TLS to require an encrypted session (on the higher port if present)
-
-#### Configuration
-
-In the documentation of Dovecot, we can find the individual [core settings](https://doc.dovecot.org/settings/core/) and [service configuration](https://doc.dovecot.org/configuration_manual/service_configuration/) options.
-
-**Dangerous Settings:**
-
-| **Setting**               | **Description**                                              |
-| ------------------------- | ------------------------------------------------------------ |
-| `auth_debug`              | Enables all authentication debug logging.                    |
-| `auth_debug_passwords`    | This setting adjusts log verbosity, the submitted passwords, and the scheme gets logged. |
-| `auth_verbose`            | Logs unsuccessful authentication attempts and their reasons. |
-| `auth_verbose_passwords`  | Passwords used for authentication are logged and can also be truncated. |
-| `auth_anonymous_username` | This specifies the username to be used when logging in with the ANONYMOUS SASL mechanism. |
-
-#### Interaction
-
-- nmap will return the available commands that can be executed
-
-- If we discover the credentials:
-
-  ```bash
-  curl -k 'pop3s://[IP]' --user user:password -v
-  ```
-
-  -  `verbose` (`-v`) we can see the version of TLS used for  encryption, further details of the SSL certificate, and even the banner, which could contain the version of the mail server.
-
-- To connect via openssl:
-
-  ```bash
-  openssl s_client -connect [IP]:pop3s
-  ```
-
-| **Command**     | **Description**                                             |
-| --------------- | ----------------------------------------------------------- |
-| `USER username` | Identifies the user.                                        |
-| `PASS password` | Authentication of the user using its password.              |
-| `STAT`          | Requests the number of saved emails from the server.        |
-| `LIST`          | Requests from the server the number and size of all emails. |
-| `RETR id`       | Requests the server to deliver the requested email by ID.   |
-| `DELE id`       | Requests the server to delete the requested email by ID.    |
-| `CAPA`          | Requests the server to display the server capabilities.     |
-| `RSET`          | Requests the server to reset the transmitted information.   |
-| `QUIT`          | Closes the connection with the POP3 server.                 |
-
-​                          
-
-### SMB T137-9/T445
+### 137-9, 445 - SMB
 
 #### Generalities:
 
@@ -733,9 +823,70 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 - Dangerous settings:
   - `browseable - yes`: Allow listing available shares in the current share
 
-### SNMP U161
+### 143, 993 IMAP
 
 #### Generalities:
+
+**Type:** mail
+
+- Purpose:
+  - Access emails from a mail server
+  - Allows online management on the server (supports folders)
+  - Authentication to the desire mailbox
+  - No-encryption: transmits commands, emails, or usernames and passwords in plain text.
+  - SSL/TLS to require an encrypted session (on the higher port if present)
+
+#### Configuration
+
+In the documentation of Dovecot, we can find the individual [core settings](https://doc.dovecot.org/settings/core/) and [service configuration](https://doc.dovecot.org/configuration_manual/service_configuration/) options.
+
+**Dangerous Settings:**
+
+| **Setting**               | **Description**                                              |
+| ------------------------- | ------------------------------------------------------------ |
+| `auth_debug`              | Enables all authentication debug logging.                    |
+| `auth_debug_passwords`    | This setting adjusts log verbosity, the submitted passwords, and the scheme gets logged. |
+| `auth_verbose`            | Logs unsuccessful authentication attempts and their reasons. |
+| `auth_verbose_passwords`  | Passwords used for authentication are logged and can also be truncated. |
+| `auth_anonymous_username` | This specifies the username to be used when logging in with the ANONYMOUS SASL mechanism. |
+
+#### Interaction
+
+- nmap will return the available commands that can be executed
+
+- If we discover the credentials:
+
+  ```bash
+  curl -k 'imaps://[IP]' --user user:password -v
+  ```
+
+  -  `verbose` (`-v`) we can see the version of TLS used for  encryption, further details of the SSL certificate, and even the banner, which could contain the version of the mail server.
+
+- To connect via openssl (also `netcat` is possible):
+
+  ```bash
+  openssl s_client -connect [IP]:imaps
+  ```
+
+| **Command**                     | **Description**                                              |
+| ------------------------------- | ------------------------------------------------------------ |
+| `1 LOGIN username password`     | User's login.                                                |
+| `1 LIST "" *`                   | Lists all directories.                                       |
+| `1 CREATE "INBOX"`              | Creates a mailbox with a specified name.                     |
+| `1 DELETE "INBOX"`              | Deletes a mailbox.                                           |
+| `1 RENAME "ToRead" "Important"` | Renames a mailbox.                                           |
+| `1 LSUB "" *`                   | Returns a subset of names from the set of names that the User has declared as being `active` or `subscribed`. |
+| `1 SELECT INBOX`                | Selects a mailbox so that messages in the mailbox can be accessed. |
+| `1 UNSELECT INBOX`              | Exits the selected mailbox.                                  |
+| `1 FETCH <ID> all`              | Retrieves data associated with a message in the mailbox.     |
+| `1 CLOSE`                       | Removes all messages with the `Deleted` flag set.            |
+| `1 LOGOUT`                      | Closes the connection with the IMAP server.                  |
+
+
+
+### 161u - SNMP
+
+#### Generalities
 
 **Type:** Database
 
@@ -743,7 +894,7 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   - monitor network devices
   - handle configuration tasks and change settings remotely
   - SNMP-enabled hardware includes routers, switches, servers, IoT devices...
-  - Sends traps over UDP port 162: data packets sent from the SNMP server to the client without  being explicitly requested. If a device is configured accordingly, an  SNMP trap is sent to the client once a specific event occurs on the  server-side. For the SNMP client and server to exchange the respective values, the  available SNMP objects must have unique addresses known on both sides. 
+  - Sends traps over UDP port 161: data packets sent from the SNMP server to the client without  being explicitly requested. If a device is configured accordingly, an  SNMP trap is sent to the client once a specific event occurs on the  server-side. For the SNMP client and server to exchange the respective values, the  available SNMP objects must have unique addresses known on both sides. 
 - MIB
   - Text file in which all queryable SNMP objects of a device are listed as a tree
   - It contains at least one `Object Identifier` (`OID`) (a node in the tree, uniquely identified by a sequence of numbers), which, in addition to the necessary unique address and a name, also  provides information about the type, access rights, and a description of the respective object.
@@ -783,100 +934,257 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 
     [crunch](https://secf00tprint.github.io/blog/passwords/crunch/advanced/en) to create custom wordlists
 
-3. Brute-force OIDs after a community string is knows
+3. Brute-force OIDs after a community string is known
 
    ```bash
    braa <community string>@<IP>:.1.3.6.*
    ```
 
-   Remember to try also the community string `public`
+### 623u - IPMI
 
+#### Generalities
 
-
-### SMTP T25 v T587
-
-#### Generalities:
-
-**Type: ** Email
-
+- **Type:**
 - Purpose:
+  - manage and monitor systems even if they are powered off or in an unresponsive state
+  -  remote upgrades
+  - Before the OS has booted to modify BIOS settings
+  - When the host is fully powered down
+  - Access to a host after a system failure
+  - querying inventory information, reviewing hardware logs, and alerting using SNMP.
+- Structure
+  - The host system can be powered off, but the IPMI module requires a power source and a LAN connection to work correctly.
+  - Systems that use the IPMI protocol are called Baseboard Management Controllers (BMCs).
+  - If we can access a BMC during an assessment, we would gain full access  to the host motherboard and be able to monitor, reboot, power off, or  even reinstall the host operating system. 
 
-  - Sends emails in an IP network, often combined with the IMAP or POP3 protocols, which can fetch emails and send emails.
-  - Prevents spam using authentication mechanisms that allow only authorized users to send e-mails.
-
-- Used with SSL/TLS encryption.
-
-- Protocol:
-
-  ![image-20241104144603042](/home/damuna/.config/Typora/typora-user-images/image-20241104144603042.png)
-
-  1.  Authentication
-  2.  After sending his e-mail, the SMTP client, disassembles it into a header and a body and uploads both to the SMTP server.
-  3. Sometimes there is a *Mail Submission Agent* (`MSA`), or *Relay Server*, which checks the validity, i.e., the origin of the e-mail. 
-  4. The *Mail Transfer Agent* (`MTA`), the software basis for sending and receiving e-mails, checks the e-mail for size and spam and then stores it. 
-  5. Email is reassembled.
-  6. The *Mail Delivery Agent* (`MDA`) transfers it to the recipient's mailbox.
-
-- Downsides:
-
-  - No usable delivery confirmation: only an English-language error message, including the header of the undelivered message, is returned.
-
-  - Users are not authenticated when a connection is established, and the sender of an email is therefore unreliable. 
-
-    As a result, open SMTP relays are often misused to send spam en masse. The originators use arbitrary fake sender addresses for this purpose to not be traced (mail spoofing). 
-
-  - For this purpose, an extension for SMTP has been developed called `Extended SMTP` (`ESMTP`). When people talk about SMTP in general, they usually mean ESMTP.
 
 #### Configuration
 
-- `/etc/postfix/main.cf | grep -v "#" | sed -r "/^\s*$/d"`
+- Some unique default passwords
 
-- Dangereous settings:
+  | Product         | Username      | Password                                                     |
+  | --------------- | ------------- | ------------------------------------------------------------ |
+  | Dell iDRAC      | root          | calvin                                                       |
+  | HP iLO          | Administrator | randomized 8-character string consisting of numbers and uppercase letters |
+  | Supermicro IPMI | ADMIN         | ADMIN                                                        |
 
-  - Open Relay Configuration
+#### Exploit
 
-    `mynetworks = 0.0.0.0/0`
+- IPMI 2.0
 
-    With this setting, this SMTP server can send fake emails and thus  initialize communication between multiple parties. Another attack  possibility would be to spoof the email and read it.
+  During the authentication process, the server sends a salted SHA1 or MD5 hash of the user's password to the client before authentication takes  place. This can be leveraged to obtain the password hash for ANY valid  user account on the BMC. 
+
+  - Metasploit [IPMI 2.0 RAKP Remote SHA1 Password Hash Retrieval](https://www.rapid7.com/db/modules/auxiliary/scanner/ipmi/ipmi_dumphashes/) module.
+
+    ```bash
+    msf6 > use auxiliary/scanner/ipmi/ipmi_dumphashes 
+    msf6 auxiliary(scanner/ipmi/ipmi_dumphashes) > set rhosts [IP]
+    ```
+
+  -  In the event of an HP iLO using a factory default password, we can use this Hashcat mask attack command
+
+     `hashcat -m 7300 ipmi.txt -a 3 ?1?1?1?1?1?1?1?1 -1 ?d?u` 
+
+    which tries all combinations of upper case letters and numbers for an eight-character password.
 
 #### Interaction
 
-- `telnet` list of response code [here](https://serversmtp.com/smtp-error/)
-  - `AUTH PLAIN`  authenticate the client.
-  - `HELO`  logs in with its computer name and thus starts the session.
-  - `MAIL FROM`  names the email sender.
-  - `RCPT TO`  names the email recipient.
-  - `DATA`  initiates the transmission of the email.
-  - `RSET`  aborts the initiated transmission but keeps the connection between client and server.
-  - `VRFY`  checks if a mailbox is available for message transfer, can enumerate existing users on the system
-  - `EXPN`  checks if a mailbox is available for messaging with this command.
-  - `NOOP`  equests a response from the server to prevent disconnection due to time-out.
-  - `QUIT`  terminates the session.
+- nmap sctipt
 
-- ```bash
-  telnet <ip> <port>
-  # Basic interactions
-  HELO <domain>
-  EHLO <domain>
-  VRFY root
-  VRFY testuser
-  # Sometimes we may have to work through a web proxy. 
-  CONNECT <ip>:<port> HTTP/1.0
-  # Send an email
-  MAIL FROM: <[USER]@[DOMAIN]>
-  RCPT TO: <[USER]@[DOMAIN]> NOTIFY=success,failure
-  DATA
+- metasploit version scan
+
+  ```shell
+  msf6 > use auxiliary/scanner/ipmi/ipmi_version 
   ```
 
-#### Footprinting
+  
+
+
+
+### 1433 - msSQL
+
+#### Generalities
+
+- **Type: ** Database
+
+- Purpose:
+  - closed source and was initially written to run on Windows
+  - Many other clients can be used to access msSQL, such as
+    - [mssql-cli](https://docs.microsoft.com/en-us/sql/tools/mssql-cli?view=sql-server-ver15)
+    - [SQL Server PowerShell](https://docs.microsoft.com/en-us/sql/powershell/sql-server-powershell?view=sql-server-ver15)
+    - [HeidiSQL](https://www.heidisql.com)
+    - [SQLPro](https://www.macsqlclient.com)
+    - [Impacket's mssqlclient.py](https://github.com/SecureAuthCorp/impacket/blob/master/examples/mssqlclient.py)
+
+-  Structure
+
+   | Default Database | Description                                                  |
+   | ---------------- | ------------------------------------------------------------ |
+   | `master`         | Tracks all system information for an SQL server instance     |
+   | `model`          | Acts as a structure for every new database  created. Any setting changed in the model database will be reflected in  any new database created after |
+   | `msdb`           | The SQL Server Agent uses this database to schedule jobs & alerts |
+   | `tempdb`         | Stores temporary objects                                     |
+   | `resource`       | Read-only database containing system objects included with SQL server |
+
+#### Configuration
+
+- Initially, the SQL service will likely run as `NT SERVICE\MSSQLSERVER`.
+- **Dangerous settings**
+  - Not using encryption to connect
+  - The use of self-signed certificates when encryption is being used. It is possible to spoof self-signed certificates
+  - The use of [named pipes](https://docs.microsoft.com/en-us/sql/tools/configuration-manager/named-pipes-properties?view=sql-server-ver15)
+  - Weak & default `sa` credentials. 
+
+#### Interaction
+
+If credentials are known:
 
 ```bash
-smtp-user-enum -M <method VRFY, EXPN, RCPT > -u <WORDLISRT> -t <ip> -D dom
+mssqlclient.py [commonName]/[USER]@[IP] -windows-auth
 ```
 
-To try with domain usually only for RCPT.
+Remember to try for default `sa` and empty passwd credentials
 
-### RDP 3389
+```bash
+# Get version
+select @@version;
+# Get user
+select user_name();
+# Get databases
+SELECT name FROM master.dbo.sysdatabases;
+# Use database
+USE master
+
+#Get table names
+SELECT * FROM <databaseName>.INFORMATION_SCHEMA.TABLES;
+#List Linked Servers
+EXEC sp_linkedservers
+SELECT * FROM sys.servers;
+#List users
+select sp.name as login, sp.type_desc as login_type, sl.password_hash, sp.create_date, sp.modify_date, case when sp.is_disabled = 1 then 'Disabled' else 'Enabled' end as status from sys.server_principals sp left join sys.sql_logins sl on sp.principal_id = sl.principal_id where sp.type not in ('G', 'R') order by sp.name;
+#Create user with sysadmin privs
+CREATE LOGIN hacker WITH PASSWORD = 'P@ssword123!'
+EXEC sp_addsrvrolemember 'hacker', 'sysadmin'
+
+#Enumerate links
+enum_links
+#Use a link
+use_link [NAME]
+```
+
+### 1521 - ORACLE
+
+#### Generalities
+
+- **Type:**
+- Purpose:
+  - communication protocol that facilitates communication between Oracle databases and applications over networks.
+- Structure
+  - Can support `SSL/TLS` encryption
+  -  it enables encryption between client and server communication through  an additional layer of security over the TCP/IP protocol layer.
+  - Supports `IPv6`
+  - The TNS listener listens for incoming connections in the port.
+    - it will only accept connections from authorized hosts
+    - it performs basic authentication using a combination of hostnames, IP  addresses, and usernames and passwords. 
+    - It uses Oracle Net Services to encrypt the communication between the client  and the server.
+  - a System Identifier (`SID`) is a unique name that identifies a particular database instance. It can have multiple instances, each with its own System ID. 
+  - An instance is a set of processes and memory structures that interact to manage the database's data.
+
+#### Configuration
+
+- Oracle TNS configuration files, located in the `$ORACLE_HOME/network/admin` directory:
+
+  - `tnsnames.ora`
+
+    Each database or service has a unique entry in the [tnsnames.ora](https://docs.oracle.com/cd/E11882_01/network.112/e10835/tnsnames.htm#NETRF007) file, containing the necessary information for clients to connect to the service:  name for the service, network location, and database or service name.
+
+  - `listener.ora`
+
+    server-side configuration file that defines the listener process's properties and parameter
+
+- Password:
+
+  - Oracle 9 has a default password, `CHANGE_ON_INSTALL`,
+  - Oracle 10 has no default password set. 
+  - The Oracle DBSNMP service also uses a default password, `dbsnmp` 
+
+- `PlsqlExclusionList`
+
+  user-created text file that needs to be placed in `$ORACLE_HOME/sqldeveloper`, containing the names of PL/SQL packages or types that  should be excluded from execution. It serves as a  blacklist that cannot be accessed through the Oracle Application Server.
+
+  | **Setting**          | **Description**                                              |
+  | -------------------- | ------------------------------------------------------------ |
+  | `DESCRIPTION`        | name for the database and its connection type.               |
+  | `ADDRESS`            | Network address of the database (hostname port)              |
+  | `PROTOCOL`           | protocol used for communication with the server              |
+  | `PORT`               | The port used for communication with the server              |
+  | `CONNECT_DATA`       | Specifies the attributes of the connection, s.a. the service name or SID, protocol, and database instance identifier. |
+  | `INSTANCE_NAME`      | The name of the database instance the client wants to connect. |
+  | `SERVICE_NAME`       | The name of the service that the client wants to connect to. |
+  | `SERVER`             | The type of server used for the database connection, such as dedicated or shared. |
+  | `USER`               | The username used to authenticate                            |
+  | `PASSWORD`           | The password used to authenticate                            |
+  | `SECURITY`           | The type of security for the connection.                     |
+  | `VALIDATE_CERT`      | Whether to validate the certificate using SSL/TLS.           |
+  | `SSL_VERSION`        | The version of SSL/TLS to use for the connection.            |
+  | `CONNECT_TIMEOUT`    | The time limit in seconds for the client to establish a connection to the database. |
+  | `RECEIVE_TIMEOUT`    | The time limit in seconds for the client to receive a response from the database. |
+  | `SEND_TIMEOUT`       | The time limit in seconds for the client to send a request to the database. |
+  | `SQLNET.EXPIRE_TIME` | The time limit in seconds for the client to detect a connection has failed. |
+  | `TRACE_LEVEL`        | The level of tracing for the database connection.            |
+  | `TRACE_DIRECTORY`    | The directory where the trace files are stored.              |
+  | `TRACE_FILE_NAME`    | The name of the trace file.                                  |
+  | `LOG_FILE`           | The file where the log information is stored.                |
+
+#### Interaction
+
+If the client does not specify a SID, the default value defined in the `tnsnames.ora` file is used.
+
+- Guess the `SID`
+
+  - `nmap` brute forcing script
+
+  - Oracle Database Attacking Tool (`ODAT`)
+
+    ```bash
+    ./odat.py all -s [IP]
+    ```
+
+- Log in
+
+  ```bash
+  sqlplus [USER]/[PASSWD]@[IP]/[SID]
+  ```
+
+- Log in as the System Database Admin (`sysdba`)
+
+  ```bash
+  sqlplus [USER]/[PASSWD]@[IP]/[SID] as sysdba
+  ```
+
+- Commands
+
+  -   [SQLplus commands](https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqraa001.htm#SQLQR985) 
+  - `select table_name from all_tables;`  list all available tables in the current database
+  - `select * from user_role_privs;` show the privileges of the current user
+  - `select name, password from sys.user$;` retrieve the password hashes
+
+- Test if a File Upload is possible (e.g on Win)
+
+  ```bash
+  $ echo "Oracle File Upload Test" > testing.txt
+  $ ./odat.py utlfile -s [IP] -d [SID] -U [USER] -P [PASSWD] --sysdba --putFile C:\\inetpub\\wwwroot testing.txt ./testing.txt
+  $ curl -X GET http://[IP]/testing.txt	# Check if it worked
+  ```
+
+- Upload a shell (if a web server is run) to the root directory
+
+  - Linux `/var/www/html`
+  - Windows `C:\inetpub\wwwroot`
+
+
+
+### 3389 - RDP
 
 `xfreerdp` 
 
@@ -902,11 +1210,65 @@ HASH Cracking
 john -w=/usr/share/wordlists/rockyou.txt hash.txt
 ```
 
-### MySQL
+### 3306 - MySQL
+
+#### Generalities
 
 **Type:** Database
 
- `mysql -h {IP} -u root`
+- Purpose:
+
+  - Open-source SQL relational database management system developed and supported by Oracle.
+  - The MySQL clients can retrieve and edit the data
+  - Ideally suited for applications such as *dynamic websites*
+  - A MySQL database translates the commands internally into executable code and performs the requested actions.
+
+- Structure:
+
+  - The data is stored in tables with different columns, rows, and data types.
+
+  - often stored in a single file with the file extension `.sql`
+
+#### Configuration
+
+`/etc/mysql/mysql.conf.d/mysqld.cnf`
+
+**Dangerous settings:**
+
+| **Settings**       | **Description**                                              |
+| ------------------ | ------------------------------------------------------------ |
+| `user`             | Sets which user the MySQL service will run as.               |
+| `password`         | Sets the password for the MySQL user.                        |
+| `admin_address`    | The IP address on which to listen for TCP/IP connections on the administrative network interface. |
+| `debug`            | This variable indicates the current debugging settings       |
+| `sql_warnings`     | This variable controls whether single-row INSERT statements produce an information string if warnings occur. |
+| `secure_file_priv` | This variable is used to limit the effect of data import and export operations. |
+
+- The entries of `user`,`password`, and `admin_address` are made in plain text
+- The `debug` and `sql_warnings` settings provide  verbose information output in case of errors, which often contains sensitive content
+
+#### Exploits
+
+- SQL injection
+- Read credentials
+
+#### Interaction
+
+```bash
+ mysql -h [IP] -u root -p[PASSWD] --skip-ssl
+```
+
+The most important databases for the MySQL server are the `system schema` (`sys`) and `information schema`. The system schema contains tables, information, and metadata necessary  for management, see the [reference manual](https://dev.mysql.com/doc/refman/8.0/en/system-schema.html#:~:text=The mysql schema is the,used for other operational purposes) of MySQL. The information schema also contains metadata, but has less information than the previous one.
+
+| **Command**                                          | **Description**                                     |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `select version();`                                  | Get version                                         |
+| `show databases;`                                    | Show all databases.                                 |
+| `use <database>;`                                    | Select one of the existing databases.               |
+| `show tables;`                                       | Show all available tables in the selected database. |
+| `show columns from <table>;`                         | Show all columns in the selected database.          |
+| `select * from <table>;`                             | Show everything in the desired table.               |
+| `select * from <table> where <column> = "<string>";` | Search for needed `string` in the desired table.    |
 
 ### REDIS
 
@@ -922,9 +1284,7 @@ Once inside redis environment `info` return information about the  server
 - `keys *` List all the keys in the database
 - `get {key}`
 
-### msSQL 1433
 
--  `mssqlclient.py [[domain/]username[:password]@]<targetName or address> -windows-auth`
 
 ### RSyinc
 
@@ -941,26 +1301,6 @@ Check if it's vulnerable to **CVE-2004-2687** to execute arbitrary code:
 ```bash
 nmap -p 3632 <ip> --script distcc-cve2004-2687 --script-args="distcc-exec.cmd='id'"
 ```
-
-### TFTP UPD 69
-
-**Type: ** Read/write
-
-Like FTP, but without needing authentication.
-
-```
-tftp
->
-```
-
-| **Commands** | **Description**                                              |
-| ------------ | ------------------------------------------------------------ |
-| `connect`    | Sets the remote host, and optionally the port, for file transfers. |
-| `get`        | Transfers a file or set of files from the remote host to the local host. |
-| `put`        | Transfers a file or set of files from the local host onto the remote host. |
-| `quit`       | Exits tftp.                                                  |
-| `status`     | Shows the current status of tftp, including the current transfer  mode (ascii or binary), connection status, time-out value, and so on. |
-| `verbose`    | Turns verbose mode, which displays additional information during file transfer, on or off. |
 
 # Web
 
