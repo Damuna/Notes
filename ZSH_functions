@@ -1,0 +1,833 @@
+# ~/.zshrc file for zsh interactive shells.
+# see /usr/share/doc/zsh/examples/zshrc for examples
+
+#ENV Variables
+export PKG_CONFIG_PATH="/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7"
+export PATH="$PATH:/home/damuna/.local/bin"
+export PATH="$PATH:/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7:/snap/bin:/home/damuna/go/bin"
+
+setopt autocd              # change directory just by typing its name
+#setopt correct            # auto correct mistakes
+setopt interactivecomments # allow comments in interactive mode
+setopt magicequalsubst     # enable filename expansion for arguments of the form ‘anything=expression’
+setopt nonomatch           # hide error message if there is no match for the pattern
+setopt notify              # report the status of background jobs immediately
+setopt numericglobsort     # sort filenames numerically when it makes sense
+setopt promptsubst         # enable command substitution in prompt
+
+WORDCHARS=${WORDCHARS//\/} # Don't consider certain characters part of the word
+
+# hide EOL sign ('%')
+PROMPT_EOL_MARK=""
+
+# configure key keybindings
+bindkey -e                                        # emacs key bindings
+bindkey ' ' magic-space                           # do history expansion on space
+bindkey '^U' backward-kill-line                   # ctrl + U
+bindkey '^[[3;5~' kill-word                       # ctrl + Supr
+bindkey '^[[3~' delete-char                       # delete
+bindkey '^[[1;5C' forward-word                    # ctrl + ->
+bindkey '^[[1;5D' backward-word                   # ctrl + <-
+bindkey '^[[5~' beginning-of-buffer-or-history    # page up
+bindkey '^[[6~' end-of-buffer-or-history          # page down
+bindkey '^[[H' beginning-of-line                  # home
+bindkey '^[[F' end-of-line                        # end
+bindkey '^[[Z' undo                               # shift + tab undo last action
+
+# enable completion features
+autoload -Uz compinit
+compinit -d ~/.cache/zcompdump
+zstyle ':completion:*:*:*:*:*' menu select
+zstyle ':completion:*' auto-description 'specify: %d'
+zstyle ':completion:*' completer _expand _complete
+zstyle ':completion:*' format 'Completing %d'
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*' list-colors ''
+zstyle ':completion:*' list-prompt %SAt %p: Hit TAB for more, or the character to insert%s
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+zstyle ':completion:*' rehash true
+zstyle ':completion:*' select-prompt %SScrolling active: current selection at %p%s
+zstyle ':completion:*' use-compctl false
+zstyle ':completion:*' verbose true
+zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
+
+# History configurations
+HISTFILE=~/.zsh_history
+HISTSIZE=1000
+SAVEHIST=2000
+setopt hist_expire_dups_first # delete duplicates first when HISTFILE size exceeds HISTSIZE
+setopt hist_ignore_dups       # ignore duplicated commands history list
+setopt hist_ignore_space      # ignore commands that start with space
+setopt hist_verify            # show command with history expansion to user before running it
+#setopt share_history         # share command history data
+
+# force zsh to show the complete history
+alias history="history 0"
+
+dirgo="/home/damuna/TOOLS/WORDLISTS/directory-list-2.3-medium.txt"
+
+# configure `time` format
+TIMEFMT=$'\nreal\t%E\nuser\t%U\nsys\t%S\ncpu\t%P'
+
+# make less more friendly for non-text input files, see lesspipe(1)
+#[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+# set a fancy prompt (non-color, unless we know we "want" color)
+case "$TERM" in
+    xterm-color|*-256color) color_prompt=yes;;
+esac
+
+# uncomment for a colored prompt, if the terminal has the capability; turned
+# off by default to not distract the user: the focus in a terminal window
+# should be on the output of commands, not on the prompt
+force_color_prompt=yes
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+        # We have color support; assume it's compliant with Ecma-48
+        # (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+        # a case would tend to support setf rather than setaf.)
+        color_prompt=yes
+    else
+        color_prompt=
+    fi
+fi
+
+configure_prompt() {
+    prompt_symbol=㉿
+    # Skull emoji for root terminal
+    #[ "$EUID" -eq 0 ] && prompt_symbol=💀
+    case "$PROMPT_ALTERNATIVE" in
+        twoline)
+            PROMPT=$'%F{%(#.blue.green)}┌──${debian_chroot:+($debian_chroot)─}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))─}(%B%F{%(#.red.blue)}%n'$prompt_symbol$'%m%b%F{%(#.blue.green)})-[%B%F{reset}%(6~.%-1~/…/%4~.%5~)%b%F{%(#.blue.green)}]\n└─%B%(#.%F{red}#.%F{blue}$)%b%F{reset} '
+            # Right-side prompt with exit codes and background processes
+            #RPROMPT=$'%(?.. %? %F{red}%B⨯%b%F{reset})%(1j. %j %F{yellow}%B⚙%b%F{reset}.)'
+            ;;
+        oneline)
+            PROMPT=$'${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%B%F{%(#.red.blue)}%n@%m%b%F{reset}:%B%F{%(#.blue.green)}%~%b%F{reset}%(#.#.$) '
+            RPROMPT=
+            ;;
+        backtrack)
+            PROMPT=$'${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%B%F{red}%n@%m%b%F{reset}:%B%F{blue}%~%b%F{reset}%(#.#.$) '
+            RPROMPT=
+            ;;
+    esac
+    unset prompt_symbol
+}
+
+# The following block is surrounded by two delimiters.
+# These delimiters must not be modified. Thanks.
+# START KALI CONFIG VARIABLES
+PROMPT_ALTERNATIVE=twoline
+NEWLINE_BEFORE_PROMPT=yes
+# STOP KALI CONFIG VARIABLES
+
+if [ "$color_prompt" = yes ]; then
+    # override default virtualenv indicator in prompt
+    VIRTUAL_ENV_DISABLE_PROMPT=1
+
+    configure_prompt
+
+    # enable syntax-highlighting
+    if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+        . /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+        ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern)
+        ZSH_HIGHLIGHT_STYLES[default]=none
+        ZSH_HIGHLIGHT_STYLES[unknown-token]=underline
+        ZSH_HIGHLIGHT_STYLES[reserved-word]=fg=cyan,bold
+        ZSH_HIGHLIGHT_STYLES[suffix-alias]=fg=green,underline
+        ZSH_HIGHLIGHT_STYLES[global-alias]=fg=green,bold
+        ZSH_HIGHLIGHT_STYLES[precommand]=fg=green,underline
+        ZSH_HIGHLIGHT_STYLES[commandseparator]=fg=blue,bold
+        ZSH_HIGHLIGHT_STYLES[autodirectory]=fg=green,underline
+        ZSH_HIGHLIGHT_STYLES[path]=bold
+        ZSH_HIGHLIGHT_STYLES[path_pathseparator]=
+        ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]=
+        ZSH_HIGHLIGHT_STYLES[globbing]=fg=blue,bold
+        ZSH_HIGHLIGHT_STYLES[history-expansion]=fg=blue,bold
+        ZSH_HIGHLIGHT_STYLES[command-substitution]=none
+        ZSH_HIGHLIGHT_STYLES[command-substitution-delimiter]=fg=magenta,bold
+        ZSH_HIGHLIGHT_STYLES[process-substitution]=none
+        ZSH_HIGHLIGHT_STYLES[process-substitution-delimiter]=fg=magenta,bold
+        ZSH_HIGHLIGHT_STYLES[single-hyphen-option]=fg=green
+        ZSH_HIGHLIGHT_STYLES[double-hyphen-option]=fg=green
+        ZSH_HIGHLIGHT_STYLES[back-quoted-argument]=none
+        ZSH_HIGHLIGHT_STYLES[back-quoted-argument-delimiter]=fg=blue,bold
+        ZSH_HIGHLIGHT_STYLES[single-quoted-argument]=fg=yellow
+        ZSH_HIGHLIGHT_STYLES[double-quoted-argument]=fg=yellow
+        ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]=fg=yellow
+        ZSH_HIGHLIGHT_STYLES[rc-quote]=fg=magenta
+        ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]=fg=magenta,bold
+        ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]=fg=magenta,bold
+        ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]=fg=magenta,bold
+        ZSH_HIGHLIGHT_STYLES[assign]=none
+        ZSH_HIGHLIGHT_STYLES[redirection]=fg=blue,bold
+        ZSH_HIGHLIGHT_STYLES[comment]=fg=black,bold
+        ZSH_HIGHLIGHT_STYLES[named-fd]=none
+        ZSH_HIGHLIGHT_STYLES[numeric-fd]=none
+        ZSH_HIGHLIGHT_STYLES[arg0]=fg=cyan
+        ZSH_HIGHLIGHT_STYLES[bracket-error]=fg=red,bold
+        ZSH_HIGHLIGHT_STYLES[bracket-level-1]=fg=blue,bold
+        ZSH_HIGHLIGHT_STYLES[bracket-level-2]=fg=green,bold
+        ZSH_HIGHLIGHT_STYLES[bracket-level-3]=fg=magenta,bold
+        ZSH_HIGHLIGHT_STYLES[bracket-level-4]=fg=yellow,bold
+        ZSH_HIGHLIGHT_STYLES[bracket-level-5]=fg=cyan,bold
+        ZSH_HIGHLIGHT_STYLES[cursor-matchingbracket]=standout
+    fi
+else
+    PROMPT='${debian_chroot:+($debian_chroot)}%n@%m:%~%(#.#.$) '
+fi
+unset color_prompt force_color_prompt
+
+toggle_oneline_prompt(){
+    if [ "$PROMPT_ALTERNATIVE" = oneline ]; then
+        PROMPT_ALTERNATIVE=twoline
+    else
+        PROMPT_ALTERNATIVE=oneline
+    fi
+    configure_prompt
+    zle reset-prompt
+}
+zle -N toggle_oneline_prompt
+bindkey ^P toggle_oneline_prompt
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*|Eterm|aterm|kterm|gnome*|alacritty)
+    TERM_TITLE=$'\e]0;${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%n@%m: %~\a'
+    ;;
+*)
+    ;;
+esac
+
+precmd() {
+    # Print the previously configured title
+    print -Pnr -- "$TERM_TITLE"
+
+    # Print a new line before the prompt, but only if it is not the first line
+    if [ "$NEWLINE_BEFORE_PROMPT" = yes ]; then
+        if [ -z "$_NEW_LINE_BEFORE_PROMPT" ]; then
+            _NEW_LINE_BEFORE_PROMPT=1
+        else
+            print ""
+        fi
+    fi
+}
+
+# enable color support of ls, less and man, and also add handy aliases
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    export LS_COLORS="$LS_COLORS:ow=30;44:" # fix ls color for folders with 777 permissions
+
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+    alias diff='diff --color=auto'
+    alias ip='ip --color=auto'
+
+    export LESS_TERMCAP_mb=$'\E[1;31m'     # begin blink
+    export LESS_TERMCAP_md=$'\E[1;36m'     # begin bold
+    export LESS_TERMCAP_me=$'\E[0m'        # reset bold/blink
+    export LESS_TERMCAP_so=$'\E[01;33m'    # begin reverse video
+    export LESS_TERMCAP_se=$'\E[0m'        # reset reverse video
+    export LESS_TERMCAP_us=$'\E[1;32m'     # begin underline
+    export LESS_TERMCAP_ue=$'\E[0m'        # reset underline
+
+    # Take advantage of $LS_COLORS for completion as well
+    zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+    zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
+fi
+
+# enable auto-suggestions based on the history
+if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+    . /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+    # change suggestion color
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#999'
+fi
+
+# enable command-not-found if installed
+if [ -f /etc/zsh_command_not_found ]; then
+    . /etc/zsh_command_not_found
+fi
+
+
+#---------------------------ZSH CONFIGURATION---------------------------#
+#Shell Navigation
+alias l='ls -1'
+alias la='ls -lA1'
+alias c='clear'
+
+#ZSH Config opening ZSH
+alias zconf='nano /home/damuna/.zshrc'
+
+#Update, install, remove
+alias upd='sudo apt update -y && sudo apt dist-upgrade -y && sudo apt autoremove -y'
+alias inst='sudo apt install -y $1'
+rmv(){
+    sudo apt purge --autoremove $1
+    upd
+}
+
+#save notes
+function updnotes() {
+    cd ~/Documents/notes || { echo "Directory not found"; return 1; }
+    cp ~/.zshrc ~/Documents/notes/ZSH_functions
+    git add *
+    git commit -m "notes"
+    git push https://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@github.com/Damuna/Notes.git
+}
+
+#Program aliases
+alias htb='sudo openvpn /home/damuna/Downloads/lab_Damuna.ovpn'
+alias academy='sudo openvpn /home/damuna/Downloads/academy-regular.ovpn'
+alias tunip="ip -o -4 addr show tun0 | awk '{print \$4}' | cut -d'/' -f1"
+
+#Github Token
+gclone(){
+    git clone https://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@github.com/$1
+}
+
+# TCP / UDP Port Scanners
+tcp(){
+    echo -e "\nTCP SCANNING HOST (TOP 3328)\n"
+    sudo nmap -sSCV --version-all -T3 -n -Pn --disable-arp-ping -g 53 -v --open --top-ports 3328 $1
+
+    echo -e "\nTCP FULL SCANNING\n"
+    sudo nmap -sSCV --version-all -T3 -n -Pn --disable-arp-ping -g 53 -v --open -p- $1
+}
+
+udp(){
+    echo -e "\nUDP SCANNING HOST (TOP 100)\n"
+    sudo nmap -sU -n -Pn --disable-arp-ping -T3 -g 53 -v --open --top-ports 100 -oX /tmp/udp_$1.txt $1
+    udp_ports=$(cat /tmp/udp_$1.txt | xmlstarlet sel -t -v '//port[state/@state="open"]/@portid' -nl | paste -s -d, -)
+    sudo nmap -sUV --version-all -T3 -n -Pn --disable-arp-ping -g 53 --open -p$udp_ports $1
+
+    echo -e "\nUDP FULL SCANNING\n"
+    sudo masscan -pU:1-65535 --rate=1000 $1
+}
+
+nscan(){
+    echo "protocol (t/u): ";read protocol
+    echo "service name: ";read service
+    
+    flag=""
+    if [[ "$protocol" == "t" ]]; then
+        flag="-sSV"
+    fi
+    if [[ "$protocol" == "u" ]]; then
+        flag="-sUV"
+    fi
+    script_arg="$service-* and not brute"
+    
+    local server="$1"
+    sudo nmap $flag --version-all -n -Pn --disable-arp-ping -g 53 -v -p$2 "$server" --script="$script_arg"
+    
+    if [[ $1 == "rdp" ]]; then
+        echo -e "\nMSF ENUMERATION\n"
+        msfconsole -q -x "use auxiliary/scanner/rdp/rdp_scanner; set RPORT $2; set RHOSTS $1; exploit; exit"
+        msfconsole -q -x "use auxiliary/scanner/rdp/cve_2019_0708_bluekeep; set RPORT $2; set RHOSTS $1; exploit; exit"
+        msfconsole -q -x "use auxiliary/scanner/rdp/ms12_020_check; set RPORT $2; set RHOSTS $1; exploit; exit"
+
+        read creds\?"INPUT VALID \"USER:PASS\" COMBO IF FOUND: "
+        if [[ ! -z $creds ]]; then
+            usr=$(echo $creds | cut -d":" -f1)
+            psw=$(echo $creds | cut -d":" -f2)
+
+            echo -e "\nATTEMPTING LOGIN\n"
+            xfreerdp /u:$usr /p:"$psw" /v:$1
+        fi
+    fi
+    if [[ $service == "rexec" ]];then
+        vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
+        if [[ -z $wd_user ]]; then
+            wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+        fi
+
+        vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
+        if [[ -z $wd_pass ]]; then
+            wd_pass="/usr/share/seclists/Passwords/Default-Credentials/default-passwords.txt"
+        fi
+
+        echo -e "\nTESTING WEAK CREDENTIALS\n"
+        hydra -L $wd_user -P $wd_pass rexec://$1:$2 -v -V
+
+        echo -e "\nMSF BRUTEFORCING\n"
+        msfconsole -q -x "use auxiliary/scanner/rservices/rexec_login; set ANONYMOUS_LOGIN true; set USER_AS_PASS true; set PASS_FILE $wd_pass; set RPORT $2; set RHOSTS $1; exploit; exit"
+    fi
+
+    if [[ $service == "rlogin" ]];then
+        echo -e "\nNMAP ENUMERATION\n"
+        sudo nmap -n -Pn -sV --script="rlogin-brute" -p$2 $1
+
+        echo -e "\nTESTING ROOT AUTHENTICATION\n"
+        rlogin $1 -l root
+
+        echo -e "\nTESTING WEAK CREDENTIALS\n"
+        vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
+        if [[ -z $wd_user ]]; then
+            wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+        fi
+        vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
+        if [[ -z $wd_pass ]]; then
+            wd_pass="/usr/share/seclists/Passwords/Default-Credentials/default-passwords.txt"
+        fi
+
+        hydra -L $wd_user -P $wd_pass rlogin://$1:$2 -v -V
+        echo -e "\nMSF BRUTEFORCING\n"
+        msfconsole -q -x "use auxiliary/scanner/rservices/rlogin_login; set ANONYMOUS_LOGIN true; set USER_AS_PASS true; set PASS_FILE $wd_pass; set RPORT $2; set RHOSTS $1; exploit; exit"
+    fi
+
+    if [[ $service == "rsh" ]];then
+
+        echo -e "\nMSF BRUTEFORCING\n"
+        
+        vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
+        if [[ -z $wd_pass ]]; then
+            wd_pass="/usr/share/seclists/Passwords/Default-Credentials/default-passwords.txt"
+        fi
+        msfconsole -q -x "use auxiliary/scanner/rservices/rsh_login; set ANONYMOUS_LOGIN true; set USER_AS_PASS true; set PASS_FILE $wd_pass; set RPORT $2; set RHOSTS $1; exploit; exit"
+
+        echo -e "\nENUMERATING VALID USERS\n"
+        vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
+        if [[ -z $wd_user ]]; then
+            wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+        fi
+        hydra -L $wd_user rsh://$1:$2 -v -V
+    fi
+
+    if [[ $service == "ssh" ]];then
+        echo -e "\nLAUNCHING SSH-AUDIT\n"
+        ssh-audit --port $2 $1
+    
+        read resp\?"DO YOU WANT TO TEST WEAK CREDENTIALS? (Y/N)"
+        if [[ $resp =~ ^[Yy]$ ]]; then
+            vared -p "INPUT THE WORDLIST (leave empty to use ssh-betterdefaultpasslist): " -c wordlist
+            if [[ -z $wordlist ]]; then
+                wordlist="/usr/share/seclists/Passwords/Default-Credentials/ssh-betterdefaultpasslist.txt"
+            fi
+            hydra -V -t 8 -e nsr -f -C $wordlist ssh://$1:$2
+        fi
+
+        echo -e "\nMSF ENUMERATION\n"
+        msfconsole -q -x "use auxiliary/scanner/ssh/ssh_enumusers; set USER_FILE /usr/share/seclists/Usernames/cirt-default-usernames.txt; set RHOSTS $1; set RPORT $2; exploit; exit"
+        msfconsole -q -x "use auxiliary/scanner/ssh/libssh_auth_bypass; set RHOSTS $1; set RPORT $2; exploit; exit"
+        msfconsole -q -x "use auxiliary/scanner/ssh/juniper_backdoor; set RHOSTS $1; set RPORT $2; exploit; exit"
+        msfconsole -q -x "use auxiliary/scanner/ssh/fortinet_backdoor; set RHOSTS $1; set RPORT $2; exploit; exit"
+        msfconsole -q -x "use auxiliary/scanner/ssh/eaton_xpert_backdoor; set RHOSTS $1; set RPORT $2; exploit; exit"
+    fi
+
+    if [[ "$service" == "ipmi" ]];then
+        echo "\n---------METASPLOIT ENUM \n"
+        msfconsole -x "use auxiliary/scanner/ipmi/ipmi_version; set rhosts $1; set rport $2; run; exit"
+
+        echo -e "\n-------------CHECKING ANONYMOUS AUTHENTICATION\n"
+        ipmitool -I lanplus -H $1 -U '' -P '' user list
+
+        echo -e "\nCHECKING CIPHER ZERO\n"
+        msfconsole -q -x "use auxiliary/scanner/ipmi/ipmi_cipher_zero; set RHOSTS $1; set RPORT $2; exploit; exit"
+        ipmitool -I lanplus -C 0 -H $1 -U root -P root user list 
+
+        echo "\n----------METASPLOIT HASH DUMPING\n"
+        msfconsole -x "use auxiliary/scanner/ipmi/ipmi_dumphashes; set rhosts $1; set rport $2; set output_john_file /tmp/out.john; set output_hashcat_file /tmp/out.hashcat; run; exit"
+        
+        vared -p "INPUT THE WORDLIST FOR HASH CRACKING (leave empty to use rockyou): " -c wordlist
+        if [[ -z $wordlist ]]; then
+            wordlist="/usr/share/wordlists/rockyou.txt"
+        fi
+        john --wordlist=$wordlist --fork=15 --session=ipmi --rules=Jumbo --format=rakp /tmp/out.john
+
+        echo "Try bruteforcing the hash? (y/)";read ans
+        if [[ $ans == "y" ]];then
+            john --fork=8 --incremental:alpha --format=rakp ~/output/out.john
+            echo "\nTry hashcat with 4 chars? (y/n)";read ans4
+            if [[ "$ans4" == "y" ]];then
+                hashcat --username -m 7300 out.hashcat -a 3 ?a?a?a?a
+            fi
+            echo "\nTry hashcat with 8 chars? (y/n)";read ans8
+            if [[ "$ans8" == "y" ]];then
+                hashcat --username -m 7300 out.hashcat -a 3 ?1?1?1?1?1?1?1?1 -1 ?d?u
+            fi
+        fi
+        
+        echo -e "\nUPNP LISTENER UDP 1900 -> \"use exploit/multi/upnp/libupnp_ssdp_overflow\"\n"
+    fi
+
+    if [[ "$service" == "oracle" ]];then
+        echo "\n ------ODAT----------------\n"
+        odat.py all -s $1
+
+        echo "\nTesting file upload? You need credentials (y/n)?"; read answer
+        if [[ "$answer" == "n" ]]; then
+            echo "Exiting the function."
+            exit 1 
+        fi
+        echo "\n\nEnter a valid SID: ";read sid
+        echo "\nEnter username: ";read user
+        echo "\nEnter password: ";read passwd
+        echo "\nWindows or Linux (w/l/empty to costum dir location)?"; read os
+        
+        if [[ $os == "w" ]];then
+            dir="C:\\inetpub\\wwwroot"
+        fi
+        if [[ $os == "l" ]];then
+            dir="/var/www/html"
+        fi
+        if [[ $os == "" ]];then
+            echo "\nSpecify dir to upload the file";read dir
+        fi
+        
+        echo "Oracle File Upload Test" > testing.txt
+        ./odat.py utlfile -s $1 -d $sid -U $user -P $passwd --sysdba --putFile $dir testing.txt ./testing.txt
+        curl -X GET http://$1/testing.txt	
+
+    fi
+
+    if [[ "$service" == "ms-sql" ]];then
+        #Try default credentials in nmap script
+        echo "\nTRYING NMAP WITH DEFAULT CREDENTIALS\n"
+        sudo nmap -n -Pn -v --script ms-sql-info,ms-sql-empty-password,ms-sql-xp-cmdshell,ms-sql-config,ms-sql-ntlm-info,ms-sql-tables,ms-sql-hasdbaccess,ms-sql-dac,ms-sql-dump-hashes --script-args mssql.instance-port=$2,mssql.username=sa,mssql.password=,mssql.instance-name=MSSQLSERVER -sV -p$2 $1
+        #MSSQL Ping in Metasploit
+        echo "\nMETASPLOIT ENUM \n"
+        msfconsole -x "use auxiliary/scanner/mssql/mssql_ping; set rhosts $1; run; exit"
+        echo -e "\nTESTING WEAK CREDENTIALS\n"
+        hydra -V -t 8 -e nsr -f -C /usr/share/seclists/Passwords/Default-Credentials/mssql-betterdefaultpasslist.txt mssql://$1:$2
+    fi
+
+    if [[ "$service" == "dns" ]]; then        
+
+        read dnsdom\?"\n INPUT A DOMAIN TO ENUMERATE: "
+        vared -p "INPUT THE WORDLIST FOR BRUTEFORCING (leave empty to use fierce): " -c wordlist
+
+        if [[ -z $wordlist ]]; then
+            wordlist="/usr/share/seclists/Discovery/DNS/fierce-hostlist.txt"
+        fi
+
+        if [[ ! -z $dnsdom ]]; then
+            echo "\n---------------------------DNS NAME SERVER---------------------------------------\n\n"
+            dig ns "$dnsdom" @"$server" -p $2
+            echo "\n-----------------------------DNS RECORDS----------------------------------------\n\n"
+            dig any $dnsdom @$server -p $2 | grep "$dnsdom\." --color=never
+            echo "\n----------------------------ZONE TRANSFER----------------------------------------"
+            dig axfr $dnsdom @$server -p $2 | grep "$dnsdom\." --color=never > /tmp/$dnsdom.txt
+
+            axfr_chk=$(cat /tmp/$dnsdom.txt)
+            if [[ -z $axfr_chk ]]; then
+                echo -e "TRANSFER FAILED, BRUTEFORCING DOMAIN"
+                dnsenum --dnsserver $server --enum -p 0 -s 0 -f $wordlist $dnsdom
+            else
+                cat /tmp/$dnsdom.txt
+                echo -e "\nFOUND UNIQUE DOMAINS -> TESTING THEM AGAINST \"$2\"\n"
+                cat /tmp/$dnsdom.txt | grep ".$dnsdom\." | awk -F" " '{print $1}' | sort -u | grep -vE "^$dnsdom" | sed 's/.$//' > /tmp/ax.$dnsdom.txt
+                cat /tmp/ax.$dnsdom.txt
+        
+                while read axdom; do dnsenum --dnsserver $server --enum -p 0 -s 0 -f $wordlist $axdom; done < /tmp/ax.$dnsdom.txt
+            fi
+        fi
+    fi
+
+    if [[ "$service" == "nfs" ]]; then
+        echo "Available NFS shares on $1:"
+        showmount -e "$1"
+        echo -e "\nMOUNT SHARES -> \"mkdir /tmp/nfs && sudo mount -o nolock -t nfs $1:[SHARE] /tmp/nfs_mount\"\n"
+    fi
+    
+    if [[ "$service" == "smtp" ]]; then
+        vared -p "INPUT THE WORDLIST FOR BRUTEFORCING (leave empty to use default): " -c wordlist
+
+        if [[ -z $wordlist ]]; then
+            wordlist="/usr/share/seclists/Usernames/Names/names.txt"
+        fi
+
+        echo -e "\nTELNET BANNER GRAB\n"
+        echo "exit" | telnet $1 $2
+
+        echo -e "\nMSF ENUMERATION\n"
+        msfconsole -q -x "use auxiliary/scanner/smtp/smtp_version; set RHOSTS $1; set RPORT $2; run; exit" && msfconsole -q -x "use auxiliary/scanner/smtp/smtp_ntlm_domain; set RHOSTS $1; set RPORT $2; run; exit" && msfconsole -q -x "use auxiliary/scanner/smtp/smtp_relay; set RHOSTS $1; set RPORT $2; run; exit" 
+
+        echo -e "\nVULNERABILITY SCANNING\n"
+        sudo nmap -n -Pn -v -sV --script=smtp-commands,smtp-enum-users,smtp-vuln-cve2010-4344,smtp-vuln-cve2011-1720,smtp-vuln-cve2011-1764 -p$2 $1
+    
+        echo -e "\nMSF AUTO USER ENUMERATION\n"
+        msfconsole -q -x "use auxiliary/scanner/smtp/smtp_enum; set RHOSTS $1; set RPORT $2; set USER_FILE $wordlist; run; exit"
+
+        read mtd\?"INPUT METHOD FOR USER ENUMERATION: "
+        smtp-user-enum -M $mtd -U $wordlist -t $1 -p $2 -w 15
+
+        echo -e "\nTESTING WEAK CREDENTIALS (CIRT + DARKWEB)\n"
+        hydra -l /usr/share/seclists/Usernames/cirt-default-usernames.txt -P /usr/share/seclists/Passwords/darkweb2017-top100.txt -s $2 $1 -S -v -V
+    fi
+    
+    if [[ $service == "pop3" ]]; then
+        echo -e "\n------------BANNER GRABBING\n"
+        echo "quit" | nc -vn $1 $2
+
+        read pop3s\?"INPUT A POP3 TLS PORT IF PRESENT: "
+        if [[ ! -z $pop3s ]]; then
+            echo -e "\n---------------GRABBING CERTIFICATE\n"
+            echo "Q" | openssl s_client -connet $1:$pop3s -crlf -quiet
+        fi 
+
+        echo -e "\n------------TESTING WEAK CREDENTIALS (CIRT / DEFAULT-PASS)\n"
+        vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
+        if [[ -z $wd_user ]]; then
+            wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+        fi
+        vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
+        if [[ -z $wd_pass ]]; then
+            wd_pass="/usr/share/seclists/Passwords/Default-Credentials/default-passwords.txt"
+        fi
+        hydra -L $wd_users -P $wd_pass -f $1 -s $2 pop3 -V
+    
+        echo -e "\n------------MSF FINGERPRINT\n"
+        msfconsole -q -x "use auxiliary/scanner/pop3/pop3_version; set RHOSTS $1; set RPORT $2; exploit; exit"
+
+        read cred\?"INPUT VALID \"USER:PASS\" COMBO IF FOUND: " 
+        if [[ ! -z $cred ]]; then
+            usr=$(echo $cred | cut -d":" -f1)
+            psw=$(echo $cred | cut -d":" -f2)
+           
+            echo -e "\nLISTING MESSAGES\n"
+            curl -u "$usr:$psw" -s pop3://$1:$2
+
+            while true; do read msg\?"INPUT MESSAGE TO RETRIEVE: " && curl -u "$usr:$psw" -s pop3://$1:$2/$msg; done
+        fi
+
+    fi
+
+    if [[ $service == "imap" ]]; then
+        echo -e "\n----------------MSF FINGERPRINT\n"
+        msfconsole -q -x "use auxiliary/scanner/imap/imap_version; set RHOSTS $1; set RPORT $2; exploit; exit"
+
+        read imaps\?"INPUT A IMAP TLS PORT IF PRESENT: "
+        if [[ ! -z $imaps ]]; then
+            echo -e "\nGRABBING CERTIFICATE\n"
+            echo "Q" | openssl s_client -connect $1:$2 -quiet
+        fi
+
+        echo -e "\n-------------------TESTING WEAK CREDENTIALS (CIRT / DEFAULT-PASS)\n"
+
+        vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
+        if [[ -z $wd_user ]]; then
+            wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+        fi
+        vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
+        if [[ -z $wd_pass ]]; then
+            wd_pass="/usr/share/seclists/Passwords/Default-Credentials/default-passwords.txt"
+        fi
+        hydra -L $wd_user -P $wd_pass -s $2 -f -V imap://$1/PLAIN
+
+        read cred\?"INPUT VALID \"USER:PASS\" COMBO IF FOUND: "
+        if [[ ! -z $cred ]]; then
+            usr=$(echo $cred | cut -d":" -f1)
+            psw=$(echo $cred | cut -d":" -f2)
+
+            echo -e "\nLISTING MAILBOXES\n"
+            curl -u "$usr:$psw" imap://$1:$2 -X 'LIST "" "*"'
+
+            while true; do read mailbox\?"INPUT MAILBOX TO READ: " && curl -u "$usr:$psw" imap://$1:$2/$mailbox && read index\?"INPUT MAIL UID TO READ (BLANK IF EMPTY): " && curl -u "$usr:$psw" "imap://$1:$2/$mailbox;UID=$index"; done
+        fi
+
+    fi
+
+
+    if [[ "$service" == "snmp" ]]; then
+
+        read snmp_ver\?"INPUT SNMP VERSION (1, 2c, 3): "
+
+        if [[ $snmp_ver == "3" ]]; then
+            echo -e "\nPERFORMING USER BRUTEFORCING (CIRT / DARKWEB)\n"
+            vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
+            if [[ -z $wd_user ]]; then
+                wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+            fi
+            vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
+            if [[ -z $wd_pass ]]; then
+                wd_pass="/usr/share/seclists/Passwords/Default-Credentials/default-passwords.txt"
+            fi
+            ~/TOOLS/snmpwn/snmpwn.rb -u $wd_user -p $wd_pass --enclist $wd_pass -h $1:$2
+            
+            echo ""; read snmp_data\?"INPUT A VALID \"USER:PASS\" COMBINATION (CTRL-C IF NONE): "
+            usr=$(echo $snmp_data | cut -d':' -f1)
+            pass=$(echo $snmp_data | cut -d':' -f2)
+
+            read snmp_os\?"INPUT OPERATING SYSTEM (lin, win): "
+            if [[ $snmp_os == "win" ]]; then
+                echo -e "\nEXTRACING USERS\n"
+                snmpwalk -r 2 -t 10 -v3 -l authPriv -u $usr -a SHA -A "$pass" -x AES -X "$pass" $1:$2 NET-SNMP-EXTEND-MIB::nsExtendOutputFull 1.3.6.1.4.1.77.1.2.25
+
+                echo -e "\nEXTRACTING PROCESSES\n"
+                snmpwalk -r 2 -t 10 -v3 -l authPriv -u $usr -a SHA -A "$pass" -x AES -X "$pass" $1:$2 NET-SNMP-EXTEND-MIB::nsExtendOutputFull 1.3.6.1.2.1.25.4.2.1.2
+
+                echo -e "\nEXTRACTING INSTALLED SOFTWARE\n"
+                snmpwalk -r 2 -t 10 -v3 -l authPriv -u $usr -a SHA -A "$pass" -x AES -X "$pass" $1:$2 NET-SNMP-EXTEND-MIB::nsExtendOutputFull 1.3.6.1.2.1.25.6.3.1.2
+
+                echo -e "\nEXTRACING LOCAL PORTS\n"
+                snmpwalk -r 2 -t 10 -v3 -l authPriv -u $usr -a SHA -A "$pass" -x AES -X "$pass" $1:$2 NET-SNMP-EXTEND-MIB::nsExtendOutputFull 1.3.6.1.2.1.6.13.1.3
+            fi
+            # If Linux or Windows
+            echo -e "\nDUMPING MIB STRINGS IN \"$1_SNMPWALK.txt\"\n"
+            snmpwalk -r 2 -t 10 -v3 -l authPriv -u $usr -a SHA -A "$pass" -x AES -X "$pass" $1:$2 NET-SNMP-EXTEND-MIB::nsExtendOutputFull | grep -v "INTEGER|Gauge32|IpAddress|Timeticks|Counter32|OID|Hex-STRING|Counter64" | tee > $1_SNMPWALK.txt
+            
+            echo -e "\nGREPPING FOR PRIVATE STRINGS / USER LOGINS\n"
+            cat $1_SNMPWALK.txt | grep -i "trap\|login\|fail"
+
+            echo -e "\nGREPPING FOR EMAILS\n"       
+            grep -E -o "\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b" $1_SNMPWALK.txt    
+        else
+            # Version 1 or 2c
+            echo -e "\nSEARCHING VALID AUTH STRINGS\n"
+            onesixtyone -p $2 -c /usr/share/seclists/Discovery/SNMP/snmp-onesixtyone.txt $1
+            echo ""; read com_string\?"INPUT A VALID COMMUNITY STRING: "
+
+            echo -e "\nDUMPING PARSED MIB TREE IN \"$1_SNMPCHECK.txt\"\n"
+            snmp-check -v $snmp_ver -p $2 -d -c $com_string $1 > $1_SNMPCHECK.txt
+
+            echo -e "\nDUMPING MIB STRINGS IN \"$1_SNMPWALK.txt\"\n"
+            snmpwalk -r 2 -t 5 -v$snmp_ver -c $com_string $1:$2 | grep -v "INTEGER|Gauge32|IpAddress|Timeticks|Counter32|OID|Hex-STRING|Counter64" | tee > $1_SNMPWALK.txt
+
+            echo -e "\nGREPPING FOR PRIVATE STRINGS / USER LOGINS\n"
+            cat $1_SNMPWALK.txt | grep -i "trap\|login\|fail"
+
+            echo -e "\nGREPPING FOR EMAILS\n"       
+            grep -E -o "\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b" $1_SNMPWALK.txt
+        fi
+    
+    fi
+
+}
+
+#web scanning
+gobuster_dir() {
+    gobuster dir -u $1 -w /home/damuna/TOOLS/WORDLISTS/directory-list-2.3-medium.txt
+}
+
+#gcc compilation
+gcc_comp() {
+    gcc -Wall -I/home/damuna/gsl/include -c $1
+}
+
+gcc_ex(){
+    gcc -L/home/damuna/gsl/lib $1 -O1 -g -lgmp -lm -lgsl -lgslcblas
+}
+
+# Content Discovery --> (Directories, Exposures/Files, Backup Files, API Endpoints)
+dirfuzz(){
+    echo -e "\nSEARCHING COMMON DIRECTORIES\n"
+    ffuf -ac -acs advanced -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -fc 404
+
+    echo -e "\nSEARCHING ALL DIRECTORIES\n"
+    ffuf -ac -acs advanced -c -u $1/FUZZ/ -w /usr/share/seclists/Discovery/Web-Content/directory-list-lowercase-2.3-medium.txt -fc 404
+}
+
+filefuzz(){    
+    echo -e "\nSEARCHING GENERIC FILES\n"
+    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/big.txt -fc 404
+    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/SVNDigger/all.txt -fc 404
+    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -fc 404
+
+    echo -e "\nNUCLEI FILE EXPOSURES\n"
+    nuclei -up &> /dev/null && nuclei -ut &> /dev/null
+    nuclei -u $1 -fr -t http/exposures
+
+    echo -e "\nSEARCHING VIA EXTENSION FUZZING\n"
+    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-big-words.txt -r -e php,txt,html,bak,old,asp,aspx,js,htm,jsp -fc 404
+}
+
+apifuzz(){
+    echo -e "\nLAUNCHING KITERUNNER ON TARGET\n"
+    kr scan $1/ -w ~/TOOLS/WORDLISTS/routes-large.kite
+}
+
+bckfile(){
+    echo -e "\nSEARCHING BACKUPS OF FILE \"$1\"\n"
+    bfac -u $1
+}
+
+# SSTI Scanner
+tplscan(){
+    python3 ~/tools/sstimap/sstimap.py --url $1 --forms
+}
+
+# Netcat Listener
+listen(){
+    sudo rlwrap -car nc -lvnp $1
+}
+#smb server
+smb_server(){
+    smbserver.py -ip $tunip share .
+}
+# Created by `pipx` on 2024-09-26 13:58:11
+export PATH="$PATH:/home/damuna/.local/bin"
+
+# Fuzzing of a GET parameter
+paramfuzz(){
+    nuclei -u $1 -headless -dast
+}
+
+
+
+# web enumeration
+web_enum(){
+    echo "-------------------Curl--------------------\n"
+    curl -kIL $1
+    echo "------------------whatweb------------------\n"
+    whatweb $1
+}
+
+# Password spraying
+pswgen(){
+    echo -e "\nGENERATING PASSWORDS\n"
+    cewl $1 -d 2 -m 4 --lowercase --with-numbers -w passwords.txt
+}
+
+# Alive Host IP/CIDR Scanning
+alive(){
+    sudo nmap -sn -PE -PP -PM -PS21,22,23,25,80,113,443,31339 -PA80,113,443,10042 -g 53 $1 | grep for | cut -d" " -f5
+}
+
+vhost(){
+    host=$(echo $1 | unfurl format %d)
+    root_domain=$(echo "$host" | awk -F'.' '{print $(NF-1)"."$NF}' | cut -d':' -f1)
+    if [[ -z $root_domain ]]; then
+        root_domain=$host
+    fi
+
+    echo -e "\nCHECKING HOST MISROUTING\n"
+    ffuf -mc all -ac -acs advanced -u $1 -c -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -H "Host: FUZZ.$root_domain"
+}
+
+#Crawling/JS Scraping Function
+crawl(){
+        echo -e "\nURLS + SUBDOMAINS\n"
+        gospider -s $1 --sitemap -d 1 --subs | grep -vE "\.js$" | grep -E "\[url\]|\[subdomains\]"
+
+        echo -e "\nHREF ATTRIBUTES\n"
+        gospider -s $1 --sitemap -d 1 --subs | grep "\[href\]"
+
+        echo -e "\nJAVASCRIPT FILES\n"
+        gospider -s $1 --sitemap -d 1 --subs | grep "\[javascript\]"
+
+        echo -e "\nFORMS\n"
+        gospider -s $1 --sitemap -d 1 --subs | grep "\[form\]"
+
+        echo -e "\nQUERY STRINGS\n"
+        python3 ~/TOOLS/ReconSpider.py $1 &>/dev/null
+        cat results.json | jq '.links[]' | tr -d '"' | qsreplace FUZZMYVAL | grep FUZZMYVAL 
+
+        echo -e "\nCOMMENTS\n"
+        cat results.json | jq '.comments[]'
+
+        echo -e "\nEMAILS\n"
+        cat results.json | jq '.emails[]'
+}
+
+

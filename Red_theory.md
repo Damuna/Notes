@@ -264,7 +264,7 @@ Generic tool to navigate all the authentication protocols. The guide: https://ww
 
 `nxc [PROTOCOL] [TARGET] -u [USERNAME] -p [PASSWORD] --port [PORT] [OPTIONS]`
 
-To do *password spraying*, you can put a file instead of the username, with the most common ones.
+To do *password spraying*, you can put a file instead of the username, with the most common ones, and using the `--continue-on-success` flag
 
 Possible protocols:
 
@@ -316,7 +316,7 @@ Authentication, Read/Write
   wget -m --no-passive ftp://anonymous:anonymous@10.129.14.136
   ```
 
-- If TLS/SSl wncryption is present:
+- If TLS/SSl encryption is present, to get the certificate:
 
   ```bash
   openssl s_client -connect [IP] -starttls ftp
@@ -377,11 +377,40 @@ Authentication, Read/Write
 
 #### Configuration
 
+The [sshd_config](https://www.ssh.com/academy/ssh/sshd_config) file is in `/etc/ssh/sshd_config`
 
+**Dangerous settings**
+
+| **Setting**                  | **Description**                                              |
+| ---------------------------- | ------------------------------------------------------------ |
+| `PasswordAuthentication yes` | Allows password-based authentication. Allows to brute-force a known username for possible passwords. |
+| `PermitEmptyPasswords yes`   | Allows the use of empty passwords.                           |
+| `PermitRootLogin yes`        | Allows to log in as the root user.                           |
+| `Protocol 1`                 | Uses an outdated version of encryption.                      |
+| `X11Forwarding yes`          | Allows X11 forwarding for GUI applications.                  |
+| `AllowTcpForwarding yes`     | Allows forwarding of TCP ports.                              |
+| `PermitTunnel`               | Allows tunneling.                                            |
+| `DebianBanner yes`           | Displays a specific banner when logging in.                  |
 
 #### Exploit
 
 -  `SSH-1` is vulnerable to `MITM` attacks
+
+#### Interaction
+
+````bash
+./ssh-audit.py [IP]
+````
+
+For potential brute-force attacks, we can specify the authentication method with the SSH client option `PreferredAuthentications`.
+
+```bash
+ssh -v [USER]@[IP] -o PreferredAuthentications=[PASSWD]
+```
+
+- version
+
+  By default, the banners start with the version of the protocol that can  be applied and then the version of the server itself. For example, with `SSH-1.99-OpenSSH_3.9p1`, we know that we can use both protocol versions SSH-1 and SSH-2, and we  are dealing with OpenSSH server version 3.9p1. On the other hand, for a  banner with `SSH-2.0-OpenSSH_8.2p1`, we are dealing with an OpenSSH version 8.2p1 which only accepts the SSH-2 protocol version.
 
 ### 25, 465, 587 - SMTP
 
@@ -739,11 +768,26 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   $ sudo umount ./target-NFS
   ```
 
-  
 
 #### Exploit:
 
 - If we have access to the system via SSH and want to read files from another folder that a specific user can read, we would need to upload a shell to the NFS share that has the `SUID` of that user and then run the shell via the SSH user.
+
+### 135 - WMI
+
+#### Generalities:
+
+- **Type:** Authentication (remote)
+- Purpose:
+  - Windows Management Instrumentation (`WMI`) allows read and write access to almost all settings on Windows systems. 
+
+#### Interaction
+
+- to log in use  [wmiexec.py](https://github.com/SecureAuthCorp/impacket/blob/master/examples/wmiexec.py)
+
+  ```
+  /usr/share/doc/python3-impacket/examples/wmiexec.py [USER]:"[PASSWD]"@[IP] "hostname"
+  ```
 
 ### 137-9, 445 - SMB
 
@@ -801,7 +845,7 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 
 #### Navigation:
 
-- `smbclient -N -L //[IP ADDRESS]{/FOLDER}`
+- `smbclient -N //[IP ADDRESS]{/FOLDER}`
   
   - `-N` anonymous access
   - `-L` display the list of shares (only to display without access!!)
@@ -868,21 +912,52 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   openssl s_client -connect [IP]:imaps
   ```
 
-| **Command**                     | **Description**                                              |
-| ------------------------------- | ------------------------------------------------------------ |
-| `1 LOGIN username password`     | User's login.                                                |
-| `1 LIST "" *`                   | Lists all directories.                                       |
-| `1 CREATE "INBOX"`              | Creates a mailbox with a specified name.                     |
-| `1 DELETE "INBOX"`              | Deletes a mailbox.                                           |
-| `1 RENAME "ToRead" "Important"` | Renames a mailbox.                                           |
-| `1 LSUB "" *`                   | Returns a subset of names from the set of names that the User has declared as being `active` or `subscribed`. |
-| `1 SELECT INBOX`                | Selects a mailbox so that messages in the mailbox can be accessed. |
-| `1 UNSELECT INBOX`              | Exits the selected mailbox.                                  |
-| `1 FETCH <ID> all`              | Retrieves data associated with a message in the mailbox.     |
-| `1 CLOSE`                       | Removes all messages with the `Deleted` flag set.            |
-| `1 LOGOUT`                      | Closes the connection with the IMAP server.                  |
+```bash
+# Login
+    A1 LOGIN username password
+Values can be quoted to enclose spaces and special characters. A " must then be escape with a \
+    A1 LOGIN "username" "password"
 
+# List Folders/Mailboxes
+    A1 LIST "" *
+    A1 LIST INBOX *
+    A1 LIST "Archive" *
 
+# Create new Folder/Mailbox
+    A1 CREATE INBOX.Archive.2012
+    A1 CREATE "To Read"
+
+# Delete Folder/Mailbox
+    A1 DELETE INBOX.Archive.2012
+    A1 DELETE "To Read"
+
+# Rename Folder/Mailbox
+    A1 RENAME "INBOX.One" "INBOX.Two"
+
+# List Subscribed Mailboxes
+    A1 LSUB "" *
+
+#Status of Mailbox (There are more flags than the ones listed)
+    A1 STATUS INBOX (MESSAGES UNSEEN RECENT)
+
+# Select a mailbox
+    A1 SELECT INBOX
+
+# List messages
+    A1 FETCH 1:* (FLAGS)
+    A1 UID FETCH 1:* (FLAGS)
+
+# Retrieve Message Content
+    A1 FETCH 2 body[text]
+    A1 FETCH 2 all
+    A1 UID FETCH 102 (UID RFC822.SIZE BODY.PEEK[])
+
+# Close Mailbox
+    A1 CLOSE
+
+# Logout
+    A1 LOGOUT
+```
 
 ### 161u - SNMP
 
@@ -939,6 +1014,46 @@ In the documentation of Dovecot, we can find the individual [core settings](http
    ```bash
    braa <community string>@<IP>:.1.3.6.*
    ```
+
+### 512-4 - Rservices
+
+#### Generalities
+
+- **Type:** Authentication
+
+- `r-services` were the de facto standard for remote access between Unix operating systems until they were replaced by the Secure Shell (`SSH`) 
+- 
+
+#### Exploit
+
+-  man-in-the-middle (`MITM`) attacks.
+
+#### Configuration
+
+- The `/etc/hosts.equiv` (global configuration) and `.rhosts` (per user configuration) file contains a list of trusted hosts, which are granted access without authentication.
+
+- Additionally, the `+` modifier can be used within these files as a wildcard to specify anything.
+
+  
+
+#### Interaction
+
+| **Command**                | **Service Daemon** | **Port** | **Description**                                              |
+| -------------------------- | ------------------ | -------- | ------------------------------------------------------------ |
+| `rcp` (remote copy)        | `rshd`             | 514      | Copy a file or directory bidirectionally. No warning for overwriting existing files. |
+| `rsh` (remote shell)       | `rshd`             | 514      | Opens a shell without login. Relies upon the trusted entries in the `hosts.equiv` and `.rhosts` files. |
+| `rexec` (remote execution) | `rexecd`           | 512      | Runs shell commands. Requires authentication Authentication or the trusted entries in the `hosts.equiv` and `.rhosts` files. |
+| `rlogin` (remote login)    | `rlogind`          | 513      | Logs in, through Authentication or the trusted entries in the `hosts.equiv` and `.rhosts` files. |
+
+After Login:
+
+- `rho [IP]`
+
+  Lists all interactive sessions on the local network. The daemon periodically broadcasts information about logged-on users, so it might be beneficial to watch the network traffic.
+
+- `ruser -al [IP]`
+
+  Gives a more detailed account of all logged-in users over the network
 
 ### 623u - IPMI
 
@@ -997,9 +1112,25 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   msf6 > use auxiliary/scanner/ipmi/ipmi_version 
   ```
 
-  
 
+### 873 - Rsyinc
 
+#### Generalities
+
+- [Rsync](https://linux.die.net/man/1/rsync) is a fast and efficient tool for locally and remotely copying files.
+- This [guide](https://book.hacktricks.xyz/network-services-pentesting/873-pentesting-rsync) covers some of the ways Rsync can be abused (sometimes also without authentication)
+
+#### Interaction
+
+```bash
+rsync -av --list-only rsync://[IP]/[SHARE]
+```
+
+-  If Rsync is configured to use SSH to transfer files, we could modify our commands to include the `-e ssh` flag, or `-e "ssh -p2222"` if a non-standard port is in use for SSH.
+
+- To read: `rsync -av --list-only rsync://{HOST}/`
+
+- To copy: `rsync -av rsync://{HOST}/{module} [YOUR DIRECTORY]`
 
 ### 1433 - msSQL
 
@@ -1037,13 +1168,31 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 
 #### Interaction
 
-If credentials are known:
+- **Linux auth:**
 
-```bash
-mssqlclient.py [commonName]/[USER]@[IP] -windows-auth
-```
+  If credentials are known:
 
-Remember to try for default `sa` and empty passwd credentials
+  ```bash
+  mssqlclient.py [commonName]/[USER]@[IP] -windows-auth
+  ```
+
+- **Windows Authentication** 
+
+  - To connect with windows authentication:
+
+    ```cmd
+    sqlcmd -S localhost -E
+    ```
+
+  - with the server authentication;
+
+    ```cmd
+    sqlcmd -S localhost -U your_username -P your_password
+    ```
+
+  - The interaction is the same as below, but you need to run `GO` after every command.
+
+- **Default credentials:** `sa` and empty passwd 
 
 ```bash
 # Get version
@@ -1057,6 +1206,10 @@ USE master
 
 #Get table names
 SELECT * FROM <databaseName>.INFORMATION_SCHEMA.TABLES;
+#Read tables
+SELECT * FROM yourTableName;
+#Read a specific row with a certain column value
+SELECT * FROM yourTableName WHERE columnName = 'specificValue';
 #List Linked Servers
 EXEC sp_linkedservers
 SELECT * FROM sys.servers;
@@ -1184,13 +1337,71 @@ If the client does not specify a SID, the default value defined in the `tnsnames
 
 
 
-### 3389 - RDP
+### 3389tu - RDP
 
-`xfreerdp` 
+#### Generalities
 
-### WINRM 5985
+- **Type:** Authentication (remote)
+- It opens a live session
+- Structure:
+  - typically utilizing TCP port 3389 as the transport protocol,  the connectionless UDP protocol can use port 3389 also for remote  administration.
+  - For an RDP session to be established, both the network firewall and the  firewall on the server must allow connections from the outside.
+  - all data, and especially the login process, is protected in the network  by its good encryption. However, many Windows systems do not insist on  this but still accept inadequate encryption.
 
-You can authenticate either with the password or with NTLM, which is a collection of authentication protocols transmitted in shared folders (like active directories). It is a single-sign-on (SSO), since you put the password only once, at login.
+#### Exploit
+
+- The identity-providing certificates are merely self-signed by default, so the client cannot distinguish a genuine certificate from a forged one and generates a certificate warning for the user.
+
+#### Interaction
+
+- [rdp-sec-check.pl](https://github.com/CiscoCXSecurity/rdp-sec-check) can unauthentically identify the security settings of RDP servers based on the handshakes.
+
+  ```bash
+  ./rdp-sec-check.pl [IP]
+  ```
+
+- Authentication and connection to such RDP servers can be made, for example, using `xfreerdp`, `rdesktop`, or `Remmina` 
+
+  ```bash
+  xfreerdp /u:[USER] /p:"[PASSWD]" /v:[IP]
+  ```
+
+
+
+### 3632 distccd
+
+**Distcc** is a tool that enhances the **compilation process** by utilizing the **idle processing power** of other computers in the network. When **distcc** is set up on a machine, this machine is capable of distributing its **compilation tasks** to another system. This recipient system must be running the **distccd daemon** and must have a **compatible compiler** installed to process the sent code.
+
+Check if it's vulnerable to **CVE-2004-2687** to execute arbitrary code:
+
+```bash
+nmap -p 3632 <ip> --script distcc-cve2004-2687 --script-args="distcc-exec.cmd='id'"
+```
+
+
+
+### 5985-6 - WINRM
+
+#### Generalities
+
+- **Type:** Authentication 
+- Purpose:
+  - remote management protocol based on the command line.
+  - WinRM must be explicitly enabled and configured starting with Windows 10
+  - Windows Remote Shell (`WinRS`), which lets us execute arbitrary commands on the remote system. The program is included on Windows 7 by default. 
+- Structure:
+  - WinRM relies on `TCP` ports `5985` and `5986` for communication, with the last port `5986 using HTTPS`, as ports 80 and 443 were previously used for this task. 
+  - In general, it only works for active directories
+
+#### Interaction
+
+ [evil-winrm](https://github.com/Hackplayers/evil-winrm) to log in
+
+```bash
+evil-wirm -i [IP] -u [USER] -p [PASSWD]
+```
+
+#### Exploit
 
 The password is stored as an hash,  one-way function that takes any amount of data and returns a fixed size value.
 
@@ -1203,12 +1414,6 @@ sudo responder -I tun0 -w -d
 it creates a fake shared folder in your network, that if it interacts with the attacked ip (e.g. through the parameter of a web page), will steal the password as an Hash.
 
 The responder IP has to be loaded as a shared folder, i.e. `//<IP>/somefile`, if we want to do RFI.
-
-HASH Cracking
-
-```
-john -w=/usr/share/wordlists/rockyou.txt hash.txt
-```
 
 ### 3306 - MySQL
 
@@ -1270,7 +1475,9 @@ The most important databases for the MySQL server are the `system schema` (`sys`
 | `select * from <table>;`                             | Show everything in the desired table.               |
 | `select * from <table> where <column> = "<string>";` | Search for needed `string` in the desired table.    |
 
-### REDIS
+
+
+### 6379 - REDIS
 
 **Type:** Database
 
@@ -1286,21 +1493,7 @@ Once inside redis environment `info` return information about the  server
 
 
 
-### RSyinc
 
-- To read: `rsync -av --list-only rsync://{HOST}/`
-
-- To copy: `rsync -av rsync://{HOST}/{module} [YOUR DIRECTORY]`
-
-### 3632 distccd
-
-**Distcc** is a tool that enhances the **compilation process** by utilizing the **idle processing power** of other computers in the network. When **distcc** is set up on a machine, this machine is capable of distributing its **compilation tasks** to another system. This recipient system must be running the **distccd daemon** and must have a **compatible compiler** installed to process the sent code.
-
-Check if it's vulnerable to **CVE-2004-2687** to execute arbitrary code:
-
-```bash
-nmap -p 3632 <ip> --script distcc-cve2004-2687 --script-args="distcc-exec.cmd='id'"
-```
 
 # Web
 
@@ -1354,39 +1547,15 @@ Parameters are very important to spot, and they are grouped in different categor
 
 ## Enumeration
 
-### Directories and files
+### Public domains
 
-Gbuster or Ffuf to discover hidden files or directories
-
-```bash
-gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
-```
-
--  **HTTP status code** 
-   -  `200`  request was successful
-   -  `403`  forbidden to access the resource.
-   -  `301`  being redirected (not a failure case)
-
-**Important files:**
-
-- `.swp` *swap files:* 
-
-  Swap files store the changes that are made to the buffer. If Vim or your computer crashes, the swap files allow you to recover those changes. Swap files also provide a way to avoid multiple instances of an editor from editing the same file.
-
-  - `vim -r [swap file]` to read it
-  - `strings [swap file]`  to only display the human-readable text if the file is unrecoverable
-
-- **robots.txt** 
-
-  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
-
-### DNS Subdomains
+#### DNS Subdomains
 
 1. Manual search:
 
    - **SSL certificate**
 
-   - **DNS records**
+   - **DNS records** (public domain)
 
      To display all the available DNS records:
 
@@ -1425,6 +1594,12 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
 
      Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
 
+   - `WHOIS` (public)
+
+     ```bash
+     whois [DOMAIN]
+     ```
+
 2. Fuzzing:
 
    ```bash
@@ -1432,6 +1607,45 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
    ```
 
 3. Add DNS Server to the `/etc/resolv.conf` file.
+
+
+
+### VHosts
+
+The key difference between `VHosts` and `subdomains` is their relationship to the `Domain Name System (DNS)` and the web server's configuration.
+
+- `Subdomains`: These are extensions of a main domain name (e.g., `blog.example.com` is a subdomain of `example.com`). `Subdomains` typically have their own `DNS records`, pointing to either the same IP address as the main domain or a  different one. They can be used to organise different sections or  services of a website.
+- `Virtual Hosts` (`VHosts`): Virtual hosts are  configurations within a web server that allow multiple websites or  applications to be hosted on a single server. They can be associated  with top-level domains (e.g., `example.com`) or subdomains (e.g., `dev.example.com`). Each virtual host can have its own separate configuration, enabling precise control over how requests are handled.
+
+#### Vhosts Fuzzing
+
+
+
+### Directories and files
+
+Gbuster or Ffuf to discover hidden files or directories
+
+```bash
+gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
+```
+
+-  **HTTP status code** 
+   -  `200`  request was successful
+   -  `403`  forbidden to access the resource.
+   -  `301`  being redirected (not a failure case)
+
+**Important files:**
+
+- `.swp` *swap files:* 
+
+  Swap files store the changes that are made to the buffer. If Vim or your computer crashes, the swap files allow you to recover those changes. Swap files also provide a way to avoid multiple instances of an editor from editing the same file.
+
+  - `vim -r [swap file]` to read it
+  - `strings [swap file]`  to only display the human-readable text if the file is unrecoverable
+
+- **robots.txt** 
+
+  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
 
 ### Other Informations
 
@@ -1460,11 +1674,6 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
 - **SSL/TLS Certificates:**bviewing the certificate could reveal details, such as the email  address and company name. These could potentially be used to conduct a  *phishing attack*.
 
 - **source code** `CRTL + U`
-
-- **StaffL**
-
-  - Employees can be identified on various business networks such as [LinkedIn](https://www.linkedin.com) or [Xing](https://www.xing.de). Job postings from companies can also tell us a lot about their  infrastructure and give us clues about what we should be looking for.
-  - Github projects from employees could reveal personal information
 
 
 ### Cloud
