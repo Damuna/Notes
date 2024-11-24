@@ -522,14 +522,14 @@ nscan(){
             axfr_chk=$(cat /tmp/$dnsdom.txt)
             if [[ -z $axfr_chk ]]; then
                 echo -e "TRANSFER FAILED, BRUTEFORCING DOMAIN"
-                dnsenum --dnsserver $server --enum -p 0 -s 0 -f $wordlist $dnsdom
+                dnsenum --dnsserver $server:$2 --enum -p 0 -s 0 -f $wordlist $dnsdom
             else
                 cat /tmp/$dnsdom.txt
                 echo -e "\nFOUND UNIQUE DOMAINS -> TESTING THEM AGAINST \"$2\"\n"
                 cat /tmp/$dnsdom.txt | grep ".$dnsdom\." | awk -F" " '{print $1}' | sort -u | grep -vE "^$dnsdom" | sed 's/.$//' > /tmp/ax.$dnsdom.txt
                 cat /tmp/ax.$dnsdom.txt
         
-                while read axdom; do dnsenum --dnsserver $server --enum -p 0 -s 0 -f $wordlist $axdom; done < /tmp/ax.$dnsdom.txt
+                while read axdom; do dnsenum --dnsserver $server:$2 --enum -p 0 -s 0 -f $wordlist $axdom; done < /tmp/ax.$dnsdom.txt
             fi
         fi
     fi
@@ -739,7 +739,7 @@ filefuzz(){
     nuclei -u $1 -fr -t http/exposures
 
     echo -e "\nSEARCHING VIA EXTENSION FUZZING\n"
-    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-big-words.txt -r -e php,txt,html,bak,old,asp,aspx,js,htm,jsp -fc 404
+    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-words.txt -r -e php,txt,html,bak,old,asp,aspx,js,htm,jsp -fc 404
 }
 
 apifuzz(){
@@ -777,10 +777,18 @@ paramfuzz(){
 
 # web enumeration
 web_enum(){
-    echo "-------------------Curl--------------------\n"
+    #host=$(echo $1 | unfurl format %d)
+    
+    echo "\n-------------------Curl--------------------\n"
     curl -kIL $1
-    echo "------------------whatweb------------------\n"
+    echo "\n------------------whatweb------------------\n"
     whatweb $1
+    echo "\n-------------------whois-------------------\n"
+    whois $1
+    echo "\n-------------Firewall detection------------\n"
+    wafw00f $1
+    echo "\n----------------Nikto scanner--------------\n"
+    nikto -h $1 -Tuning b
 }
 
 # Password spraying
@@ -795,14 +803,15 @@ alive(){
 }
 
 vhost(){
+    # Getting root domain from URL
     host=$(echo $1 | unfurl format %d)
-    root_domain=$(echo "$host" | awk -F'.' '{print $(NF-1)"."$NF}' | cut -d':' -f1)
-    if [[ -z $root_domain ]]; then
-        root_domain=$host
-    fi
 
-    echo -e "\nCHECKING HOST MISROUTING\n"
-    ffuf -mc all -ac -acs advanced -u $1 -c -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -H "Host: FUZZ.$root_domain"
+    echo -e "\n-------------------CHECKING HOST MISROUTING\n"
+    vared -p "INPUT THE WORDLIST for vhosts (leave empty to use top1milion-subdomains-110000): " -c wd
+        if [[ -z $wd ]]; then
+            wd="/usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt"
+        fi
+    ffuf -mc all -ac -acs advanced -u $1 -c -w $wd -H "Host: FUZZ.$host"
 }
 
 #Crawling/JS Scraping Function
@@ -828,6 +837,10 @@ crawl(){
 
         echo -e "\nEMAILS\n"
         cat results.json | jq '.emails[]'
+
 }
 
+listenping(){
+    sudo tcpdump -i tun0 icmp
+}
 

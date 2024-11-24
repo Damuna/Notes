@@ -246,7 +246,7 @@
 
 - User Group:
 
-  -  `id` and what can that group do
+  -  `id` and what can that group dosu
   - [interesting_groups](https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe)
 
 - User Privileges:
@@ -294,6 +294,18 @@
   - `netstat -puntal` or `ss -puntal` (access/ tunnel)
 
     Look at `LISTEN` ports
+    
+  - Tunneling
+
+    ```bash
+    ssh -L [LOCAL PORT]:127.0.0.1:[LOCAL PORT] [USER]@[IP] -fN
+    ```
+
+    ```bash
+    sudo nmap -p[PORT] 127.0.0.1
+    ```
+
+    
 
 - Local Processes
 
