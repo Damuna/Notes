@@ -263,6 +263,8 @@
 
   - `find /var/www -type f -readable 2>/dev/null`
 
+  - `/proc` and `sis` `run` not interesting
+
   - Scheduled Tasks:
 
     - `/etc/crontab`

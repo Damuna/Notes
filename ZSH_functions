@@ -761,9 +761,38 @@ tplscan(){
 listen(){
     sudo rlwrap -car nc -lvnp $1
 }
-#smb server
-smb_server(){
+#various servers
+smbserver(){
     smbserver.py -ip $tunip share .
+}
+smtpserv(){
+    chnic
+    echo -e "OPENING SMTP 'DebuggingServer' AT $ip:2525\n"
+    python2 -m smtpd -n -c DebuggingServer $ip:2525
+}
+
+httpserv(){ 
+    chnic
+    echo -e "OPENING HTTP SERVER AT http://$ip:8888"
+    python3 -m http.server 8888 >/dev/null
+}
+
+ftpserv(){
+    chnic
+    echo -e "OPENING FTP SERVER AT ftp://$ip:2121"
+    python3 -m pyftpdlib -p 2121 -w >/dev/null
+}
+
+smbserv(){
+    chnic
+    echo -e "OPENING SMB SHARE AT \\\\$ip\\share"
+    sudo smbserver.py -ip $ip -smb2support share .
+}
+
+webdavserv(){
+    chnic
+    echo -e "\nOPENING WEBDAV AT http://$ip:8000\n FROM /tmp"
+    wsgidav --host=$ip --port=8000 --root=/tmp --auth=anonymous
 }
 # Created by `pipx` on 2024-09-26 13:58:11
 export PATH="$PATH:/home/damuna/.local/bin"

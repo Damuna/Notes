@@ -1,0 +1,23 @@
+{
+    "emails": [],
+    "links": [
+        "http://alert.htb/index.php?page=alert",
+        "http://alert.htb/index.php?page=contact",
+        "http://alert.htb/index.php?page=donate",
+        "http://alert.htb/index.php?page=about"
+    ],
+    "external_files": [
+        "http://alert.htb/css"
+    ],
+    "js_files": [],
+    "form_fields": [
+        "amount",
+        "file",
+        "email",
+        "message"
+    ],
+    "images": [],
+    "videos": [],
+    "audio": [],
+    "comments": []
+}
