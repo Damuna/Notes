@@ -873,3 +873,5 @@ listenping(){
     sudo tcpdump -i tun0 icmp
 }
 
+# WINDAPSEARCH
+alias windapsearch='/home/damuna/TOOLS/windapsearch/venv/bin/python3 /home/damuna/TOOLS/windapsearch/windapsearch.py'

