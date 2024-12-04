@@ -284,6 +284,7 @@ function updnotes() {
     git add *
     git commit -m "notes"
     git push https://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@github.com/Damuna/Notes.git
+    cd
 }
 
 #Program aliases
