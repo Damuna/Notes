@@ -876,3 +876,8 @@ listenping(){
 
 # WINDAPSEARCH
 alias windapsearch='/home/damuna/TOOLS/windapsearch/venv/bin/python3 /home/damuna/TOOLS/windapsearch/windapsearch.py'
+
+# web shell path
+webshell(){
+    cd '/usr/share/laudanum/'
+}

