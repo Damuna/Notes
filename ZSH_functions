@@ -299,22 +299,39 @@ gclone(){
 
 # TCP / UDP Port Scanners
 tcp(){
-    echo -e "\nTCP SCANNING HOST (TOP 3328)\n"
-    sudo nmap -sSCV --version-all -T3 -n -Pn --disable-arp-ping -g 53 -v --open --top-ports 3328 $1
+    echo -e "\nTCP SCANNING (TOP 99%)\n"
+    sudo nmap -sSCV -n -Pn --disable-arp-ping -g 53 -v --top-ports 3328 -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1
 
-    echo -e "\nTCP FULL SCANNING\n"
-    sudo nmap -sSCV --version-all -T3 -n -Pn --disable-arp-ping -g 53 -v --open -p- $1
+    echo -e "\nTCP FULL BACKGROUND SCANNING\n"
+    sudo nmap -sSCV -n -Pn --disable-arp-ping -g 53 -v -p- -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1
 }
 
 udp(){
-    echo -e "\nUDP SCANNING HOST (TOP 100)\n"
-    sudo nmap -sU -n -Pn --disable-arp-ping -T3 -g 53 -v --open --top-ports 100 -oX /tmp/udp_$1.txt $1
-    udp_ports=$(cat /tmp/udp_$1.txt | xmlstarlet sel -t -v '//port[state/@state="open"]/@portid' -nl | paste -s -d, -)
-    sudo nmap -sUV --version-all -T3 -n -Pn --disable-arp-ping -g 53 --open -p$udp_ports $1
+    echo -e "\nUDP SERVICE SCANNING (TOP 100)\n"
+    sudo nmap -sU -n -Pn --disable-arp-ping -g 53 -v --top-ports 100 -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1 -oX /tmp/$1_UDP.txt
+    udp_ports=$(cat /tmp/$1_UDP.txt | xmlstarlet sel -t -v '//port[state/@state="open"]/@portid' -nl | paste -s -d, -)
+    if [[ ! -z $udp_ports ]]; then
+        sudo nmap -sUCV -n -Pn --disable-arp-ping -g 53 -p$udp_ports -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 $1
+    else
+        echo "NO UDP PORTS FOUND"
+    fi
+    sudo rm /tmp/$1_UDP.txt
 
-    echo -e "\nUDP FULL SCANNING\n"
-    sudo masscan -pU:1-65535 --rate=1000 $1
+    echo -e "\nUDP SERVICE SCANNING (TOP 99%)\n"
+    sudo nmap -sU -n -Pn --disable-arp-ping -g 53 -v --top-ports 15094 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1 -oX /tmp/$1_UDP.txt
+
+    udp_ports=$(cat /tmp/$1_UDP.txt | xmlstarlet sel -t -v '//port[state/@state="open"]/@portid' -nl | paste -s -d, -)
+    if [[ ! -z $udp_ports ]]; then
+        sudo nmap -sUCV -n -Pn --disable-arp-ping -g 53 -p$udp_ports -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 $1
+    else
+        echo "NO UDP PORTS FOUND"
+    fi
+    sudo rm /tmp/$1_UDP.txt
+
+    echo -e "\nUDP FULL BACKGROUND SCANNING\n"
+    sudo nmap -sU -n -Pn --disable-arp-ping -g 53 -v -p- --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1
 }
+
 
 nscan(){
     echo "protocol (t/u): ";read protocol
@@ -720,28 +737,45 @@ gcc_ex(){
     gcc -L/home/damuna/gsl/lib $1 -O1 -g -lgmp -lm -lgsl -lgslcblas
 }
 
-# Content Discovery --> (Directories, Exposures/Files, Backup Files, API Endpoints)
-dirfuzz(){
-    echo -e "\nSEARCHING COMMON DIRECTORIES\n"
-    ffuf -ac -acs advanced -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -fc 404
 
-    echo -e "\nSEARCHING ALL DIRECTORIES\n"
-    ffuf -ac -acs advanced -c -u $1/FUZZ/ -w /usr/share/seclists/Discovery/Web-Content/directory-list-lowercase-2.3-medium.txt -fc 404
+# Content Discovery --> (Directories, Files, Backups)
+dirfuzz(){    
+    echo -e "\nSEARCHING COMMON CONTENT\n"
+    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt -v
+    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/dirsearch.txt -v
+    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/big.txt -v
+    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/SVNDigger/all.txt -v
+
+    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
+    ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -v
+
+    echo -e "\nSEARCHING RAFT FILES\n"
+    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -v
+
+    echo -e "\nCHECKING NUCLEI HTTP EXPOSURES\n"    
+    nuclei -up &>/dev/null && nuclei -ut &>/dev/null
+    nuclei -u $1 -t http/exposures
+
+    read -r cel\?"INPUT ENDPOINT FOR GENERATED FUZZING IF NEEDED (Current -> \"$1\"): "
+    if [[ ! -z $cel ]]; then
+        echo -e "\nGENERATED FUZZING\n"
+        cewl $cel -d 4 -m 3 --lowercase --with-numbers --convert-umlauts -w /tmp/$(echo $1 | unfurl format %d).txt
+        ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /tmp/$(echo $1 | unfurl format %d).txt -v 
+        rm /tmp/$(echo $1 | unfurl format %d).txt
+    fi
+
+    echo -e "\nBIGGER DIRECTORY SEARCH\n"
+    ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt  -v
+
+    read -r resp\?"INPUT EXTENSION FOR BACKEND & BACKUP FUZZING: "
+    if [[ ! -z $resp ]]; then
+        ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-small.txt -e $resp,$resp.old,$resp.bak,$resp.tmp,$resp~,old,bak,tmp -v
+    fi
+
+    echo -e "\nSEARCHING ALL WEB EXTENSIONS\n"
+    ffuf -ac -acs advanced -r  -u $1/FUF1FUF2 -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt:FUF1 -w /usr/share/seclists/Discovery/Web-Content/web-extensions.txt:FUF2 -v
 }
 
-filefuzz(){    
-    echo -e "\nSEARCHING GENERIC FILES\n"
-    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/big.txt -fc 404
-    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/SVNDigger/all.txt -fc 404
-    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -fc 404
-
-    echo -e "\nNUCLEI FILE EXPOSURES\n"
-    nuclei -up &> /dev/null && nuclei -ut &> /dev/null
-    nuclei -u $1 -fr -t http/exposures
-
-    echo -e "\nSEARCHING VIA EXTENSION FUZZING\n"
-    ffuf -ac -acs advanced -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-words.txt -r -e php,txt,html,bak,old,asp,aspx,js,htm,jsp -fc 404
-}
 
 apifuzz(){
     echo -e "\nLAUNCHING KITERUNNER ON TARGET\n"

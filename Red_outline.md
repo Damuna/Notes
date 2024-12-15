@@ -378,6 +378,9 @@
 
 - Local Processes
 - Kernel Exploits
+
+  - In meterpreter: local exploit suggester module
+
 - Vulnerable Software:  `C:\Program Files` in Windows
 
 # Shells

