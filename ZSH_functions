@@ -1,3 +1,4 @@
+
 # ~/.zshrc file for zsh interactive shells.
 # see /usr/share/doc/zsh/examples/zshrc for examples
 
@@ -656,6 +657,81 @@ nscan(){
 
     fi
 
+    if [[ "$service" == "ftp" ]]; then
+        echo -e "\nTESTING DEFAULT CREDENTIALS\n"
+        hydra -V -e nsr -f -t 4 -C /usr/share/seclists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt ftp://$1:$2
+
+        read -r ans\?"\n\nBRUTE FORCING? (y/n)?"
+        if [[ $ans!="n" ]]; then
+            vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use xato): " -c wd_user
+            if [[ -z $wd_user ]]; then
+                wd_users="/usr/share/seclists/Usernames/xato-net-10-million-usernames.txt"
+            fi
+            vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default xato): " -c wd_pass
+            if [[ -z $wd_pass ]]; then
+                wd_pass="/usr/share/seclists/Passwords/xato-net-10-million-passwords-1000000.txt"
+            fi
+            hydra -V -e nsr -f -L $wd_users -P $wd_pass ftp://$1:$2
+        fi
+
+        read -r creds\?"\nINPUT VALID \"USER:PASS\" COMBO (BLANK TO SKIP): "
+        if [[ ! -z $creds ]]; then
+            usr=$(echo $creds | cut -d":" -f1)
+            psw=$(echo $creds | cut -d":" -f2)
+
+            read -r resp\?"DO YOU WANT TO DOWNLOAD ALL FILES IN \"./$1_FTP\"? (Y/N)"
+            if [[ $resp =~ [Yy]$ ]]; then
+                echo -e "\nDOWNLOADING FILES\n"
+                mkdir ./$1_FTP && cd ./$1_FTP && wget --mirror --user="$usr" --password="$psw" --no-passive-ftp ftp://$1:$2
+                cd ..
+            fi
+        fi
+    fi
+
+    if [[ "$service" == "smb" ]]; then
+        echo -e "\nTRYING NULL/GUEST BINDINGS\n"
+        nxc smb $1 -u '' -p '' --port $2
+        nxc smb $1 -u 'Guest' -p '' --port $2
+        nxc smb $1 -u '' -p '' --local-auth --port $2
+        nxc smb $1 -u 'Guest' -p '' --local-auth --port $2
+
+        read -r resp\?"DO YOU WANT TO TEST SMBCLIENT BINDINGS? (Y/N): "
+        if [[ $resp =~ [Yy] ]]; then
+            echo -e "\nSTANDARD CHECK\n"
+            smbclient -p $2 -N -L $1
+            smbclient -p $2 -U 'Guest%' -L $1
+
+            echo -e "\nLANMAN1 CHECK\n"
+            smbclient -p $2 -N -L $1 --option="client min protocol=LANMAN1"
+            smbclient -p $2 -U 'Guest%' -L $1 --option="client min protocol=LANMAN1"
+
+            echo -e "\nNT1 CHECK\n"
+            smbclient -p $2 -N -L $1 --option="client min protocol=NT1"
+            smbclient -p $2 -U 'Guest%' -L $1 --option="client min protocol=NT1"
+        fi
+
+        echo -e "\nTESTING DEFAULT CREDENTIALS\n"
+        hydra -V -t 8 -e nsr -f -C /usr/share/seclists/Passwords/Default-Credentials/smb-betterdefaultpasslist.txt smb://$1:$2
+
+        echo -e "\nMSF VERSION FINGERPRINT\n"
+        msfconsole -q -x "use auxiliary/scanner/smb/smb_version; set RHOSTS $1; set RPORT $2; exploit; exit" 
+        
+        read -r respenu\?"\nENUMERATION WITH ENUM4LINUX? (y/n) :"
+            if [[ $respenu != "n" ]]; then
+                read -r user\?"\nUSERNAME: "
+                read -r pass\?"\nPASSWORD: "
+                echo -e "\n ---------------------SIMPLE ENUMERATION-----------------------------"
+                enum4linux -u $user -p $pass -a $1
+                echo -e "\n -------------------AGGRESSIVE ENUMERATION-------------------------"
+                enum4linux -u $user -p $pass -A $1
+            fi
+    fi
+
+    if [[ $1 == "irc" ]]; then
+        echo -e "\nATTEMPTING ANONYMOUS CONNECTION TO THE IRC AS \"test_user\"\n"
+        irssi -c $1 -p $2 -n test_user
+    
+    fi
 
     if [[ "$service" == "snmp" ]]; then
 
@@ -721,11 +797,6 @@ nscan(){
     
     fi
 
-}
-
-#web scanning
-gobuster_dir() {
-    gobuster dir -u $1 -w /home/damuna/TOOLS/WORDLISTS/directory-list-2.3-medium.txt
 }
 
 #gcc compilation

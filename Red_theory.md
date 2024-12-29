@@ -17,13 +17,53 @@
    - Password: (*password*, same as username)
    - Password reuse on other services
    - Generate passwords with `pswgen`
-3. **Brute Forcing**
 
-   - zip files: johnthe ripper, use zip2john to convert it
-     - `zip2john backup.zip > backup.hash`
-     - `john backup.hash`
+2. **Brute Forcing**
+
+   
+
+   
+
+## Hash Cracking
+
+### Cracking methods
 
 **Cracking:** `hashid` ->  [crackstation](https://crackstation.net/)
+
+- john:
+
+  ```bash
+  echo '[HASH1]\n[HASH@]' > hash.txt
+  john hash.txt --wordlist=/usr/share/wordlists/rockyou.txt --fork=15
+  ```
+
+  
+
+- zip files: johnthe ripper, use zip2john to convert it
+  - `zip2john backup.zip > backup.hash`
+  - `john backup.hash`
+
+### Shadow Hashes
+
+Shadow hashes are typically stored in `/etc/shadow` and look like this:
+
+```basic
+user:$6$randomsalt$hashedpassword:18323:0:99999:7:::
+```
+
+- `$6$`: Hashing algorithm (e.g., SHA-512).
+
+- `randomsalt`: Salt to make the hash unique.
+
+- `hashedpassword`: The actual hash.
+
+Before cracking one has to unshadow, that is: 
+
+```bash
+unshadow /etc/passwd /etc/shadow > combined.txt
+john combined.txt
+john --show combined.txt
+```
 
 # Network
 
@@ -264,7 +304,7 @@ Authentication, Read/Write
 
 #### Interaction:
 
-- `ftp`
+- `ftp [IP] -P [PORT]`
 
   - `cd`, `ls`, to navigate
   - `get` `put` to download/upload
@@ -293,12 +333,31 @@ Authentication, Read/Write
 
 - Anonymous login: anonymous:anonymous
 
+- Brute forcing
+
 - File upload
   - LFI
   - with web servers, it is common that files are synchronized
 
 - sniffing with tcpdump could be possible
+
 - If the user are shown (i.e. the setting `hide_ids`, which makes all user and group information in directory listings will be displayed as "ftp", is set on NO)
+
+- Bounce attack
+
+  It is a way to get nmap access a local server (that you cannot scan with nmap) through an exposed ftp server
+
+  ```bash
+  nmap -Pn -v -n -p80 -b [user]:[pass]@[EXPOSED SERVER] [LOCAL SERVER]
+  ```
+
+- CoreFTP 
+
+  Allows an HTTP `PUT` request, which we can use to write content to files. 
+
+  ```bash
+  curl -k -X PUT -H "Host: <IP>" --basic -u <username>:<password> --data-binary "PoC." --path-as-is https://<IP>/../../../../../../whoops
+  ```
 
 **vsFTPd Configuration**
 
@@ -379,7 +438,7 @@ ssh -v [USER]@[IP] -o PreferredAuthentications=[PASSWD]
 
 #### Generalities:
 
-**Type: ** Email
+**Type: ** Email sending
 
 - Purpose:
 
@@ -450,6 +509,12 @@ ssh -v [USER]@[IP] -o PreferredAuthentications=[PASSWD]
   RCPT TO: <[USER]@[DOMAIN]> NOTIFY=success,failure
   DATA
   ```
+
+- `evolution` (GNOME Desktop)
+
+  
+
+
 
 #### Footprinting
 
@@ -609,7 +674,7 @@ tftp
 
 #### Generalities:
 
-**Type:** mail
+**Type:** Email receiving
 
 - Purpose:
   - Access emails from a mail server
@@ -795,18 +860,49 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   - `querydispinfo` Dispays descriptions of users (could be some ppassword in it)
   - `enumprinters`
 
-  
-
   The query `queryuser <RID>` is mostly allowed based on the RID. So we can use the rpcclient to brute force the RIDs to get information. Because we may not know who has been assigned which RID, we know that  we will get information about it as soon as we query an assigned RID:
 
   ```bash
   for i in $(seq 500 1100);do rpcclient -N -U "" 10.129.14.128 -c "queryuser 0x$(printf '%x\n' $i)" | grep "User Name\|user_rid\|group_rid" && echo "";done
   ```
-
+  
   - `seq 500 1100` generates a sequence of numbers from 500 to 1100
   - `-c "queryuser 0x$(printf '%x\n' $i)"`: Executes the `queryuser` command to query information about a user by their RID (Relative Identifier)
+  
+- `smbclient`
 
-- `mount
+  - `smbclient -N //[IP ADDRESS]{/FOLDER}`
+  
+    - `-N` anonymous access
+  - `-L` display the list of shares (only to display without access!!)
+  
+  
+    The ones accessible without authentication don't have the dollar sign `$`
+  
+  - `cd`, `ls`, and to download a file `get`.
+  
+  - `!<cmd>` to execute local system commands without interrupting the connection
+  
+  - `smbstatus` shows the version and who, from which host, and which share the client is connected
+
+  - `psexec` to open a shell
+
+- `smbmap`
+
+  ```bash
+  # List shares
+  smbmap -H [IP]
+  # Browse directories
+  smbmap -H [IP] -r [Folder]
+  # Browse directories recursevely
+  smbmap -H [IP] -R [Folder]
+  # Download
+  smbmap -H [IP] --download "[PATH_TO_FILE]"
+  # Uploas
+  smbmap -H [IP] --upload [FILE_NAME] "[OUTPUT_LOCATION]"
+  ```
+
+- `mount`
 
   - ```bash
     sudo mkdir /tmp/share
@@ -858,19 +954,6 @@ In the documentation of Dovecot, we can find the individual [core settings](http
     Get-ChildItem -Recurse -Path N:\ | Select-String "cred" -List
     ```
 
-- Navigation:
-
-- `smbclient -N //[IP ADDRESS]{/FOLDER}`
-  
-  - `-N` anonymous access
-  - `-L` display the list of shares (only to display without access!!)
-  
-    The ones accessible without authentication don't have the dollar sign `$`
-- `cd`, `ls`, and to download a file `get`.
-- `!<cmd>` to execute local system commands without interrupting the connection
-- `smbstatus` shows the version and who, from which host, and which share the client is connected
-- `psexec` to open a shell
-
 **Exploit**
 
 - Anonymous Login
@@ -886,7 +969,7 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 
 #### Generalities:
 
-**Type:** mail
+**Type:** Email receiving
 
 - Purpose:
   - Access emails from a mail server
@@ -1193,6 +1276,12 @@ rsync -av --list-only rsync://[IP]/[SHARE]
 
 - **Windows Authentication** 
 
+  - Usinf `sqsh`:
+
+    ```cmd
+    sqsh -S 10.129.20.13 -U username -P pass
+    ```
+
   - To connect with windows authentication:
 
     ```cmd
@@ -1480,9 +1569,19 @@ The responder IP has to be loaded as a shared folder, i.e. `//<IP>/somefile`, if
 
 #### Interaction
 
-```bash
- mysql -h [IP] -u root -p[PASSWD] --skip-ssl
-```
+- Linux:
+
+  ```bash
+   mysql -h [IP] -u root -p[PASSWD] --skip-ssl
+  ```
+
+- Windows:
+
+  ```cmd
+  mysql.exe -u [USER] -p[PASS] -h [IP]
+  ```
+
+- `dbeaver` (multi platform app)
 
 The most important databases for the MySQL server are the `system schema` (`sys`) and `information schema`. The system schema contains tables, information, and metadata necessary  for management, see the [reference manual](https://dev.mysql.com/doc/refman/8.0/en/system-schema.html#:~:text=The mysql schema is the,used for other operational purposes) of MySQL. The information schema also contains metadata, but has less information than the previous one.
 
@@ -1814,6 +1913,12 @@ gobuster vhost -u http://[DOMAIN] -w /usr/share/seclists/Discovery/DNS/subdomain
 ```
 
 Ignore any 400 Status output, since it means that the proxy refused your request.
+
+#### Log4j Injection
+
+Log4j is a Java library, which logs the User-Agent as a string and stores it. The vulnerability in this process is the  misinterpretation of the string
+
+Via the HTTP User-Agent header one can insert a JNDI lookup as a command intended for the Log4j library. Accordingly, not the actual User-Agent header, such as Mozilla 5.0, is processed, but the JNDI lookup.
 
 ### Server-side
 
@@ -2500,7 +2605,7 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
   ```bash
   ssh-keygen -f key	#Generate a key in the output file key
   ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-  ssh root@10.10.10.10 -i key	# Login
+  ssh user@10.10.10.10 -i key	# Login
   ```
 
 ### Local Network Services
@@ -2520,6 +2625,10 @@ ssh -L [LOCAL PORT]:127.0.0.1:[LOCAL PORT] [USER]@[IP] -fN
 ```bash
 sudo nmap -p[PORT] 127.0.0.1
 ```
+
+#### Chrome
+
+
 
 ### Local Processes
 
@@ -2609,6 +2718,14 @@ sudo nmap -p[PORT] 127.0.0.1
 
   - In meterpreter: local exploit suggester module
 - Vulnerable Software:  `C:\Program Files` 
+
+## Jail Brekout
+
+### Docker
+
+- If you are root you can read the shadow password file `/etc/shadow`
+
+
 
 # Transferring files
 
