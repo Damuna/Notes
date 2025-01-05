@@ -348,7 +348,7 @@ nscan(){
     script_arg="$service-* and not brute"
     
     local server="$1"
-    sudo nmap $flag --version-all -n -Pn --disable-arp-ping -g 53 -v -p$2 "$server" --script="$script_arg"
+    sudo nmap $flag -n -Pn --disable-arp-ping -v -p$2 "$server" --script="$script_arg"
     
     if [[ $1 == "rdp" ]]; then
         echo -e "\nMSF ENUMERATION\n"
@@ -521,36 +521,107 @@ nscan(){
         hydra -V -t 8 -e nsr -f -C /usr/share/seclists/Passwords/Default-Credentials/mssql-betterdefaultpasslist.txt mssql://$1:$2
     fi
 
+    
     if [[ "$service" == "dns" ]]; then        
+        read -r ad_resp\?"IS THE DNS SERVER HANDLING AN ACTIVE DIRECTORY? (Y/N): "
 
-        read dnsdom\?"\n INPUT A DOMAIN TO ENUMERATE: "
-        vared -p "INPUT THE WORDLIST FOR BRUTEFORCING (leave empty to use fierce): " -c wordlist
+	    while true; do
+        	read -r dnsdom\?"INPUT A DOMAIN TO ENUMERATE (CTRL-C TO EXIT): "
+        	if [[ ! -z $dnsdom ]]; then
+                    rm /tmp/ns_$dnsdom.txt /tmp/zones_$dnsdom.txt &>/dev/null
+                    if [[ $ad_resp =~ [Yy] ]]; then
+                        echo -e "\nCHECKING AD RECORDS WITH DIG\n"
+                        dig -t _gc._tcp.lab.$dnsdom @$1 -p$2
+                        dig -t _ldap._tcp.lab.$dnsdom @$1 -p$2
+                        dig -t _kerberos._tcp.lab.$dnsdom @$1 -p$2
+                        dig -t _kpasswd._tcp.lab.$dnsdom @$1 -p $2
 
-        if [[ -z $wordlist ]]; then
-            wordlist="/usr/share/seclists/Discovery/DNS/fierce-hostlist.txt"
-        fi
+                        echo -e "\nCHECKING NMAP SRV-ENUM RECORDS\n"
+            		    sudo nmap -Pn -n -sUV -p$2 --script dns-srv-enum --script-args dns-srv-enum.domain=$dnsdom $1
+                    fi
 
-        if [[ ! -z $dnsdom ]]; then
-            echo "\n---------------------------DNS NAME SERVER---------------------------------------\n\n"
-            dig ns "$dnsdom" @"$server" -p $2
-            echo "\n-----------------------------DNS RECORDS----------------------------------------\n\n"
-            dig any $dnsdom @$server -p $2 | grep "$dnsdom\." --color=never
-            echo "\n----------------------------ZONE TRANSFER----------------------------------------"
-            dig axfr $dnsdom @$server -p $2 | grep "$dnsdom\." --color=never > /tmp/$dnsdom.txt
+                    echo -e "\nREQUESTING \"NS\" RECORDS FOR \"$dnsdom\"\n"
+                    ns_records=$(dig ns $dnsdom @$1 -p $2 +short) && echo $ns_records
+                    ref_chk=$(dig ns $dnsdom @$1 -p $2 | grep REFUSED)
 
-            axfr_chk=$(cat /tmp/$dnsdom.txt)
-            if [[ -z $axfr_chk ]]; then
-                echo -e "TRANSFER FAILED, BRUTEFORCING DOMAIN"
-                dnsenum --dnsserver $server:$2 --enum -p 0 -s 0 -f $wordlist $dnsdom
-            else
-                cat /tmp/$dnsdom.txt
-                echo -e "\nFOUND UNIQUE DOMAINS -> TESTING THEM AGAINST \"$2\"\n"
-                cat /tmp/$dnsdom.txt | grep ".$dnsdom\." | awk -F" " '{print $1}' | sort -u | grep -vE "^$dnsdom" | sed 's/.$//' > /tmp/ax.$dnsdom.txt
-                cat /tmp/ax.$dnsdom.txt
-        
-                while read axdom; do dnsenum --dnsserver $server:$2 --enum -p 0 -s 0 -f $wordlist $axdom; done < /tmp/ax.$dnsdom.txt
-            fi
-        fi
+                    if [[ ! -z $ref_chk || -z $ns_records ]]; then
+                        echo -e "\nREQUESTING \"A / AAAA\" RECORDS FOR \"$dnsdom\" OVER DNS IP\n"
+                        dig a $dnsdom @$1 -p $2 +short
+                        dig aaaa $dnsdom @$1 -p $2 +short
+
+                        echo -e "\nREQUESTING \"MX / TXT\" RECORDS FOR \"$dnsdom\" OVER DNS IP\n"
+                        dig mx $dnsdom @$1 -p $2 +short
+                        dig txt $dnsdom @$1 -p $2 +short
+
+                        echo -e "\nREQUESTING \"CNAME\" RECORDS FOR \"$dnsdom\" OVER DNS IP\n"
+                        dig cname $dnsdom @$1 -p $2 +short
+
+                        if [[ ! -z $ns_records ]]; then
+                            echo -e "NS REQUEST WAS REFUSED, ATTEMPTING ZONE TRANSFER OVER DNS IP\n"
+                            axfr_resp=$(dig axfr $dnsdom @$1 -p $2 | grep $dnsdom --color=never | tail -n +2)
+
+                            if [[ -z $axfr_resp ]]; then
+                                echo -e "\nZONE TRANSFER FAILED, BRUTEFORCING DOMAINS (TOP-110000)\n"
+                                echo $1 > /tmp/ns_$dnsdom.txt
+                                cur=$(pwd) && cd ~/TOOLS/subbrute
+                                python2 subbrute.py $dnsdom -s /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -r /tmp/ns_$dnsdom.txt
+                                cd $cur
+                            else
+                                echo $axfr_resp
+                            fi
+                        fi
+                    fi
+
+                    if [[ ! -z $ns_records && -z $ref_chk ]]; then
+                        echo $ns_records > /tmp/zones_$dnsdom.txt && touch /tmp/ns_$dnsdom.txt
+                        while read zone; do
+                            ip_chk=$(dig a ${zone%.} @$1 +short)
+                            if [[ $ip_chk == "127.0.0.1" || -z $ip_chk ]]; then 
+                                echo $1 >> /tmp/ns_$dnsdom.txt
+                            else
+                                echo $ip_chk >> /tmp/ns_$dnsdom.txt
+                            fi
+                        done < /tmp/zones_$dnsdom.txt
+                        cat /tmp/ns_$dnsdom.txt | sort -u > /tmp/tmp_ns_$dnsdom.txt && mv /tmp/tmp_ns_$dnsdom.txt /tmp/ns_$dnsdom.txt
+
+                        echo -e "\nREQUESTING \"A / AAAA\" RECORDS FOR \"$dnsdom\" OVER ALL ZONES\n"
+                        while read zone; do
+                            dig a $dnsdom @$zone -p $2 +short
+                            dig aaaa $dnsdom @$zone -p $2 +short
+                        done < /tmp/ns_$dnsdom.txt
+
+                        echo -e "\nREQUESTING \"MX / TXT\" RECORDS FOR \"$dnsdom\" OVER ALL ZONES\n"
+                        while read zone; do
+                            dig mx $dnsdom @$zone -p $2 +short
+                            dig txt $dnsdom @$zone -p $2 +short
+                        done < /tmp/ns_$dnsdom.txt
+
+                        echo -e "\nREQUESTING \"CNAME\" RECORDS FOR \"$dnsdom\" OVER ALL ZONES\n"
+                        while read zone; do
+                            dig cname $dnsdom @$zone -p $2 +short
+                        done < /tmp/ns_$dnsdom.txt
+
+                        echo -e "\nATTEMPTING ZONE TRANSFER OVER ALL ZONES\n"
+                        while read zone; do
+                            axfr_resp=$(dig axfr $dnsdom @$zone -p $2 | grep $dnsdom --color=never | tail -n +2)
+                            if [[ ! -z $axfr_resp ]]; then
+                                echo $axfr_resp
+                                break
+                            fi
+                        done < /tmp/ns_$dnsdom.txt
+                        if [[ -z $axfr_resp ]]; then
+                            echo -e "\nZONE TRANSFER FAILED, BRUTEFORCING DOMAINS (TOP-110000)\n"
+                            cur=$(pwd) && cd ~/TOOLS/subbrute
+                            python2 subbrute.py $dnsdom -s /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -r /tmp/ns_$dnsdom.txt
+                            cd $cur
+                        fi
+                    fi
+        	fi
+	    done
+
+        echo -e "\nMSF ENUMERATION\n"
+        msfconsole -q -x "use auxiliary/scanner/dns/dns_amp; set RHOSTS $1; set RPORT $2; exploit; exit"
+        msfconsole -q -x "use auxiliary/gather/enum_dns; set RHOSTS $1; set RPORT $2; exploit; exit"
     fi
 
     if [[ "$service" == "nfs" ]]; then
@@ -572,17 +643,23 @@ nscan(){
         echo -e "\nMSF ENUMERATION\n"
         msfconsole -q -x "use auxiliary/scanner/smtp/smtp_version; set RHOSTS $1; set RPORT $2; run; exit" && msfconsole -q -x "use auxiliary/scanner/smtp/smtp_ntlm_domain; set RHOSTS $1; set RPORT $2; run; exit" && msfconsole -q -x "use auxiliary/scanner/smtp/smtp_relay; set RHOSTS $1; set RPORT $2; run; exit" 
 
-        echo -e "\nVULNERABILITY SCANNING\n"
-        sudo nmap -n -Pn -v -sV --script=smtp-commands,smtp-enum-users,smtp-vuln-cve2010-4344,smtp-vuln-cve2011-1720,smtp-vuln-cve2011-1764 -p$2 $1
-    
-        echo -e "\nMSF AUTO USER ENUMERATION\n"
+        echo -e "\nMSF AUTO USER ENUMERATION ( VRFY, EXPN, or RCPT )\n"
         msfconsole -q -x "use auxiliary/scanner/smtp/smtp_enum; set RHOSTS $1; set RPORT $2; set USER_FILE $wordlist; run; exit"
 
         read mtd\?"INPUT METHOD FOR USER ENUMERATION: "
-        smtp-user-enum -M $mtd -U $wordlist -t $1 -p $2 -w 15
-
-        echo -e "\nTESTING WEAK CREDENTIALS (CIRT + DARKWEB)\n"
-        hydra -l /usr/share/seclists/Usernames/cirt-default-usernames.txt -P /usr/share/seclists/Passwords/darkweb2017-top100.txt -s $2 $1 -S -v -V
+        read dom\?"INPUT A DOMAIN IF PRESENT: "
+        if [[ ! -z $dom ]]; then
+            smtp-user-enum -M $mtd -U $wordlist -t $1 -p $2 -w 15 -D $dom
+        else
+            smtp-user-enum -M $mtd -U $wordlist -t $1 -p $2 -w 15
+        fi 
+        
+        read user\?"INPUT A USER IF FOUND ( with @domain!!! ): "
+        if [[ ! -z $user ]]; then
+            hydra -l $user -P /usr/share/seclists/Passwords/darkweb2017-top100.txt smtp://$1:$2 -S -v -V
+        else
+            hydra -L /usr/share/seclists/Usernames/cirt-default-usernames.txt -P /usr/share/seclists/Passwords/darkweb2017-top100.txt smtp://$1:$2 -S -v -V
+        fi 
     fi
     
     if [[ $service == "pop3" ]]; then
@@ -644,7 +721,7 @@ nscan(){
         fi
         hydra -L $wd_user -P $wd_pass -s $2 -f -V imap://$1/PLAIN
 
-        read cred\?"INPUT VALID \"USER:PASS\" COMBO IF FOUND: "
+        read cred\?"INPUT VALID \"MAIL:PASS\" COMBO IF FOUND : "
         if [[ ! -z $cred ]]; then
             usr=$(echo $cred | cut -d":" -f1)
             psw=$(echo $cred | cut -d":" -f2)
@@ -652,7 +729,7 @@ nscan(){
             echo -e "\nLISTING MAILBOXES\n"
             curl -u "$usr:$psw" imap://$1:$2 -X 'LIST "" "*"'
 
-            while true; do read mailbox\?"INPUT MAILBOX TO READ: " && curl -u "$usr:$psw" imap://$1:$2/$mailbox && read index\?"INPUT MAIL UID TO READ (BLANK IF EMPTY): " && curl -u "$usr:$psw" "imap://$1:$2/$mailbox;UID=$index"; done
+            while true; do read mailbox\?"INPUT MAILBOX TO READ: " && curl -u "$usr:$psw" imap://$1:$2/$mailbox && read index\?"INPUT MAIL UID TO READ (1 for first email ...): " && curl -u "$usr:$psw" "imap://$1:$2/$mailbox;UID=$index"; done
         fi
 
     fi
@@ -716,15 +793,22 @@ nscan(){
         echo -e "\nMSF VERSION FINGERPRINT\n"
         msfconsole -q -x "use auxiliary/scanner/smb/smb_version; set RHOSTS $1; set RPORT $2; exploit; exit" 
         
-        read -r respenu\?"\nENUMERATION WITH ENUM4LINUX? (y/n) :"
-            if [[ $respenu != "n" ]]; then
-                read -r user\?"\nUSERNAME: "
-                read -r pass\?"\nPASSWORD: "
-                echo -e "\n ---------------------SIMPLE ENUMERATION-----------------------------"
-                enum4linux -u $user -p $pass -a $1
-                echo -e "\n -------------------AGGRESSIVE ENUMERATION-------------------------"
-                enum4linux -u $user -p $pass -A $1
+        while true; do
+            read -r respenu?"\nDO YOU HAVE CREDENTIALS FOR nxc? (y/n): "
+    
+            if [[ $respenu == "n" ]]; then
+                break
             fi
+    
+            read -r user?"\nUSERNAME: "
+            read -r pass?"\nPASSWORD: "
+        
+            echo -e "\nPASSWORD POLICY\n"
+            nxc smb "$1" -u "$user" -p "$pass" --port "$2" --pass-pol
+        
+            echo -e "\nDOWNLOAD POSSIBLE FILES\n"
+            nxc smb "$1" -u "$user" -p "$pass" --port "$2" -M spider_plus -o DOWNLOAD_FLAG=True
+        done
     fi
 
     if [[ $1 == "irc" ]]; then
@@ -741,7 +825,7 @@ nscan(){
             echo -e "\nPERFORMING USER BRUTEFORCING (CIRT / DARKWEB)\n"
             vared -p "INPUT THE WORDLIST FOR USERNAMES (leave empty to use cirt-default-usernames): " -c wd_user
             if [[ -z $wd_user ]]; then
-                wd_users="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
+                wd_user="/usr/share/seclists/Usernames/cirt-default-usernames.txt"
             fi
             vared -p "INPUT THE WORDLIST FOR PASSWORD (leave empty to use default-passwords): " -c wd_pass
             if [[ -z $wd_pass ]]; then
@@ -985,4 +1069,19 @@ alias windapsearch='/home/damuna/TOOLS/windapsearch/venv/bin/python3 /home/damun
 # web shell path
 webshell(){
     cd '/usr/share/laudanum/'
+}
+
+# Check ANY record
+dnsrec(){
+    if [[ -z "$1" ]]; then
+        echo "Usage: dnsrec <domain> <ip>"
+        return 1
+    fi
+
+    local record_types=(A AAAA CNAME MX NS SOA TXT)
+
+    for record in "${record_types[@]}"; do
+        echo "\n\------------------------ $record Record --------------------------\n"
+        dig $record $1 @$2
+    done
 }

