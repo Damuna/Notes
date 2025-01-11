@@ -1002,9 +1002,7 @@ web_enum(){
     curl -kIL $1
     echo "\n------------------whatweb------------------\n"
     whatweb $1
-    echo "\n-------------------whois-------------------\n"
-    whois $1
-    echo "\n-------------Firewall detection------------\n"
+    echo "\n-------------WAF detection------------\n"
     wafw00f $1
     echo "\n----------------Nikto scanner--------------\n"
     nikto -h $1 -Tuning b
@@ -1018,8 +1016,17 @@ pswgen(){
 
 # Alive Host IP/CIDR Scanning
 alive(){
-    sudo nmap -sn -PE -PP -PM -PS21,22,23,25,80,113,443,31339 -PA80,113,443,10042 -g 53 $1 | grep for | cut -d" " -f5
+    cidr_regex="^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$"
+    if [ -f ./$1 ]; then
+        echo -e "\nNMAP SWEEPING\n"
+        sudo nmap -n -sn -PE -PP -PM -PS21,22,23,25,80,113,443,31339 -PA80,113,443,10042 -g 53 -iL $1 | grep for | cut -d" " -f5 > alive_ips.txt && cat alive_ips.txt
+
+    elif [[ $1 =~ $cidr_regex ]]; then
+        echo -e "\nNMAP SWEEPING\n"
+        sudo nmap -n -sn -PE -PP -PM -PS21,22,23,25,80,113,443,31339 -PA80,113,443,10042 -g 53 $1 | grep for | cut -d" " -f5 > alive_ips.txt && cat alive_ips.txt
+    fi
 }
+
 
 vhost(){
     # Getting root domain from URL
@@ -1084,4 +1091,11 @@ dnsrec(){
         echo "\n\------------------------ $record Record --------------------------\n"
         dig $record $1 @$2
     done
+}
+
+# Ligolo proxy
+ligstart(){
+    sudo ip tuntap add user `whoami` mode tun ligolo 2>/dev/null
+    sudo ip link set ligolo up 2>/dev/null
+    ~/TOOLS/ligolo-ng/dist/ligolo-ng-proxy-linux_amd64 -selfcert
 }

