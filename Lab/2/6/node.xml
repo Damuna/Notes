@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cherrytree>
+  <node unique_id="6" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539457" ts_lastsave="1739873805">
+    <rich_text scale="h1">Devel</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">ftp</rich_text>
+    <rich_text>
+- Get version -&gt; Exploit research 
+- Writing -&gt; goes in the browser -&gt; webshell
+
+</rich_text>
+    <rich_text scale="h2">web</rich_text>
+    <rich_text>
+- IIS 7.5 ASP.NET -&gt; shortname scanner: </rich_text>
+    <rich_text link="webs http://10.10.10.5/aspnet*~1">http://10.10.10.5/aspnet*~1</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+Windows 7 Enterpreise x86
+Service account IIS with SeImpersonate -&gt; JuicyPotato</rich_text>
+  </node>
+</cherrytree>
