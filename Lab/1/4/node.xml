@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cherrytree>
-  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1739813616">
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1740079019">
     <rich_text scale="h1">Keeper</rich_text>
     <rich_text>
 
@@ -88,6 +88,74 @@ After getting the hash from gitea.db -&gt; google how to crack gitea hashes-&gt;
 
 In /opt there is a file that gets executed by root and calls /usr/bin/magick with a jpg
 Check version of magick and exploit research with jpg input
+
+</rich_text>
+    <rich_text scale="h1">Antique</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">snmp</rich_text>
+    <rich_text>
+v1, not bruteforceble
+with public there is the string  </rich_text>
+    <rich_text family="monospace">HTB Printer</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">telnet</rich_text>
+    <rich_text>
+the string HP JetDirect appears when trying to connect and asks for a password
+Exploit research of telnet + HP JetDirect:
+</rich_text>
+    <rich_text family="monospace">snmpwalk -v 2c -c public 10.10.10.251 .1.3.6.1.4.1.11.2.3.9.1.1.13.0</rich_text>
+    <rich_text>
+Convert from hex using cyberchef: </rich_text>
+    <rich_text family="monospace">P@ssw0rd@123!!123</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+- We are in a telnet shitty shell -&gt; Upgrade using a rev shell: </rich_text>
+    <rich_text family="monospace">exec bash -c “rev shell”</rich_text>
+    <rich_text>
+- </rich_text>
+    <rich_text family="monospace">netstat -puntal</rich_text>
+    <rich_text> -&gt; cups -&gt; version: 1.6 -&gt; Exploit research: arbitrary file read -&gt; /root/root.txt
+
+</rich_text>
+    <rich_text scale="h1">Soccer</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web</rich_text>
+    <rich_text>
+- Bootstrap 4.1.1
+- JQuery[3.2.1,3.6.0]
+- nginx[1.18.0]
+
+→ /tiny: tiny file manager -&gt; default password 
+   ⇒ admin admin@123
+   ⇒ user </rich_text>
+    <rich_text style="italic">12345</rich_text>
+    <rich_text>
+
+Tiny File Manager 2.4.3: File upload in uploads folder (manually web shell)
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+
+Users: 
+- www/data (me)
+- player
+- root
+
+Files
+- </rich_text>
+    <rich_text link="file L3Zhci9sb2cvbmdpbngvYWNjZXNzLmxvZw==">/var/log/nginx/access.log</rich_text>
+    <rich_text> IDK
+- 
 </rich_text>
   </node>
 </cherrytree>

