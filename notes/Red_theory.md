@@ -3854,7 +3854,7 @@ One excellent resource is [HackTricks](https://book.hacktricks.xyz), which has a
 **Scripts**
 
 - Linux
-  - [Linux-smart-enumeration](https://github.com/diego-treitos/linux-smart-enumeration) (enum)
+  - [Linux-smart-enumeration](https://github.com/diego-treitos/linux-smart-enumeration) (enum) `./lse.sh -l1 -e /run,/proc,/sys`
   - [LinEnum](https://github.com/rebootuser/LinEnum.git) (enum)
   - [linuxprivchecker](https://github.com/sleventyeleven/linuxprivchecker) (enum)
   - [LinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS)
@@ -4277,11 +4277,50 @@ Default SUID (not interesting):
 
 ### Credential Hunting
 
-- Some files worth checking:
+- Everytime you impersonate a user -> Re-Do Relevant Credential Hunting
 
-  - `configuration` files
-  - `log` files, 
-  - `bash_history` 
+- Directories & Files Worth Checking
+
+  - Local Hashes
+    - `/etc/shadow`
+
+    - `/etc/security/opasswd`
+  - User Data
+    - User Owned / Readable Files
+      - Exclude -> `/proc`, `/sys`, `/run`, `/var/lib`, `/usr/src`
+    - User Data Directories
+      - `/home` -> History & RC Files / Hidden Content
+      - ``/var/mail`, `/var/backups`, `/var/spool`, `/mnt`, `/var/tmp`
+  - Service Config Files
+    - `netstat -tulnap | grep "LISTEN\|ESTABILISHED"`
+    - Sensitive Configuration Files / Interaction Disclosing Data
+    - SSH
+      - `ls -laR /home | grep ssh`
+      - `grep -Rnw -li / -e "BEGIN OPENSSH PRIVATE KEY" 2>/dev/null`
+    - Databases
+      - MySQL / PSQL / MSSQL / MongoDB / Oracle
+      - Local DB Access
+      - Log Files
+      - User Privileges -> MySQL UDF Escalation (If Root Inside MySQL)
+    - HTTP
+      - Nginx / Apache Configs
+        - Logs
+          - `ls -la /var/log/[nginx/apache2]`
+          - `access.log / error.log`
+        - Virtual Hosts
+          - Nginx -> `/etc/nginx/[nginx.conf/sites-*]`
+          - Apache -> `/etc/apache2/*.conf`, eg `000-default.conf`
+          - Also try `/usr/local/etc/` instead of `/etc`
+      - Web Root Access
+        - `/var/www/[HOSTNAME/html]`, `/srv/[http/html]`, `/opt`
+        - Strings -> `grep -Rnw -li . -e "[STRING]" 2>/dev/null`
+        - Backend Files -> `.php`, `.jsp`, ..., Information in the Code
+        - Database Files -> `.sqlite3`, `.sql`, `.db`, Others
+        - Settings Files -> `.conf`, `.ini`, Others
+  - Application Config Files
+    - Folders -> `/opt`, `/`, Non-Default
+    - Running Process -> `ps aux` -> Enumerate Application Folders
+    - Packages -> `dpkg -l` / `rpm -qa` -> DebSecan Tool / Privesc Tools
 
 - Search credentials in folder and subfolders:
 
