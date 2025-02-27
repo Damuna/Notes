@@ -918,13 +918,16 @@ gcc_ex(){
 }
 
 # Content Discovery --> (Directories, Files, Backups)
-dirfuzz(){
+dirfuzz2(){
+    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
+    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -v -ac -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt | while read l; do echo $1/$l/; done
+
+    echo -e "\nSEARCHING RAFT FILES\n"
+    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ -c -w /usr/shares/seclists/Discovery/Web-Content/raft-large-files.txt | while read l; do echo $1/$l; done
+
     # Unique merge of quickhits.txt, dirsearch.txt, big.txt, svndigger/all.txt, common.txt, raft-small-*
     echo -e "\nSEARCHING GENERIC CONTENT\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ -c -w /usr/share/wordlists/common_content.txt | while read l; do echo $1/$l; done
-
-    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt | while read l; do echo $1/$l/; done
+    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ -c -w ~/WORDLISTS/common_content.txt | while read l; do echo $1/$l; done
 
     echo -e "\nCHECKING NUCLEI HTTP EXPOSURES\n"
     nuclei -up &>/dev/null && nuclei -ut &>/dev/null
@@ -937,9 +940,6 @@ dirfuzz(){
     ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ/ -c -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt | while read l; do echo $1/$l; done
     ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ1.FUZZ2 -c -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt:FUZZ1 -w /tmp/ext_$(echo $1 | unfurl format %d).txt:FUZZ2 | while read l; do echo $1/$(echo $l | awk -F" " '{print $3}').$(echo $l | awk -F" " '{print $6}'); done
 
-    echo -e "\nSEARCHING RAFT FILES\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ -c -w /usr/sharez/seclists/Discovery/Web-Content/raft-large-files.txt | while read l; do echo $1/$l; done
-
     echo -e "\nCOMPREHENSIVE DIRECTORY SEARCH\n"
     ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt | while read l; do echo $1/$l; done
 
@@ -947,6 +947,34 @@ dirfuzz(){
     ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ1.FUZZ2 -c -w /usr/share/seclists/Discovery/Web-Content/raft-small-words.txt:FUZZ1 -w /tmp/ext_$(echo $1 | unfurl format %d).txt:FUZZ2 | while read l; do echo $1/$(echo $l | awk -F" " '{print $3}').$(echo $l | awk -F" " '{print $6}'); done
 }
 
+# Content Discovery --> (Directories, Files, Backups)
+dirfuzz(){    
+    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
+    ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -v
+
+    echo -e "\nSEARCHING RAFT FILES\n"
+    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -v
+
+    echo -e "\nCHECKING NUCLEI HTTP EXPOSURES\n"    
+    nuclei -up &>/dev/null && nuclei -ut &>/dev/null
+    nuclei -u $1 -t http/exposures
+
+    read -r cel\?"INPUT ENDPOINT FOR GENERATED FUZZING IF NEEDED (Current -> \"$1\"): "
+    if [[ ! -z $cel ]]; then
+        echo -e "\nGENERATED FUZZING\n"
+        cewl $cel -d 4 -m 3 --lowercase --with-numbers --convert-umlauts -w /tmp/$(echo $1 | unfurl format %d).txt
+        ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /tmp/$(echo $1 | unfurl format %d).txt -v 
+        rm /tmp/$(echo $1 | unfurl format %d).txt
+    fi
+
+    read -r resp\?"INPUT EXTENSION FOR BACKEND & BACKUP FUZZING: "
+    if [[ ! -z $resp ]]; then
+        ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-small.txt -e $resp,$resp.old,$resp.bak,$resp.tmp,$resp~,old,bak,tmp -v
+    fi
+
+    echo -e "\nSEARCHING ALL WEB EXTENSIONS\n"
+    ffuf -ac -acs advanced -r  -u $1/FUF1FUF2 -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt:FUF1 -w /usr/share/seclists/Discovery/Web-Content/web-extensions.txt:FUF2 -v
+}
 
 apifuzz(){
     echo -e "\nLAUNCHING KITERUNNER ON TARGET\n"
@@ -1060,31 +1088,46 @@ vhost(){
     ffuf -mc all -ac -acs advanced -u $1 -c -w "$wd:FUZZ" -H "Host: FUZZ.$host" "${@:2}"
 }
 
-#Crawling/JS Scraping Function
 crawl(){
-        echo -e "\nURLS + SUBDOMAINS\n"
-        gospider -s $1 --sitemap -d 3 --subs | grep -vE "\.js$" | grep -E "\[url\]|\[subdomains\]"
+        dom=$(echo $1 | unfurl format %d)
 
-        echo -e "\nHREF ATTRIBUTES\n"
-        gospider -s $1 --sitemap -d 3 --subs | grep "\[href\]"
-
-        echo -e "\nJAVASCRIPT FILES\n"
-        gospider -s $1 --sitemap -d 3 --subs | grep "\[javascript\]"
-
-        echo -e "\nFORMS\n"
-        gospider -s $1 --sitemap -d 3 --subs | grep "\[form\]"
+        echo -e "\nGATHERING ENDPOINTS\n"
+        gospider  -t 5 -s $1 --sitemap -d 3 --subs --js > /tmp/crawled_$dom.txt
+        cat /tmp/crawled_$dom.txt | grep -E "\[href\]|\[url]" | grep $dom | grep -vE "\.css|\.js$|\.woff|\.woff2|\.ttf|\.png|\.jpg|\.jpeg|\.gif|\?.*=" | grep -oP '\bhttp[s]?://[^\s]+' --color=never | awk '!seen[$0]++' | grep -vif /usr/share/seclists/Discovery/Web-Content/web-all-content-types.txt
 
         echo -e "\nQUERY STRINGS\n"
-        python3 ~/TOOLS/ReconSpider.py $1 &>/dev/null
-        cat results.json | jq '.links[]' | tr -d '"' | qsreplace FUZZMYVAL | grep FUZZMYVAL 
+        cat /tmp/crawled_$dom.txt | grep -E "\[href\]|\[url]" | grep $dom | grep -E "\?.*=" | grep -oP '\bhttp[s]?://[^\s]+' --color=never | qsreplace FUZZ | awk '!seen[$0]++'
 
-        echo -e "\nCOMMENTS\n"
-        cat results.json | jq '.comments[]'
+        echo -e "\nFORM FIELDS\n"
+        cat /tmp/crawled_$dom.txt | grep -E "\[form\]" | grep $dom | grep -vE "\?.*=" | grep -oP '\bhttp[s]?://[^\s]+' --color=never | awk '!seen[$0]++'
 
-        echo -e "\nEMAILS\n"
-        cat results.json | jq '.emails[]'
+        echo -e "\nSUBDOMAINS\n"
+        cat /tmp/crawled_$dom.txt | grep -E "\[subdomains\]" | grep $dom | awk -F" " '{print $3}' | awk '!seen[$0]++'
 
+        echo -e "\nJS FILES\n"
+        cat /tmp/crawled_$dom.txt | grep -E "\[javascript\]" | grep $dom | grep -oP '\bhttp[s]?://[^\s]+' --color=never | awk '!seen[$0]++' > /tmp/jstmp_$dom.txt
+        while read line; do 
+            type=$(curl -s $line -I | grep -i Content-Type | awk -F" " '{print $2}' | head -n 1)
+            if [[ $type =~ "javascript" ]]; then
+                echo $line | anew -q /tmp/js_$dom.txt
+            fi
+        done < /tmp/jstmp_$dom.txt
+
+        echo -e "\nJS LINK MINING\n"
+        cat /tmp/crawled_$dom.txt | grep -E "\[linkfinder\]" | awk -F" " '{print $6}' | grep -oP '\bhttp[s]?://[^\s]+' --color=never | awk '!seen[$0]++' | grep -v "www.w3.org" | grep -v "reactjs.org" | grep -v "mui.com"
+
+        echo -e "\nJS SECRET MINING\n"
+        cat /tmp/js_$dom.txt | while read line; do; /home/kali/TOOLS/SecretFinder/venv/bin/python3 ~/TOOLS/SecretFinder/SecretFinder.py -i $1 -e -g 'jquery;bootstrap;api.google.com' -o cli | grep -v "twilio_" | grep -v "possible_" | grep -v "google_captcha"; done
+        rm /tmp/js*
+
+        echo -e "\nGATHERING COMMENTS\n"
+        cat /tmp/crawled_$dom.txt | grep -E "\[href\]|\[url]" | grep $dom | grep -vE "\.css|\.js|\.woff|\.woff2|\.ttf|\.png|\.jpg|\.jpeg|\.gif|\.ico|\?.*=" | grep -oP '\bhttp[s]?://[^\s]+' --color=never | awk '!seen[$0]++' | while read uri; do curl -s $uri | grep -oP '(?<=<!--).*(?=-->)' | tr -d ' ' | anew -q /tmp/comments_$dom.txt; done && cat /tmp/comments_$dom.txt
+        rm /tmp/crawled_*.txt
+
+        echo -e "\nBROKEN EXTERNAL LINKS\n"
+        blc $1 -ro --filter-level 2 --exclude-internal
 }
+
 
 listenping(){
     sudo tcpdump -i tun0 icmp
@@ -1369,7 +1412,7 @@ ssp(){
     searchsploit $1 -j | jq '.RESULTS_EXPLOIT[] | select(.Verified == "1") | {Title, Date_Published, Date_Updated, Path}'
 
     echo -e "\nCVEMAP POC SEARCH\n"
-    cvemap -silent -q "$1" -j | jq '.[] | select(.is_poc == true) | {cve_id, cve_description, pocs: [.poc[].url]}'
+    cvemap -auth && cvemap -silent -q "$1" -j | jq '.[] | select(.is_poc == true) | {cve_id, cve_description, pocs: [.poc[].url]}'
 }
 
 # Add/Extend Host Mappings of /etc/hosts

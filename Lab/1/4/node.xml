@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cherrytree>
-  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1740155328">
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1740676679">
     <rich_text scale="h1">Keeper</rich_text>
     <rich_text>
 
@@ -161,6 +161,16 @@ New vhosts: doc-player
 </rich_text>
     <rich_text scale="h2">Privesc</rich_text>
     <rich_text>
-sudo doas is vulnerable: doas.conf</rich_text>
+sudo doas is vulnerable: doas.conf
+
+</rich_text>
+    <rich_text scale="h1">Beep</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web 80</rich_text>
+    <rich_text>
+
+Connection not secure</rich_text>
   </node>
 </cherrytree>
