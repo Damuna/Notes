@@ -14,3 +14,4 @@
   - change code
   - find another exploit
   - fix/look up errors
+  - win the race -> while loop

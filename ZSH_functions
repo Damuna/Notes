@@ -918,63 +918,35 @@ gcc_ex(){
 }
 
 # Content Discovery --> (Directories, Files, Backups)
-dirfuzz2(){
-    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -v -ac -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt | while read l; do echo $1/$l/; done
-
-    echo -e "\nSEARCHING RAFT FILES\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ -c -w /usr/shares/seclists/Discovery/Web-Content/raft-large-files.txt | while read l; do echo $1/$l; done
-
+dirfuzz(){
     # Unique merge of quickhits.txt, dirsearch.txt, big.txt, svndigger/all.txt, common.txt, raft-small-*
     echo -e "\nSEARCHING GENERIC CONTENT\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ -c -w ~/WORDLISTS/common_content.txt | while read l; do echo $1/$l; done
+    ffuf -mc all -fc 503,400,429,404,500 -t 10 -r -ic -v -u $1/FUZZ -c -w /usr/share/wordlists/common_content.txt -ac
+
+    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
+    ffuf -mc all -fc 400,503,429,404,500 -t 10 -r -ic -v -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -ac
+
+    echo -e "\nSEARCHING RAFT FILES\n"
+    ffuf -mc all -fc 400,503,429,404,500 -t 10 -r -ic -v -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -ac
 
     echo -e "\nCHECKING NUCLEI HTTP EXPOSURES\n"
     nuclei -up &>/dev/null && nuclei -ut &>/dev/null
-    nuclei -rl 20 -silent -u $1 -t http/exposures
+    nuclei -rl 10 -silent -u $1 -t http/exposures
 
     read -r ext\?"INPUT EXTENSIONS FOR EXT-FUZZING (php,txt,asp,...): "
     echo $ext | tr ',' '\n' > /tmp/ext_$(echo $1 | unfurl format %d).txt
     echo -e "\nSEARCHING GENERATED DIRECTORIES/FILES\n"
     urlgen $1
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ/ -c -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt | while read l; do echo $1/$l; done
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ1.FUZZ2 -c -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt:FUZZ1 -w /tmp/ext_$(echo $1 | unfurl format %d).txt:FUZZ2 | while read l; do echo $1/$(echo $l | awk -F" " '{print $3}').$(echo $l | awk -F" " '{print $6}'); done
+    ffuf -mc all -fc 400,503,429,404,500 -t 10 -r -ic -v -u $1/FUZZ/ -c -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt -ac
+    ffuf -mc all -fc 400,503,429,404,500 -t 10 -r -ic -v -u $1/FUZZ1.FUZZ2 -c -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt:FUZZ1 -w /tmp/ext_$(echo $1 | unfurl format %d).txt:FUZZ2 -ac
 
     echo -e "\nCOMPREHENSIVE DIRECTORY SEARCH\n"
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt | while read l; do echo $1/$l; done
+    ffuf -mc all -fc 400,503,429,404,500 -t 10 -r -ic -v -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -ac
 
-    echo -e "\nPERFORMING EXTENDED FILE FUZZING\n" 
-    ffuf -mc all -fc 400,404,500 -t 10 -r -ic -s -ac -u $1/FUZZ1.FUZZ2 -c -w /usr/share/seclists/Discovery/Web-Content/raft-small-words.txt:FUZZ1 -w /tmp/ext_$(echo $1 | unfurl format %d).txt:FUZZ2 | while read l; do echo $1/$(echo $l | awk -F" " '{print $3}').$(echo $l | awk -F" " '{print $6}'); done
+    echo -e "\nPERFORMING EXTENDED FILE FUZZING\n"
+    ffuf -mc all -fc 400,503,429,404,500 -t 10 -r -ic -v -u $1/FUZZ1.FUZZ2 -c -w /usr/share/seclists/Discovery/Web-Content/raft-small-words.txt:FUZZ1 -w /tmp/ext_$(echo $1 | unfurl format %d).txt:FUZZ2 -ac
 }
 
-# Content Discovery --> (Directories, Files, Backups)
-dirfuzz(){    
-    echo -e "\nSEARCHING RAFT DIRECTORIES\n"
-    ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt -v
-
-    echo -e "\nSEARCHING RAFT FILES\n"
-    ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/raft-large-files.txt -v
-
-    echo -e "\nCHECKING NUCLEI HTTP EXPOSURES\n"    
-    nuclei -up &>/dev/null && nuclei -ut &>/dev/null
-    nuclei -u $1 -t http/exposures
-
-    read -r cel\?"INPUT ENDPOINT FOR GENERATED FUZZING IF NEEDED (Current -> \"$1\"): "
-    if [[ ! -z $cel ]]; then
-        echo -e "\nGENERATED FUZZING\n"
-        cewl $cel -d 4 -m 3 --lowercase --with-numbers --convert-umlauts -w /tmp/$(echo $1 | unfurl format %d).txt
-        ffuf -ac -acs advanced -r  -u $1/FUZZ/ -c -w /tmp/$(echo $1 | unfurl format %d).txt -v 
-        rm /tmp/$(echo $1 | unfurl format %d).txt
-    fi
-
-    read -r resp\?"INPUT EXTENSION FOR BACKEND & BACKUP FUZZING: "
-    if [[ ! -z $resp ]]; then
-        ffuf -ac -acs advanced -r  -u $1/FUZZ -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-small.txt -e $resp,$resp.old,$resp.bak,$resp.tmp,$resp~,old,bak,tmp -v
-    fi
-
-    echo -e "\nSEARCHING ALL WEB EXTENSIONS\n"
-    ffuf -ac -acs advanced -r  -u $1/FUF1FUF2 -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt:FUF1 -w /usr/share/seclists/Discovery/Web-Content/web-extensions.txt:FUF2 -v
-}
 
 apifuzz(){
     echo -e "\nLAUNCHING KITERUNNER ON TARGET\n"
@@ -1038,7 +1010,7 @@ ligcreate(){
 }
 
 # web enumeration
-web_enum(){
+webenum(){
     #host=$(echo $1 | unfurl format %d)
     
     echo "\n-------------------Curl--------------------\n"
@@ -1404,7 +1376,7 @@ sqlscan(){
     echo -e "----------------------------------"
     cat $1
     echo -e "----------------------------------"
-    sqlmap -r $1 --level 5 --risk 3 --threads=10 --random-agent --batch --dbs --fingerprint --banner --technique=BEUSQT --flush-session --parse-errors --fresh-queries --no-cast --no-escape -v 2
+    sqlmap -r $1 --level 5 --risk 3 --dbs --threads=10 --technique=BEUSQT --random-agent --batch --fingerprint --parse-errors --banner --flush-session --fresh-queries --tamper=between,space2comment,equaltolike,escapequotes -v 2
 }
 
 ssp(){

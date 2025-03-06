@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cherrytree>
-  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1740938102">
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1741189863">
     <rich_text scale="h1">Keeper</rich_text>
     <rich_text>
 
@@ -198,6 +198,22 @@ sudo doas is vulnerable: doas.conf
 
 history -&gt; tmux -&gt; </rich_text>
     <rich_text link="webs https://redfoxsec.com/blog/terminal-multiplexing-hijacking-tmux-sessions/">https://redfoxsec.com/blog/terminal-multiplexing-hijacking-tmux-sessions/</rich_text>
-    <rich_text> -&gt; ignore the error</rich_text>
+    <rich_text> -&gt; ignore the error
+
+</rich_text>
+    <rich_text scale="h1">Good Games</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h3">tech</rich_text>
+    <rich_text>
+- Werkzeug httpd 2.0.2 (Python 3.9.2)
+-  Flask 2.0.2
+
+</rich_text>
   </node>
 </cherrytree>
