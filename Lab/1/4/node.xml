@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cherrytree>
-  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1742748685">
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1745497095">
     <rich_text scale="h1">Keeper</rich_text>
     <rich_text>
 
@@ -324,6 +324,192 @@ file ./initdb.sh in the code
 </rich_text>
     <rich_text scale="h2">Privesc</rich_text>
     <rich_text>
-martin: nafeelswordsmaster</rich_text>
+martin: nafeelswordsmaster
+
+</rich_text>
+    <rich_text scale="h1">Pilgrimage</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h2">Web</rich_text>
+    <rich_text>
+</rich_text>
+    <rich_text scale="h3">Tech</rich_text>
+    <rich_text>
+- nginx 1.18.0
+- 2022 Pilgrimage. Design: </rich_text>
+    <rich_text link="webs https://templatemo.com">TemplateMo</rich_text>
+    <rich_text>
+
+</rich_text>
+    <rich_text scale="h3">Possible exploits</rich_text>
+    <rich_text>
+- PHPSESSID=015paadij30dnm2lraf73vrbqq; path=/
+- .git search credentials
+  
+</rich_text>
+    <rich_text scale="h2"> User</rich_text>
+    <rich_text>
+ emily
+ root
+ 
+</rich_text>
+    <rich_text scale="h1"> CozyHosting</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> web</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h3"> tech</rich_text>
+    <rich_text>
+ - nginx 1.18
+ - Bootstrap 5.2.3
+ Template:Flexstart
+ cozy cloud
+ 
+</rich_text>
+    <rich_text scale="h2"> Postgres</rich_text>
+    <rich_text>
+ Config file, find hashes
+ 
+</rich_text>
+    <rich_text scale="h2"> ssh</rich_text>
+    <rich_text>
+ josh : manchesterunited
+ OpenSSH 8.9p1
+ 
+</rich_text>
+    <rich_text scale="h1"> Codify</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> web</rich_text>
+    <rich_text>
+ - Apache 2.4.52
+ - Bootstrap 4.3.1
+ - vm2 3.9.16
+ - popper 1.14.7
+ 
+</rich_text>
+    <rich_text scale="h2"> ssh</rich_text>
+    <rich_text>
+ joshua : spongebob1
+ root : kljh12k3jhaskjh12kjh3
+ 
+</rich_text>
+    <rich_text scale="h1"> Devvortex</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> web</rich_text>
+    <rich_text>
+ - nginx 1.18.0
+ - JQuery 3.4.1
+ - Bootstrap 4
+ 
+ dev.
+ - Joomla 4.2.6
+ 
+</rich_text>
+    <rich_text scale="h2"> adminstrator</rich_text>
+    <rich_text>
+ lewis: P4ntherg0t1n5r3c0n##
+ logan tequieromucho
+</rich_text>
+    <rich_text scale="h2"> ssh</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h1"> Brocker</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> ssh</rich_text>
+    <rich_text>
+ Openssh 8.9p1
+ 
+</rich_text>
+    <rich_text scale="h2"> nginx</rich_text>
+    <rich_text>
+ nginx 1.18
+ HTTP/1.1 401 Unauthorized\x0D
+|_  basic realm=ActiveMQRealm
+ 
+</rich_text>
+    <rich_text scale="h2"> 1883 mgtt?</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> 5672 amqp?</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> 8161 Jetty</rich_text>
+    <rich_text>
+ - Jetty(9.4.39.v20210325)
+ 
+</rich_text>
+    <rich_text scale="h2"> 42871 ?</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> 61613 Apache Active MQ</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> 61614 Jetty</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> 61616  apachemq</rich_text>
+    <rich_text>
+ - ActiveMQ OpenWire transport 5.15.15
+ 
+</rich_text>
+    <rich_text scale="h1"> Analytics</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> web</rich_text>
+    <rich_text>
+ nginx 1.18
+ 0.46.6 metabase
+ password complexit: 6 chars 1 digit
+ 
+ server SQL
+ metalytics: An4lytics_ds20223#
+ 
+</rich_text>
+    <rich_text scale="h1"> Nocturnal</rich_text>
+    <rich_text>
+ 
+</rich_text>
+    <rich_text scale="h2"> 22 ssh</rich_text>
+    <rich_text>
+ OpenSSH 8.2p1 Ubuntu 4ubuntu0.12
+ tobias:slowmotionapocalypse
+ 
+</rich_text>
+    <rich_text scale="h2"> 80 nginx</rich_text>
+    <rich_text>
+ nginx 1.18
+ Cookie: PHPSESSID
+ 
+ File upload -&gt; file.ext.pdf works but the file gets downloaded
+ 
+ </rich_text>
+    <rich_text justification="left"></rich_text>
+    <rich_text>
+ 
+ ../nocturnal_database/nocturnal_database.db
+ arHkG7HAI68X8s1J
+</rich_text>
+    <rich_text scale="h2"> 8000</rich_text>
+    <rich_text>
+SimpleHTTPServer 0.6 (Python 3.8.10
+</rich_text>
+    <encoded_png char_offset="6003" justification="left" link="" sha256sum="8a4a3b0b43f071fbb080abd3a1edd71be9dd587cef6a96af9012c22656b85c04"/>
   </node>
 </cherrytree>

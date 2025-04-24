@@ -17,3 +17,6 @@
     - be faster (maybe a cleanup is deleting your shell)
 - **Privesc**
   - Change folder you are executing the exploit/binary
+  - Given an executable file, check for:
+    - every input that you can control
+    - exploit reasearch on the functions that call that input (also indirectly)
