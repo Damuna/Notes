@@ -282,7 +282,7 @@ rmv(){
 function updnotes() {
     cd ~/Documents/notes || { echo "Directory not found"; return 1; }
     cp ~/.zshrc ~/Documents/notes/ZSH_functions
-    git add *
+    git add -A
     git commit -m "notes"
     git push https://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@github.com/Damuna/Notes.git
     cd
