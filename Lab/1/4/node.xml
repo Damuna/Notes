@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <cherrytree>
-  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1745497095">
+  <node unique_id="4" master_id="0" name="Easy" prog_lang="custom-colors" tags="" readonly="0" nosearch_me="0" nosearch_ch="0" custom_icon_id="212" is_bold="0" foreground="" ts_creation="1739539367" ts_lastsave="1745932628">
     <rich_text scale="h1">Keeper</rich_text>
     <rich_text>
 
@@ -508,8 +508,37 @@ martin: nafeelswordsmaster
 </rich_text>
     <rich_text scale="h2"> 8000</rich_text>
     <rich_text>
-SimpleHTTPServer 0.6 (Python 3.8.10
+SimpleHTTPServer 0.6 (Python 3.8.10 
+
+	 
 </rich_text>
+    <rich_text scale="h1">	Precious</rich_text>
+    <rich_text>
+</rich_text>
+    <rich_text scale="h2">	
+	Web 80</rich_text>
+    <rich_text>
+	
+</rich_text>
+    <rich_text scale="h3">	Tech</rich_text>
+    <rich_text>
+	- nginx/1.18.0 
+	- Ruby on rails
+	- Phusion Passenger(R) 6.0.15
+	
+</rich_text>
+    <rich_text scale="h3">	Possible Exploits</rich_text>
+    <rich_text>
+	- XSS in PDF
+	- Os Injection
+	- Mass assignment vulnerability on Ruby on Rails
+	
+</rich_text>
+    <rich_text scale="h2">	ssh 22</rich_text>
+    <rich_text>
+	
+	 OpenSSH 8.4p1 Debian
+	henry:Q3c1AqGHtoI0aXAYFH</rich_text>
     <encoded_png char_offset="6003" justification="left" link="" sha256sum="8a4a3b0b43f071fbb080abd3a1edd71be9dd587cef6a96af9012c22656b85c04"/>
   </node>
 </cherrytree>

