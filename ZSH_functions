@@ -284,7 +284,7 @@ function updnotes() {
     cp ~/.zshrc ~/Documents/notes/ZSH_functions
     git add -A
     git commit -m "notes"
-    git push https://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@github.com/Damuna/Notes.git
+    git push https://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@github.com/Damuna/Notes.git
     cd
 }
 
